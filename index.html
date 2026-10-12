@@ -163,7 +163,7 @@
         <div class="location-card" onclick="selectLocation('deadlands')">
             <div class="loc-icon">🏔️</div>
             <h3>Deadlands</h3>
-            <p>Центральный фронт. Города, реки, мосты. 9 точек захвата.</p>
+            <p>Центральный фронт. 10 городов, реки, мосты, шахты. Wardens в Callahan Gate, Colonials в Salt Farm.</p>
         </div>
         <div class="location-card locked">
             <div class="loc-icon">🌊</div>
@@ -188,7 +188,7 @@
         <div class="res"><span class="res-icon">🪨</span><span class="res-val" id="rMat">80</span><span class="res-lbl">MAT</span></div>
     </div>
     <div style="display:flex;align-items:center;gap:1rem;">
-        <span class="territory-count">Territories: <span id="tCount">1</span>/9</span>
+        <span class="territory-count">Territories: <span id="tCount">1</span>/10</span>
         <span id="factionBadge" class="faction-badge wardens">🛡️ WARDENS</span>
     </div>
 </div>
@@ -276,22 +276,33 @@ const MAP_W = 3200, MAP_H = 2200;
 
 // Cities (named locations with buildings)
 const CITIES = [
-    { name: 'Clanshead Valley', x: 350,  y: 350,  size: 'large' },
+    { name: 'Callahan Gate',    x: 350,  y: 1000, size: 'large' },   // Wardens base
+    { name: 'Salt Farm',        x: 2850, y: 1000, size: 'large' },   // Colonials base
     { name: "Oar's Rest",       x: 900,  y: 280,  size: 'medium' },
     { name: 'Godcrofts',        x: 1100, y: 600,  size: 'medium' },
     { name: 'Fisherman\'s Row', x: 1700, y: 350,  size: 'medium' },
     { name: 'Merentis',         x: 1600, y: 1050, size: 'large' },
     { name: "Callahan's Passage",x: 2200, y: 650, size: 'medium' },
-    { name: 'Basrash',          x: 2700, y: 1050, size: 'large' },
+    { name: 'Basrash',          x: 2700, y: 1400, size: 'medium' },
     { name: 'Kalokai',          x: 1300, y: 1600, size: 'medium' },
     { name: "Allod's Reach",    x: 600,  y: 1500, size: 'medium' },
 ];
 
 // Roads connecting cities (pairs of city indices)
 const ROADS = [
-    [0, 1], [1, 2], [2, 3], [3, 5], [5, 6],
-    [0, 8], [8, 7], [7, 4], [4, 2], [4, 6],
-    [1, 4], [2, 4],
+    [0, 2], [2, 3], [3, 4], [4, 6], [6, 7],
+    [0, 9], [9, 8], [8, 5], [5, 3], [5, 7],
+    [2, 5], [3, 5],
+];
+
+// Resource points (mines)
+const RESOURCE_POINTS = [
+    { id: 'mine1', name: 'Iron Mine',      x: 700,  y: 900,  radius: 50, owner: 'neutral', progress: 0, type: 'supplies' },
+    { id: 'mine2', name: 'Coal Mine',      x: 1200, y: 1300, radius: 50, owner: 'neutral', progress: 0, type: 'materials' },
+    { id: 'mine3', name: 'Copper Mine',    x: 2000, y: 900,  radius: 50, owner: 'neutral', progress: 0, type: 'components' },
+    { id: 'mine4', name: 'Gold Mine',      x: 1500, y: 700,  radius: 50, owner: 'neutral', progress: 0, type: 'supplies' },
+    { id: 'mine5', name: 'Salt Mine',      x: 2400, y: 1300, radius: 50, owner: 'neutral', progress: 0, type: 'materials' },
+    { id: 'mine6', name: 'Silver Mine',    x: 800,  y: 1400, radius: 50, owner: 'neutral', progress: 0, type: 'components' },
 ];
 
 // River path (series of points for a winding river)
@@ -341,6 +352,37 @@ const CAPTURE_POINTS = CITIES.map((c, i) => ({
     capturing: null,
 }));
 
+// Water collision check
+function isWater(x, y) {
+    // Main river check
+    for (let i = 0; i < RIVER_POINTS.length - 1; i++) {
+        const p1 = RIVER_POINTS[i];
+        const p2 = RIVER_POINTS[i + 1];
+        const dist = distToSegment(x, y, p1.x, p1.y, p2.x, p2.y);
+        if (dist < 20) return true;
+    }
+    // Secondary river check
+    for (let i = 0; i < RIVER2_POINTS.length - 1; i++) {
+        const p1 = RIVER2_POINTS[i];
+        const p2 = RIVER2_POINTS[i + 1];
+        const dist = distToSegment(x, y, p1.x, p1.y, p2.x, p2.y);
+        if (dist < 15) return true;
+    }
+    return false;
+}
+
+// Distance from point to line segment
+function distToSegment(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+    let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+    const nearX = x1 + t * dx;
+    const nearY = y1 + t * dy;
+    return Math.sqrt((px - nearX) ** 2 + (py - nearY) ** 2);
+}
+
 // ===== SCREEN MANAGEMENT =====
 function selectFaction(f) {
     selectedFaction = f;
@@ -368,14 +410,23 @@ function uid() { return 'e' + (nextId++); }
 
 function initGame() {
     const ai = selectedFaction === 'wardens' ? 'colonials' : 'wardens';
+    
+    // Wardens start at Callahan Gate (index 0), Colonials at Salt Farm (index 1)
+    const playerStartIdx = selectedFaction === 'wardens' ? 0 : 1;
+    const aiStartIdx = selectedFaction === 'wardens' ? 1 : 0;
+    const playerStart = CITIES[playerStartIdx];
+    const aiStart = CITIES[aiStartIdx];
 
     // Set up capture points
     const cps = CAPTURE_POINTS.map((cp, i) => ({
         ...cp,
-        owner: i === 0 ? selectedFaction : (i === 6 ? ai : 'neutral'),
-        progress: i === 0 || i === 6 ? 100 : 0,
+        owner: i === playerStartIdx ? selectedFaction : (i === aiStartIdx ? ai : 'neutral'),
+        progress: i === playerStartIdx || i === aiStartIdx ? 100 : 0,
         capturing: null,
     }));
+
+    // Set up resource points
+    const mines = RESOURCE_POINTS.map(m => ({ ...m }));
 
     G = {
         faction: selectedFaction,
@@ -384,6 +435,7 @@ function initGame() {
         units: [],
         buildings: [],
         cps: cps,
+        mines: mines,
         selected: [],
         selBldg: null,
         cam: { x: 0, y: 0 },
@@ -392,26 +444,26 @@ function initGame() {
         winner: null,
     };
 
-    // Player buildings at Clanshead Valley
-    G.buildings.push({ id: uid(), type: 'town_hall', faction: selectedFaction, x: 300, y: 300, hp: 1000, maxHp: 1000 });
-    G.buildings.push({ id: uid(), type: 'barracks', faction: selectedFaction, x: 450, y: 280, hp: 400, maxHp: 400 });
-    G.buildings.push({ id: uid(), type: 'factory', faction: selectedFaction, x: 300, y: 450, hp: 500, maxHp: 500 });
+    // Player buildings at their start city
+    G.buildings.push({ id: uid(), type: 'town_hall', faction: selectedFaction, x: playerStart.x - 50, y: playerStart.y - 50, hp: 1000, maxHp: 1000 });
+    G.buildings.push({ id: uid(), type: 'barracks', faction: selectedFaction, x: playerStart.x + 80, y: playerStart.y - 30, hp: 400, maxHp: 400 });
+    G.buildings.push({ id: uid(), type: 'factory', faction: selectedFaction, x: playerStart.x - 30, y: playerStart.y + 100, hp: 500, maxHp: 500 });
 
-    // AI buildings at Basrash
-    G.buildings.push({ id: uid(), type: 'town_hall', faction: ai, x: 2700, y: 1000, hp: 1000, maxHp: 1000 });
-    G.buildings.push({ id: uid(), type: 'barracks', faction: ai, x: 2550, y: 1000, hp: 400, maxHp: 400 });
-    G.buildings.push({ id: uid(), type: 'factory', faction: ai, x: 2700, y: 1150, hp: 500, maxHp: 500 });
+    // AI buildings at their start city
+    G.buildings.push({ id: uid(), type: 'town_hall', faction: ai, x: aiStart.x + 50, y: aiStart.y - 50, hp: 1000, maxHp: 1000 });
+    G.buildings.push({ id: uid(), type: 'barracks', faction: ai, x: aiStart.x - 80, y: aiStart.y - 30, hp: 400, maxHp: 400 });
+    G.buildings.push({ id: uid(), type: 'factory', faction: ai, x: aiStart.x + 30, y: aiStart.y + 100, hp: 500, maxHp: 500 });
 
     // Starting units
-    spawnSquad(selectedFaction, 380, 400, 'infantry', 6);
-    spawnSquad(selectedFaction, 350, 500, 'light_tank', 2);
-    spawnSquad(ai, 2650, 1050, 'infantry', 6);
-    spawnSquad(ai, 2600, 1100, 'light_tank', 2);
-    spawnSquad(ai, 2700, 950, 'heavy_tank', 1);
+    spawnSquad(selectedFaction, playerStart.x + 30, playerStart.y + 50, 'infantry', 6);
+    spawnSquad(selectedFaction, playerStart.x, playerStart.y + 120, 'light_tank', 2);
+    spawnSquad(ai, aiStart.x - 30, aiStart.y + 50, 'infantry', 6);
+    spawnSquad(ai, aiStart.x, aiStart.y + 120, 'light_tank', 2);
+    spawnSquad(ai, aiStart.x + 50, aiStart.y - 30, 'heavy_tank', 1);
 
     // Center camera on player base
-    G.cam.x = Math.max(0, 350 - canvas.width / 2);
-    G.cam.y = Math.max(0, 350 - canvas.height / 2);
+    G.cam.x = Math.max(0, playerStart.x - canvas.width / 2);
+    G.cam.y = Math.max(0, playerStart.y - canvas.height / 2);
 
     requestAnimationFrame(loop);
 }
@@ -481,8 +533,16 @@ function update() {
             const d = dist(u.x, u.y, u.tx, u.ty);
             if (d > 5) {
                 const r = u.spd / d;
-                u.x += (u.tx - u.x) * r;
-                u.y += (u.ty - u.y) * r;
+                const newX = u.x + (u.tx - u.x) * r;
+                const newY = u.y + (u.ty - u.y) * r;
+                // Check water collision
+                if (!isWater(newX, newY)) {
+                    u.x = newX;
+                    u.y = newY;
+                } else {
+                    // Try to go around - move perpendicular to water
+                    u.tx = undefined; u.ty = undefined;
+                }
             } else {
                 u.tx = undefined; u.ty = undefined;
             }
@@ -492,8 +552,12 @@ function update() {
             const d = dist(u.x, u.y, nearest.x, nearest.y);
             if (d > u.range * 0.8) {
                 const r = u.spd / d;
-                u.x += (nearest.x - u.x) * r;
-                u.y += (nearest.y - u.y) * r;
+                const newX = u.x + (nearest.x - u.x) * r;
+                const newY = u.y + (nearest.y - u.y) * r;
+                if (!isWater(newX, newY)) {
+                    u.x = newX;
+                    u.y = newY;
+                }
             }
         }
     });
@@ -516,6 +580,38 @@ function update() {
             if (cp.progress >= 100) cp.owner = G.ai;
         } else {
             cp.capturing = null;
+        }
+    });
+
+    // Resource mines
+    G.mines.forEach(mine => {
+        const pUnits = G.units.filter(u => u.faction === G.faction && dist(u.x, u.y, mine.x, mine.y) <= mine.radius);
+        const aUnits = G.units.filter(u => u.faction === G.ai && dist(u.x, u.y, mine.x, mine.y) <= mine.radius);
+
+        if (pUnits.length > 0 && aUnits.length === 0 && mine.owner !== G.faction) {
+            mine.progress = Math.min(100, mine.progress + pUnits.length * 0.3);
+            mine.capturing = G.faction;
+            if (mine.progress >= 100) {
+                mine.owner = G.faction;
+                notify(`${mine.name} захвачена!`);
+            }
+        } else if (aUnits.length > 0 && pUnits.length === 0 && mine.owner !== G.ai) {
+            mine.progress = Math.min(100, mine.progress + aUnits.length * 0.2);
+            mine.capturing = G.ai;
+            if (mine.progress >= 100) {
+                mine.owner = G.ai;
+            }
+        } else {
+            mine.capturing = null;
+        }
+    });
+
+    // Bonus resources from owned mines
+    G.mines.forEach(mine => {
+        if (mine.owner === G.faction) {
+            if (mine.type === 'supplies') G.res.s += 0.05;
+            if (mine.type === 'components') G.res.c += 0.03;
+            if (mine.type === 'materials') G.res.m += 0.03;
         }
     });
 
@@ -689,6 +785,53 @@ function render() {
         ctx.font = 'bold 10px monospace';
         ctx.textAlign = 'center';
         ctx.fillText(cp.name, x, y - cp.radius - 10);
+    });
+
+    // Resource mines
+    G.mines.forEach(mine => {
+        const x = mine.x - cam.x, y = mine.y - cam.y;
+        const col = mine.owner === 'neutral' ? COLORS.neutral : COLORS[mine.owner];
+        
+        // Mine zone
+        ctx.beginPath();
+        ctx.arc(x, y, mine.radius, 0, Math.PI * 2);
+        ctx.fillStyle = col.p + '10';
+        ctx.fill();
+        ctx.strokeStyle = col.p + '60';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        // Capture progress
+        if (mine.capturing) {
+            const cCol = COLORS[mine.capturing];
+            ctx.beginPath();
+            ctx.arc(x, y, mine.radius * 0.5, -Math.PI / 2, -Math.PI / 2 + (mine.progress / 100) * Math.PI * 2);
+            ctx.strokeStyle = cCol.a;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+        
+        // Mine icon (pickaxe)
+        ctx.fillStyle = '#8a7a60';
+        ctx.fillRect(x - 8, y - 8, 16, 16);
+        ctx.strokeStyle = '#6a5a40';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x - 8, y - 8, 16, 16);
+        
+        // Resource type indicator
+        const typeColors = { supplies: '#fbbf24', components: '#60a5fa', materials: '#a78bfa' };
+        ctx.fillStyle = typeColors[mine.type] || '#fff';
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Mine name
+        ctx.fillStyle = '#d1d5db';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(mine.name, x, y - mine.radius - 6);
     });
 
     // Buildings
@@ -980,6 +1123,13 @@ function drawMinimap() {
         ctx.beginPath();
         ctx.arc(mx + cp.x * sx, my + cp.y * sy, 3, 0, Math.PI * 2);
         ctx.fill();
+    });
+
+    // Mines on minimap
+    G.mines.forEach(mine => {
+        const col = mine.owner === 'neutral' ? '#fbbf24' : mine.owner === 'wardens' ? '#2563eb' : '#dc2626';
+        ctx.fillStyle = col;
+        ctx.fillRect(mx + mine.x * sx - 2, my + mine.y * sy - 2, 4, 4);
     });
 
     // Buildings
