@@ -66,6 +66,8 @@ function startGame() {
     const mines = getResourcePointsInWorld();
     
     // Find player and AI bases
+    // Wardens: Callahan Gate (index 0 - The Spine)
+    // Colonials: The Salt March (index 9)
     const playerBaseIdx = selectedFaction === 'wardens' ? 0 : 9;
     const aiBaseIdx = selectedFaction === 'wardens' ? 9 : 0;
     

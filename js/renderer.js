@@ -1,81 +1,54 @@
 // ===== RENDERER =====
 import { COLORS } from './constants.js';
-import { RIVER_POINTS, ROADS, BRIDGES, getLocationsInWorld } from './map.js';
+import { RIVER_POINTS, ROADS, BRIDGES, WATER_ZONES, CITY_ZONES, TREES, GRASS_PATCHES } from './map.js';
 
 export function render(ctx, G, canvas) {
     const cam = G.cam;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Background - sandy/desert color
-    ctx.fillStyle = '#8b7355';
+    // Background - sandy/desert with variation
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#a08968');
+    gradient.addColorStop(0.5, '#8b7355');
+    gradient.addColorStop(1, '#9a8465');
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Add some texture
-    drawTerrainTexture(ctx, cam, canvas);
+    // Grass patches
+    drawGrassPatches(ctx, cam, canvas);
 
-    // River
-    drawRiver(ctx, RIVER_POINTS, cam, 25, '#5a6b5a');
-    drawRiver(ctx, RIVER_POINTS, cam, 18, '#6b7b6b');
+    // Water zones (flooded areas)
+    drawWaterZones(ctx, WATER_ZONES, cam);
 
-    // Roads
-    const locations = getLocationsInWorld();
-    ROADS.forEach(([a, b]) => {
-        if (a >= locations.length || b >= locations.length) return;
-        const la = locations[a], lb = locations[b];
-        ctx.strokeStyle = '#6b5a45';
-        ctx.lineWidth = 12;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(la.x - cam.x, la.y - cam.y);
-        ctx.lineTo(lb.x - cam.x, lb.y - cam.y);
-        ctx.stroke();
-        
-        ctx.strokeStyle = '#8b7a65';
-        ctx.lineWidth = 8;
-        ctx.beginPath();
-        ctx.moveTo(la.x - cam.x, la.y - cam.y);
-        ctx.lineTo(lb.x - cam.x, lb.y - cam.y);
-        ctx.stroke();
-    });
+    // River - multiple layers for depth
+    drawRiver(ctx, RIVER_POINTS, cam, 35, '#4a5a4a'); // Dark edge
+    drawRiver(ctx, RIVER_POINTS, cam, 28, '#5a6b5a'); // Main
+    drawRiver(ctx, RIVER_POINTS, cam, 20, '#6b7b6b'); // Light center
+    drawRiverHighlights(ctx, RIVER_POINTS, cam);
+
+    // Roads - winding with curves
+    drawRoads(ctx, ROADS, cam);
 
     // Bridges
-    BRIDGES.forEach(br => {
-        const bx = br.x - cam.x, by = br.y - cam.y;
-        ctx.fillStyle = '#7a6a55';
-        ctx.fillRect(bx - 25, by - 10, 50, 20);
-        ctx.strokeStyle = '#5a4a35';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(bx - 25, by - 10, 50, 20);
-        // Railings
-        ctx.fillStyle = '#5a4a35';
-        ctx.fillRect(bx - 25, by - 12, 50, 3);
-        ctx.fillRect(bx - 25, by + 9, 50, 3);
-    });
+    drawBridges(ctx, BRIDGES, cam);
 
-    // Locations
-    locations.forEach(loc => {
-        drawLocation(ctx, loc, cam);
-    });
+    // City zones with buildings
+    drawCityZones(ctx, CITY_ZONES, cam);
+
+    // Trees
+    drawTrees(ctx, TREES, cam, canvas);
 
     // Capture points
-    G.cps.forEach(cp => {
-        drawCapturePoint(ctx, cp, cam);
-    });
+    G.cps.forEach(cp => drawCapturePoint(ctx, cp, cam));
 
     // Resource mines
-    G.mines.forEach(mine => {
-        drawMine(ctx, mine, cam);
-    });
+    G.mines.forEach(mine => drawMine(ctx, mine, cam));
 
     // Buildings
-    G.buildings.forEach(b => {
-        drawBuilding(ctx, b, cam);
-    });
+    G.buildings.forEach(b => drawBuilding(ctx, b, cam));
 
     // Units
-    G.units.forEach(u => {
-        drawUnit(ctx, u, cam, G.selected);
-    });
+    G.units.forEach(u => drawUnit(ctx, u, cam, G.selected));
 
     // Particles
     G.particles.forEach(p => {
@@ -103,14 +76,42 @@ export function render(ctx, G, canvas) {
     drawMinimap(ctx, G, canvas);
 }
 
-function drawTerrainTexture(ctx, cam, canvas) {
-    // Simple noise-like texture
-    ctx.fillStyle = 'rgba(0,0,0,0.05)';
-    for (let i = 0; i < 50; i++) {
-        const x = (i * 137) % canvas.width;
-        const y = (i * 241) % canvas.height;
-        ctx.fillRect(x, y, 2, 2);
-    }
+function drawGrassPatches(ctx, cam, canvas) {
+    GRASS_PATCHES.forEach(patch => {
+        const x = patch.x - cam.x;
+        const y = patch.y - cam.y;
+        if (x < -100 || x > canvas.width + 100 || y < -100 || y > canvas.height + 100) return;
+
+        ctx.fillStyle = 'rgba(120, 140, 80, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(x, y, patch.radius, patch.radius * 0.7, 0, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+function drawWaterZones(ctx, zones, cam) {
+    zones.forEach(zone => {
+        const x = zone.x - cam.x;
+        const y = zone.y - cam.y;
+        
+        // Water
+        ctx.fillStyle = 'rgba(90, 107, 90, 0.6)';
+        ctx.beginPath();
+        ctx.ellipse(x, y, zone.radius, zone.radius * 0.8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Lighter center
+        ctx.fillStyle = 'rgba(107, 123, 107, 0.4)';
+        ctx.beginPath();
+        ctx.ellipse(x, y, zone.radius * 0.6, zone.radius * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Label
+        ctx.fillStyle = '#d1d5db';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(zone.name, x, y - zone.radius - 5);
+    });
 }
 
 function drawRiver(ctx, points, cam, width, color) {
@@ -119,97 +120,188 @@ function drawRiver(ctx, points, cam, width, color) {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
+    
+    if (points.length < 2) return;
+    
     ctx.moveTo(points[0].x - cam.x, points[0].y - cam.y);
-    for (let i = 1; i < points.length; i++) {
-        const prev = points[i - 1], curr = points[i];
-        ctx.quadraticCurveTo(
-            prev.x - cam.x, prev.y - cam.y,
-            (prev.x + curr.x) / 2 - cam.x, (prev.y + curr.y) / 2 - cam.y
-        );
+    
+    // Smooth curve through points
+    for (let i = 1; i < points.length - 1; i++) {
+        const xc = (points[i].x + points[i + 1].x) / 2 - cam.x;
+        const yc = (points[i].y + points[i + 1].y) / 2 - cam.y;
+        ctx.quadraticCurveTo(points[i].x - cam.x, points[i].y - cam.y, xc, yc);
+    }
+    
+    // Last point
+    const last = points[points.length - 1];
+    ctx.lineTo(last.x - cam.x, last.y - cam.y);
+    ctx.stroke();
+}
+
+function drawRiverHighlights(ctx, points, cam) {
+    ctx.strokeStyle = 'rgba(150, 180, 150, 0.3)';
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    
+    for (let i = 0; i < points.length - 1; i += 2) {
+        const p = points[i];
+        ctx.moveTo(p.x - cam.x + 5, p.y - cam.y);
+        ctx.lineTo(p.x - cam.x + 15, p.y - cam.y);
     }
     ctx.stroke();
 }
 
-function drawLocation(ctx, loc, cam) {
-    const x = loc.x - cam.x, y = loc.y - cam.y;
-    
-    // Different icons based on type
-    switch (loc.type) {
-        case 'base':
-            ctx.fillStyle = '#2563eb';
-            ctx.fillRect(x - 8, y - 8, 16, 16);
-            ctx.strokeStyle = '#1d4ed8';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(x - 8, y - 8, 16, 16);
-            break;
-        case 'settlement':
-            ctx.fillStyle = '#22c55e';
-            ctx.fillRect(x - 6, y - 6, 12, 12);
-            ctx.strokeStyle = '#16a34a';
-            ctx.lineWidth = 1.5;
-            ctx.strokeRect(x - 6, y - 6, 12, 12);
-            break;
-        case 'hex':
-            ctx.fillStyle = '#9ca3af';
-            drawHexagon(ctx, x, y, 8);
-            break;
-        case 'medical':
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(x - 6, y - 2, 12, 4);
-            ctx.fillRect(x - 2, y - 6, 4, 12);
-            break;
-        case 'workshop':
-            ctx.strokeStyle = '#fbbf24';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(x - 5, y + 5);
-            ctx.lineTo(x + 5, y - 5);
-            ctx.moveTo(x - 5, y - 5);
-            ctx.lineTo(x + 5, y + 5);
-            ctx.stroke();
-            break;
-        case 'resource':
-            ctx.fillStyle = '#fbbf24';
-            ctx.fillRect(x - 5, y - 5, 10, 10);
-            break;
-        case 'player_base':
-            ctx.fillStyle = '#f97316';
-            ctx.beginPath();
-            ctx.moveTo(x, y - 10);
-            ctx.lineTo(x + 10, y + 10);
-            ctx.lineTo(x - 10, y + 10);
-            ctx.closePath();
-            ctx.fill();
-            break;
-        default:
-            // Just label
-            break;
-    }
-    
-    // Name label
-    ctx.fillStyle = '#d1d5db';
-    ctx.font = '9px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(loc.name, x, y - 15);
+function drawRoads(ctx, roads, cam) {
+    roads.forEach(road => {
+        const fromX = road.from[0] * 250 + 125;
+        const fromY = road.from[1] * 150 + 75;
+        const toX = road.to[0] * 250 + 125;
+        const toY = road.to[1] * 150 + 75;
+        
+        // Road shadow
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.lineWidth = 14;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        
+        // Add curve
+        const midX = (fromX + toX) / 2 + (toY - fromY) * road.curve;
+        const midY = (fromY + toY) / 2 - (toX - fromX) * road.curve;
+        
+        ctx.moveTo(fromX - cam.x, fromY - cam.y);
+        ctx.quadraticCurveTo(midX - cam.x, midY - cam.y, toX - cam.x, toY - cam.y);
+        ctx.stroke();
+        
+        // Road base
+        ctx.strokeStyle = '#6b5a45';
+        ctx.lineWidth = 12;
+        ctx.beginPath();
+        ctx.moveTo(fromX - cam.x, fromY - cam.y);
+        ctx.quadraticCurveTo(midX - cam.x, midY - cam.y, toX - cam.x, toY - cam.y);
+        ctx.stroke();
+        
+        // Road surface
+        ctx.strokeStyle = '#8b7a65';
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.moveTo(fromX - cam.x, fromY - cam.y);
+        ctx.quadraticCurveTo(midX - cam.x, midY - cam.y, toX - cam.x, toY - cam.y);
+        ctx.stroke();
+    });
 }
 
-function drawHexagon(ctx, x, y, r) {
-    ctx.beginPath();
-    for (let i = 0; i < 6; i++) {
-        const angle = (Math.PI / 3) * i - Math.PI / 6;
-        const px = x + r * Math.cos(angle);
-        const py = y + r * Math.sin(angle);
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    ctx.fill();
+function drawBridges(ctx, bridges, cam) {
+    bridges.forEach(br => {
+        const x = br.x - cam.x;
+        const y = br.y - cam.y;
+        
+        // Bridge structure
+        ctx.fillStyle = '#7a6a55';
+        ctx.fillRect(x - 30, y - 12, 60, 24);
+        
+        // Bridge details
+        ctx.strokeStyle = '#5a4a35';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - 30, y - 12, 60, 24);
+        
+        // Railings
+        ctx.fillStyle = '#5a4a35';
+        ctx.fillRect(x - 30, y - 14, 60, 3);
+        ctx.fillRect(x - 30, y + 11, 60, 3);
+        
+        // Bridge name
+        ctx.fillStyle = '#d1d5db';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(br.name, x, y - 20);
+    });
+}
+
+function drawCityZones(ctx, zones, cam) {
+    zones.forEach(zone => {
+        const centerX = zone.col * 250 + 125;
+        const centerY = zone.row * 150 + 75;
+        
+        // Draw buildings in city
+        for (let i = 0; i < zone.buildings; i++) {
+            const angle = (Math.PI * 2 * i) / zone.buildings + (i * 0.3);
+            const dist = zone.radius * (0.3 + (i % 3) * 0.2);
+            const bx = centerX + Math.cos(angle) * dist - cam.x;
+            const by = centerY + Math.sin(angle) * dist - cam.y;
+            
+            // Building shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fillRect(bx - 6, by - 6, 14, 14);
+            
+            // Building body
+            ctx.fillStyle = '#5a4a3a';
+            ctx.fillRect(bx - 8, by - 8, 16, 16);
+            
+            // Roof
+            ctx.fillStyle = '#6a5a4a';
+            ctx.fillRect(bx - 9, by - 9, 18, 3);
+            
+            // Window
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(bx - 3, by - 2, 3, 3);
+            ctx.fillRect(bx + 1, by - 2, 3, 3);
+            
+            // Door
+            ctx.fillStyle = '#4a3a2a';
+            ctx.fillRect(bx - 2, by + 3, 4, 5);
+        }
+        
+        // Streets (lighter paths between buildings)
+        ctx.strokeStyle = 'rgba(139, 122, 101, 0.4)';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(centerX - cam.x, centerY - cam.y, zone.radius * 0.5, 0, Math.PI * 2);
+        ctx.stroke();
+    });
+}
+
+function drawTrees(ctx, trees, cam, canvas) {
+    trees.forEach(tree => {
+        const x = tree.x - cam.x;
+        const y = tree.y - cam.y;
+        
+        if (x < -50 || x > canvas.width + 50 || y < -50 || y > canvas.height + 50) return;
+        
+        // Tree shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.beginPath();
+        ctx.ellipse(x + 2, y + tree.size * 0.8, tree.size * 0.6, tree.size * 0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Tree trunk
+        ctx.fillStyle = '#5a4a3a';
+        ctx.fillRect(x - 2, y, 4, tree.size * 0.6);
+        
+        // Tree canopy (multiple circles for fullness)
+        ctx.fillStyle = '#4a6a3a';
+        ctx.beginPath();
+        ctx.arc(x, y - tree.size * 0.3, tree.size * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#5a7a4a';
+        ctx.beginPath();
+        ctx.arc(x - tree.size * 0.2, y - tree.size * 0.4, tree.size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#6a8a5a';
+        ctx.beginPath();
+        ctx.arc(x + tree.size * 0.2, y - tree.size * 0.2, tree.size * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+    });
 }
 
 function drawCapturePoint(ctx, cp, cam) {
-    const x = cp.x - cam.x, y = cp.y - cam.y;
+    const x = cp.x - cam.x;
+    const y = cp.y - cam.y;
     const col = cp.owner === 'neutral' ? COLORS.neutral : COLORS[cp.owner];
     
+    // Zone circle
     ctx.beginPath();
     ctx.arc(x, y, cp.radius, 0, Math.PI * 2);
     ctx.fillStyle = col.p + '15';
@@ -220,6 +312,7 @@ function drawCapturePoint(ctx, cp, cam) {
     ctx.stroke();
     ctx.setLineDash([]);
     
+    // Capture progress
     if (cp.capturing) {
         const cCol = COLORS[cp.capturing];
         ctx.beginPath();
@@ -229,11 +322,13 @@ function drawCapturePoint(ctx, cp, cam) {
         ctx.stroke();
     }
     
+    // Flag
     ctx.fillStyle = col.p;
     ctx.fillRect(x - 2, y - 18, 4, 24);
     ctx.fillStyle = col.a;
     ctx.fillRect(x + 2, y - 18, 14, 9);
     
+    // Name
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 10px monospace';
     ctx.textAlign = 'center';
@@ -241,7 +336,8 @@ function drawCapturePoint(ctx, cp, cam) {
 }
 
 function drawMine(ctx, mine, cam) {
-    const x = mine.x - cam.x, y = mine.y - cam.y;
+    const x = mine.x - cam.x;
+    const y = mine.y - cam.y;
     const col = mine.owner === 'neutral' ? COLORS.neutral : COLORS[mine.owner];
     
     ctx.beginPath();
@@ -273,7 +369,8 @@ function drawMine(ctx, mine, cam) {
 }
 
 function drawBuilding(ctx, b, cam) {
-    const x = b.x - cam.x, y = b.y - cam.y;
+    const x = b.x - cam.x;
+    const y = b.y - cam.y;
     const col = COLORS[b.faction];
     const sz = b.type === 'town_hall' ? 48 : 38;
     
@@ -301,7 +398,8 @@ function drawBuilding(ctx, b, cam) {
 }
 
 function drawUnit(ctx, u, cam, selected) {
-    const x = u.x - cam.x, y = u.y - cam.y;
+    const x = u.x - cam.x;
+    const y = u.y - cam.y;
     if (x < -40 || x > ctx.canvas.width + 40 || y < -40 || y > ctx.canvas.height + 40) return;
     
     const col = COLORS[u.faction];
@@ -327,7 +425,6 @@ function drawUnit(ctx, u, cam, selected) {
         ctx.lineWidth = 1.5;
         ctx.strokeRect(x - sz / 2, y - sz / 3, sz, sz * 0.65);
         
-        // Tanks with turrets
         if (['hatchet', 'devitt', 'gallagher', 'falchion'].includes(u.type)) {
             ctx.fillStyle = col.s;
             ctx.beginPath();
@@ -341,23 +438,12 @@ function drawUnit(ctx, u, cam, selected) {
             ctx.stroke();
         }
         
-        // APCs
         if (['niska', 'hoplite'].includes(u.type)) {
             ctx.fillStyle = col.s;
             ctx.fillRect(x - sz * 0.3, y - sz * 0.2, sz * 0.6, sz * 0.4);
-            // APC details
             ctx.strokeStyle = col.a;
             ctx.lineWidth = 1;
             ctx.strokeRect(x - sz * 0.3, y - sz * 0.2, sz * 0.6, sz * 0.4);
-        }
-        
-        if (u.type === 'artillery') {
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + sz * 0.7, y - sz * 0.2);
-            ctx.stroke();
         }
     }
     
@@ -387,6 +473,16 @@ function drawMinimap(ctx, G, canvas) {
     ctx.fillRect(mx - 2, my - 2, mw + 4, mh + 4);
     ctx.fillStyle = '#8b7355';
     ctx.fillRect(mx, my, mw, mh);
+    
+    // River on minimap
+    ctx.strokeStyle = '#5a6b5a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(mx + RIVER_POINTS[0].x * sx, my + RIVER_POINTS[0].y * sy);
+    for (let i = 1; i < RIVER_POINTS.length; i++) {
+        ctx.lineTo(mx + RIVER_POINTS[i].x * sx, my + RIVER_POINTS[i].y * sy);
+    }
+    ctx.stroke();
     
     G.cps.forEach(cp => {
         const col = cp.owner === 'neutral' ? '#6b7280' : cp.owner === 'wardens' ? '#2563eb' : '#dc2626';

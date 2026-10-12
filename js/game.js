@@ -127,7 +127,8 @@ export class Game {
                     const r = u.spd / d;
                     const nx = u.x + (u.tx - u.x) * r;
                     const ny = u.y + (u.ty - u.y) * r;
-                    if (!this.isWater(nx, ny)) {
+                    // Check water (all units) and buildings (vehicles only)
+                    if (!this.isWater(nx, ny) && !this.isBlockedForVehicle(nx, ny, u)) {
                         u.x = nx;
                         u.y = ny;
                     } else {
@@ -197,6 +198,35 @@ export class Game {
             const p2 = RIVER_POINTS[i + 1];
             if (distToSeg(x, y, p1.x, p1.y, p2.x, p2.y) < 20) return true;
         }
+        return false;
+    }
+
+    isBlockedForVehicle(x, y, unit) {
+        // Infantry can pass through buildings
+        if (unit.type === 'infantry') return false;
+        
+        // Check city zones (buildings block vehicles)
+        const CITY_ZONES = [
+            { col: 1, row: 2, radius: 120 },
+            { col: 9, row: 1, radius: 80 },
+            { col: 4, row: 4, radius: 80 },
+            { col: 9, row: 4, radius: 80 },
+            { col: 1, row: 5, radius: 70 },
+            { col: 1, row: 8, radius: 70 },
+            { col: 6, row: 8, radius: 70 },
+            { col: 5, row: 11, radius: 70 },
+            { col: 9, row: 9, radius: 70 },
+            { col: 7, row: 11, radius: 120 },
+        ];
+        
+        for (const zone of CITY_ZONES) {
+            const cx = zone.col * 250 + 125;
+            const cy = zone.row * 150 + 75;
+            const d = dist(x, y, cx, cy);
+            // Vehicles blocked in inner part of city (where buildings are)
+            if (d < zone.radius * 0.4) return true;
+        }
+        
         return false;
     }
 
