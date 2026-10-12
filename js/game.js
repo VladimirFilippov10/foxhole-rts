@@ -214,6 +214,35 @@ export class Game {
                         u.tx = undefined;
                         u.ty = undefined;
                     } else {
+                        // Инициализация счётчика застревания
+                        if (u.stuckCounter === undefined) {
+                            u.stuckCounter = 0;
+                            u.lastX = u.x;
+                            u.lastY = u.y;
+                        }
+                        
+                        // Проверка застревания
+                        const movedDist = dist(u.x, u.y, u.lastX, u.lastY);
+                        if (movedDist < 0.5) {
+                            u.stuckCounter++;
+                        } else {
+                            u.stuckCounter = 0;
+                        }
+                        
+                        // Если застряли слишком долго - пробуем обход
+                        if (u.stuckCounter > 30) {
+                            // Пытаемся обойти препятствие
+                            const angle = Math.atan2(u.ty - u.y, u.tx - u.x);
+                            const detourAngle = angle + (Math.random() > 0.5 ? Math.PI / 2 : -Math.PI / 2);
+                            const detourDist = 50;
+                            u.tx = u.x + Math.cos(detourAngle) * detourDist;
+                            u.ty = u.y + Math.sin(detourAngle) * detourDist;
+                            u.stuckCounter = 0;
+                        }
+                        
+                        u.lastX = u.x;
+                        u.lastY = u.y;
+                        
                         const r = u.spd / d;
                         const nx = u.x + (u.tx - u.x) * r;
                         const ny = u.y + (u.ty - u.y) * r;
@@ -230,12 +259,15 @@ export class Game {
                             if (u.useFuel) {
                                 u.useFuel();
                             }
+                        } else {
+                            // Если заблокировано - увеличиваем счётчик застревания
+                            u.stuckCounter = (u.stuckCounter || 0) + 5;
                         }
-                        // If blocked by building, keep trying (will go around)
                     }
                 } else {
                     u.tx = undefined;
                     u.ty = undefined;
+                    u.stuckCounter = 0;
                 }
             }
         });
@@ -288,6 +320,47 @@ export class Game {
                 if (mine.type === 'materials') this.res.m += 0.03;
             }
         });
+    }
+    
+    updateUnitLimits() {
+        // Лимиты увеличиваются с каждой захваченной точкой
+        const playerPoints = this.cps.filter(c => c.owner === this.faction).length;
+        const aiPoints = this.cps.filter(c => c.owner === this.ai).length;
+        
+        // Базовые лимиты + 3 за каждую точку
+        this.unitLimits.infantry = 20 + playerPoints * 3;
+        this.unitLimits.vehicles = 10 + playerPoints * 2;
+        
+        // Лимиты для ИИ
+        this.aiUnitLimits = {
+            infantry: 20 + aiPoints * 3,
+            vehicles: 10 + aiPoints * 2,
+        };
+    }
+    
+    canProduceUnit(type, faction) {
+        const limits = faction === this.faction ? this.unitLimits : this.aiUnitLimits;
+        const units = this.units.filter(u => u.faction === faction);
+        
+        if (type === 'infantry') {
+            const infantryCount = units.filter(u => u.type === 'infantry').length;
+            return infantryCount < limits.infantry;
+        } else {
+            const vehicleCount = units.filter(u => u.type !== 'infantry').length;
+            return vehicleCount < limits.vehicles;
+        }
+    }
+    
+    getUnitLimits(faction) {
+        return faction === this.faction ? this.unitLimits : this.aiUnitLimits;
+    }
+    
+    getUnitCounts(faction) {
+        const units = this.units.filter(u => u.faction === faction);
+        return {
+            infantry: units.filter(u => u.type === 'infantry').length,
+            vehicles: units.filter(u => u.type !== 'infantry').length,
+        };
     }
 
     isBlockedForVehicle(x, y, unit) {

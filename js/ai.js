@@ -1,5 +1,5 @@
-// ===== AI SYSTEM WITH PATHFINDING =====
-import { dist, distToSeg } from './constants.js';
+// ===== AI SYSTEM - DEFENSIVE BEHAVIOR =====
+import { dist } from './constants.js';
 import { createVehicle } from './vehicles.js';
 
 export class AI {
@@ -7,32 +7,42 @@ export class AI {
         this.G = gameState;
         this.timer = 0;
         this.difficulty = 1;
-        this.squadTargets = new Map(); // Track squad objectives
+        this.defenseMode = true; // Начинаем в оборонительном режиме
+        this.lastAttackTime = 0;
     }
 
     update() {
         this.timer++;
-        this.difficulty = Math.min(3, 1 + Math.floor(this.timer / 2000));
+        this.difficulty = Math.min(3, 1 + Math.floor(this.timer / 3000)); // Медленнее растёт
 
-        // Spawn infantry every 300 ticks
-        if (this.timer % 300 === 0) {
+        // Проверка лимитов перед производством
+        if (!this.G.canProduceUnit('infantry', this.G.ai)) {
+            return; // Пропускаем производство если достигнут лимит
+        }
+
+        // Спавн пехоты каждые 400 тиков (было 300)
+        if (this.timer % 400 === 0) {
             this.spawnInfantrySquad();
         }
 
-        // Spawn vehicles every 500 ticks
-        if (this.timer % 500 === 0) {
-            this.spawnVehicle();
+        // Спавн техники каждые 700 тиков (было 500)
+        if (this.timer % 700 === 0) {
+            if (this.G.canProduceUnit('vehicle', this.G.ai)) {
+                this.spawnVehicle();
+            }
         }
 
-        // Update unit movement with pathfinding
-        this.updateUnitMovement();
+        // Оборонительное поведение
+        this.defensiveBehavior();
     }
 
     spawnInfantrySquad() {
         const barracks = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'barracks');
         if (!barracks) return;
 
-        const squadSize = 3 + this.difficulty;
+        // Меньше пехоты за раз
+        const squadSize = 2 + Math.floor(this.difficulty / 2);
+        
         for (let i = 0; i < squadSize; i++) {
             const unit = createVehicle('infantry', this.G.ai, 
                 barracks.x + 50 + (i % 3) * 20, 
@@ -40,10 +50,15 @@ export class AI {
             this.G.units.push(unit);
         }
 
-        // Assign target
-        const target = this.findBestTarget(barracks.x, barracks.y);
-        if (target) {
-            this.assignSquadToTarget(this.G.units.slice(-squadSize), target);
+        // В оборонительном режиме - защищаем свои территории
+        if (this.defenseMode) {
+            this.assignDefensivePositions(this.G.units.slice(-squadSize));
+        } else {
+            // В режиме атаки - идём к ближайшей точке
+            const target = this.findDefensiveTarget(barracks.x, barracks.y);
+            if (target) {
+                this.assignSquadToTarget(this.G.units.slice(-squadSize), target);
+            }
         }
     }
 
@@ -51,7 +66,7 @@ export class AI {
         const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory');
         if (!factory) return;
 
-        // Use faction-specific vehicles
+        // Используем технику своей фракции
         const types = this.G.ai === 'wardens' 
             ? ['devitt', 'niska'] 
             : ['hatchet', 'hoplite'];
@@ -65,91 +80,117 @@ export class AI {
         const unit = createVehicle(type, this.G.ai, factory.x + 60, factory.y + 60);
         this.G.units.push(unit);
 
-        const target = this.findBestTarget(factory.x, factory.y);
-        if (target) {
-            this.assignSquadToTarget([unit], target);
+        // В оборонительном режиме - патрулируем свои территории
+        if (this.defenseMode) {
+            this.assignPatrolRoute(unit);
+        } else {
+            const target = this.findDefensiveTarget(factory.x, factory.y);
+            if (target) {
+                this.assignSquadToTarget([unit], target);
+            }
         }
     }
 
-    findBestTarget(fromX, fromY) {
-        // Smart targeting: consider distance, value, and strategic importance
-        const uncaptured = this.G.cps.filter(cp => cp.owner !== this.G.ai);
-        if (uncaptured.length === 0) return null;
+    defensiveBehavior() {
+        // Переключение между режимами каждые 2000 тиков
+        if (this.timer % 2000 === 0) {
+            this.defenseMode = !this.defenseMode;
+        }
 
-        // Score each target based on multiple factors
-        const scored = uncaptured.map(cp => {
-            const distance = dist(fromX, fromY, cp.x, cp.y);
-            let score = 0;
-            
-            // Prefer closer targets (inverse distance)
-            score += 1000 / (distance + 100);
-            
-            // Prefer targets that are being captured by player (defend/contest)
-            if (cp.capturing === this.G.faction) {
-                score += 500;
-            }
-            
-            // Prefer strategic positions (larger radius = more important)
-            score += cp.radius * 2;
-            
-            // Add some randomness to avoid predictable behavior
-            score += Math.random() * 100;
-            
-            // Prefer targets on different sides of the map (diversify attacks)
-            const myBase = this.G.cps.find(c => c.owner === this.G.ai);
-            if (myBase) {
-                const targetSide = cp.x < 1500 ? 'left' : 'right';
-                const mySide = myBase.x < 1500 ? 'left' : 'right';
-                if (targetSide !== mySide) {
-                    score += 200; // Bonus for attacking opposite side
-                }
-            }
-            
-            return { target: cp, score };
+        // Проверяем, нужно ли перейти в оборону
+        const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai).length;
+        const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction).length;
+        
+        // Если у игрока больше точек - переходим в оборону
+        if (playerPoints > aiPoints + 2) {
+            this.defenseMode = true;
+        }
+        
+        // Если у нас больше точек и прошло достаточно времени - атакуем
+        if (aiPoints > playerPoints + 2 && this.timer - this.lastAttackTime > 3000) {
+            this.defenseMode = false;
+            this.lastAttackTime = this.timer;
+        }
+    }
+
+    findDefensiveTarget(fromX, fromY) {
+        // Ищем ближайшую точку, которую нужно защитить или захватить
+        const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
+        const neutralPoints = this.G.cps.filter(c => c.owner === 'neutral');
+        
+        // Приоритет 1: защитить свои точки от захвата
+        const threatenedPoints = aiPoints.filter(cp => {
+            const playerUnits = this.G.units.filter(u => 
+                u.faction === this.G.faction && 
+                dist(u.x, u.y, cp.x, cp.y) < cp.radius * 2
+            );
+            return playerUnits.length > 0;
         });
+        
+        if (threatenedPoints.length > 0) {
+            // Идём к самой угрожаемой точке
+            return threatenedPoints.reduce((closest, cp) => {
+                const d = dist(fromX, fromY, cp.x, cp.y);
+                return d < dist(fromX, fromY, closest.x, closest.y) ? cp : closest;
+            });
+        }
+        
+        // Приоритет 2: захватить нейтральные точки
+        if (neutralPoints.length > 0) {
+            return neutralPoints.reduce((closest, cp) => {
+                const d = dist(fromX, fromY, cp.x, cp.y);
+                return d < dist(fromX, fromY, closest.x, closest.y) ? cp : closest;
+            });
+        }
+        
+        return null;
+    }
 
-        // Sort by score and pick the best
-        scored.sort((a, b) => b.score - a.score);
-        return scored[0].target;
+    assignDefensivePositions(units) {
+        // Назначаем юнитов на оборонительные позиции вокруг своих точек
+        const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
+        
+        units.forEach((unit, index) => {
+            if (aiPoints.length === 0) return;
+            
+            // Выбираем точку для защиты
+            const point = aiPoints[index % aiPoints.length];
+            
+            // Позиция на расстоянии от центра точки
+            const angle = (index / units.length) * Math.PI * 2;
+            const radius = point.radius * 0.7;
+            
+            unit.tx = point.x + Math.cos(angle) * radius;
+            unit.ty = point.y + Math.sin(angle) * radius;
+        });
+    }
+
+    assignPatrolRoute(unit) {
+        // Создаём патрульный маршрут вокруг своих точек
+        const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
+        if (aiPoints.length === 0) return;
+        
+        // Выбираем случайную точку для патрулирования
+        const point = aiPoints[Math.floor(Math.random() * aiPoints.length)];
+        
+        // Патрулируем по кругу
+        const angle = Math.random() * Math.PI * 2;
+        const radius = point.radius * 0.8;
+        
+        unit.tx = point.x + Math.cos(angle) * radius;
+        unit.ty = point.y + Math.sin(angle) * radius;
+        
+        // Сохраняем точку для дальнейшего патрулирования
+        unit.patrolCenter = point;
+        unit.patrolAngle = angle;
     }
 
     assignSquadToTarget(units, target) {
         const targetPos = { x: target.x, y: target.y };
         units.forEach(unit => {
-            // Calculate path with bridge awareness
-            const path = this.calculatePath(unit.x, unit.y, targetPos.x, targetPos.y);
-            if (path.length > 0) {
-                // Set first waypoint
-                unit.tx = path[0].x;
-                unit.ty = path[0].y;
-                unit.path = path; // Store full path for multi-waypoint movement
-                unit.pathIndex = 0;
-            } else {
-                // Direct movement if no path needed
-                unit.tx = targetPos.x + (Math.random() - 0.5) * 40;
-                unit.ty = targetPos.y + (Math.random() - 0.5) * 40;
-            }
-        });
-    }
-
-    calculatePath(fromX, fromY, toX, toY) {
-        // No rivers now, so direct path is always fine
-        return [];
-    }
-
-    updateUnitMovement() {
-        this.G.units.forEach(unit => {
-            if (unit.faction !== this.G.ai) return;
-            if (unit.tx === undefined) return;
-
-            // Check if reached current waypoint
-            const d = dist(unit.x, unit.y, unit.tx, unit.ty);
-            if (d < 10 && unit.path && unit.pathIndex < unit.path.length - 1) {
-                // Move to next waypoint
-                unit.pathIndex++;
-                unit.tx = unit.path[unit.pathIndex].x;
-                unit.ty = unit.path[unit.pathIndex].y;
-            }
+            // Прямое движение к цели с небольшим разбросом
+            unit.tx = targetPos.x + (Math.random() - 0.5) * 40;
+            unit.ty = targetPos.y + (Math.random() - 0.5) * 40;
         });
     }
 }

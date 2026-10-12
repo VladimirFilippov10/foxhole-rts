@@ -210,6 +210,19 @@ function gameLoop() {
         document.getElementById('rMat').textContent = Math.floor(game.res.m);
         document.getElementById('tCount').textContent = game.cps.filter(c => c.owner === game.faction).length;
         
+        // Update unit limits display
+        const limits = game.getUnitLimits(game.faction);
+        const counts = game.getUnitCounts(game.faction);
+        const limitsEl = document.getElementById('unitLimits');
+        if (limitsEl) {
+            limitsEl.innerHTML = `
+                <div style="font-size:0.7rem;color:#9ca3af;">
+                    <div>🔫 Пехота: ${counts.infantry}/${limits.infantry}</div>
+                    <div>🚗 Техника: ${counts.vehicles}/${limits.vehicles}</div>
+                </div>
+            `;
+        }
+        
         updateSelInfo();
         
         if (game.over) {
@@ -415,6 +428,19 @@ function trainUnit(type, factory) {
     
     const info = VEHICLE_INFO[type];
     const cost = info.cost;
+    
+    // Проверка лимитов юнитов
+    if (!game.canProduceUnit(type, game.faction)) {
+        const limits = game.getUnitLimits(game.faction);
+        const counts = game.getUnitCounts(game.faction);
+        
+        if (type === 'infantry') {
+            notify(`Достигнут лимит пехоты! (${counts.infantry}/${limits.infantry}) Захватите больше точек для увеличения лимита.`);
+        } else {
+            notify(`Достигнут лимит техники! (${counts.vehicles}/${limits.vehicles}) Захватите больше точек для увеличения лимита.`);
+        }
+        return;
+    }
     
     if (game.res.s < cost.s || game.res.c < cost.c || game.res.m < cost.m) {
         notify('Недостаточно ресурсов!');
