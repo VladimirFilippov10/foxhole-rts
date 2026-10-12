@@ -113,14 +113,15 @@ export class Game {
                 }
             });
 
-            // Attack
-            if (nearest && nearDist <= u.range && u.dmg > 0) {
-                if (this.time - u.lastAtk >= u.cd) {
+            // Attack - simplified logic
+            if (nearest && nearDist <= u.range && u.dmg > 0 && u.cd > 0) {
+                const timeSinceLastAttack = this.time - u.lastAtk;
+                if (timeSinceLastAttack >= u.cd) {
                     u.lastAtk = this.time;
                     
                     // Artillery AoE attack
                     if (u.aoe && u.aoeRadius) {
-                        // Damage all enemies in radius
+                        // Damage all enemies in radius around target
                         this.units.forEach(enemy => {
                             if (enemy.faction !== u.faction && enemy.hp > 0) {
                                 const distToTarget = dist(nearest.x, nearest.y, enemy.x, enemy.y);
@@ -151,13 +152,18 @@ export class Game {
                     const nx = u.x + (u.tx - u.x) * r;
                     const ny = u.y + (u.ty - u.y) * r;
                     // Check water (all units) and buildings (vehicles only)
-                    if (!this.isWater(nx, ny) && !this.isBlockedForVehicle(nx, ny, u)) {
+                    const blockedByWater = this.isWater(nx, ny);
+                    const blockedByBuilding = this.isBlockedForVehicle(nx, ny, u);
+                    
+                    if (!blockedByWater && !blockedByBuilding) {
                         u.x = nx;
                         u.y = ny;
-                    } else {
+                    } else if (blockedByWater) {
+                        // Can't cross water, cancel movement
                         u.tx = undefined;
                         u.ty = undefined;
                     }
+                    // If blocked by building, keep trying (will go around)
                 } else {
                     u.tx = undefined;
                     u.ty = undefined;
@@ -229,6 +235,7 @@ export class Game {
         if (unit.type === 'infantry') return false;
         
         // Check city zones (buildings block vehicles)
+        // Only block in the very center where buildings actually are
         const CITY_ZONES = [
             { col: 1, row: 2, radius: 120 },
             { col: 9, row: 1, radius: 80 },
@@ -246,8 +253,8 @@ export class Game {
             const cx = zone.col * 250 + 125;
             const cy = zone.row * 150 + 75;
             const d = dist(x, y, cx, cy);
-            // Vehicles blocked in inner part of city (where buildings are)
-            if (d < zone.radius * 0.4) return true;
+            // Vehicles blocked only in the very center (20% of radius)
+            if (d < zone.radius * 0.2) return true;
         }
         
         return false;

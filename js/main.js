@@ -327,6 +327,23 @@ window.closeFactoryMenu = function() {
     factoryMenuOpen = false;
 };
 
+window.toggleMoveMode = function() {
+    if (!game) return;
+    game.moveMode = !game.moveMode;
+    const btn = document.getElementById('moveBtn');
+    const indicator = document.getElementById('modeIndicator');
+    
+    if (game.moveMode) {
+        btn.style.borderColor = '#fbbf24';
+        btn.style.background = 'rgba(251,191,36,0.15)';
+        indicator.classList.remove('hidden');
+    } else {
+        btn.style.borderColor = '#374151';
+        btn.style.background = 'rgba(17,24,39,0.9)';
+        indicator.classList.add('hidden');
+    }
+};
+
 function notify(msg) {
     const el = document.getElementById('notif');
     el.textContent = msg;
