@@ -101,6 +101,21 @@ export class Game {
             // Update game time for reload calculation
             u.gameTime = this.time;
             
+            // Пополнение БК/топлива в базе
+            const isInBase = this.buildings.some(b => 
+                b.faction === u.faction && 
+                b.type === 'town_hall' && 
+                dist(u.x, u.y, b.x, b.y) < 100
+            );
+            if (isInBase && u.regenerateAtBase) {
+                u.regenerateAtBase();
+            }
+            
+            // Логистика: грузовики, бензовозы, инженеры
+            if (u.type === 'truck' || u.type === 'fuel_truck' || u.type === 'engineer') {
+                this.handleLogistics(u);
+            }
+            
             // Find nearest enemy
             let nearest = null, nearDist = Infinity;
             this.units.forEach(e => {
@@ -127,7 +142,17 @@ export class Game {
             if (attackTarget && dist(u.x, u.y, attackTarget.x, attackTarget.y) <= u.range && u.dmg > 0 && u.cd > 0) {
                 const timeSinceLastAttack = this.time - u.lastAtk;
                 if (timeSinceLastAttack >= u.cd) {
+                    // Проверка БК перед атакой
+                    if (u.canAttack && !u.canAttack()) {
+                        return; // Нет БК - не атакуем
+                    }
+                    
                     u.lastAtk = this.time;
+                    
+                    // Расход БК при атаке
+                    if (u.useAmmo) {
+                        u.useAmmo();
+                    }
                     
                     // Artillery AoE attack
                     if (u.aoe && u.aoeRadius) {
@@ -163,6 +188,13 @@ export class Game {
             else if (u.tx !== undefined) {
                 const d = dist(u.x, u.y, u.tx, u.ty);
                 if (d > 5) {
+                    // Проверка топлива
+                    if (!u.canMove()) {
+                        u.tx = undefined;
+                        u.ty = undefined;
+                        return;
+                    }
+                    
                     const r = u.spd / d;
                     const nx = u.x + (u.tx - u.x) * r;
                     const ny = u.y + (u.ty - u.y) * r;
@@ -174,6 +206,11 @@ export class Game {
                         u.direction = Math.atan2(ny - u.y, nx - u.x);
                         u.x = nx;
                         u.y = ny;
+                        
+                        // Расход топлива при движении
+                        if (u.useFuel) {
+                            u.useFuel();
+                        }
                     }
                     // If blocked by building, keep trying (will go around)
                 } else {
@@ -262,24 +299,117 @@ export class Game {
         
         return false;
     }
+    
+    handleLogistics(unit) {
+        // Найти ближайшую дружественную технику
+        let nearestAlly = null;
+        let nearestDist = Infinity;
+        
+        this.units.forEach(u => {
+            if (u.faction === unit.faction && u.id !== unit.id && u.hp > 0) {
+                const d = dist(unit.x, unit.y, u.x, u.y);
+                if (d < nearestDist && d < 50) { // Радиус взаимодействия
+                    nearestDist = d;
+                    nearestAlly = u;
+                }
+            }
+        });
+        
+        if (!nearestAlly) return;
+        
+        // Грузовик пополняет БК
+        if (unit.type === 'truck' && unit.supplyAmmo) {
+            unit.supplyAmmo(nearestAlly);
+        }
+        
+        // Бензовоз пополняет топливо
+        if (unit.type === 'fuel_truck' && unit.supplyFuel) {
+            unit.supplyFuel(nearestAlly);
+        }
+        
+        // Инженерная машина ремонтирует
+        if (unit.type === 'engineer' && unit.repairUnit) {
+            if (dist(unit.x, unit.y, nearestAlly.x, nearestAlly.y) < unit.repairRange) {
+                unit.repairUnit(nearestAlly);
+            }
+        }
+    }
+    
+    // Система укреплений
+    buildFortification(type, x, y, faction) {
+        const FORTIFICATION_COSTS = {
+            bunker_light: { s: 30, c: 20, m: 25, hp: 300, defense: 10, range: 120 },
+            bunker_medium: { s: 60, c: 40, m: 50, hp: 600, defense: 20, range: 150 },
+            bunker_heavy: { s: 100, c: 70, m: 80, hp: 1000, defense: 35, range: 180 },
+        };
+        
+        const cost = FORTIFICATION_COSTS[type];
+        if (!cost) return null;
+        
+        // Проверка ресурсов
+        if (this.res.s < cost.s || this.res.c < cost.c || this.res.m < cost.m) {
+            return null;
+        }
+        
+        // Построение укрепления
+        this.res.s -= cost.s;
+        this.res.c -= cost.c;
+        this.res.m -= cost.m;
+        
+        const fortification = {
+            id: 'fort_' + Math.random().toString(36).substr(2, 9),
+            type: type,
+            faction: faction,
+            x: x,
+            y: y,
+            hp: cost.hp,
+            maxHp: cost.hp,
+            defense: cost.defense,
+            range: cost.range,
+            level: 1,
+            lastAtk: 0,
+        };
+        
+        this.buildings.push(fortification);
+        return fortification;
+    }
+    
+    upgradeFortification(fortification) {
+        const upgradeCost = {
+            s: 20 * fortification.level,
+            c: 15 * fortification.level,
+            m: 20 * fortification.level,
+        };
+        
+        if (this.res.s < upgradeCost.s || this.res.c < upgradeCost.c || this.res.m < upgradeCost.m) {
+            return false;
+        }
+        
+        if (fortification.level >= 3) return false; // Максимум 3 уровня
+        
+        this.res.s -= upgradeCost.s;
+        this.res.c -= upgradeCost.c;
+        this.res.m -= upgradeCost.m;
+        
+        fortification.level++;
+        fortification.maxHp += 200;
+        fortification.hp = fortification.maxHp;
+        fortification.defense += 10;
+        fortification.range += 20;
+        
+        return true;
+    }
 
     checkWinCondition() {
-        const pPts = this.cps.filter(c => c.owner === this.faction).length;
-        const aPts = this.cps.filter(c => c.owner === this.ai).length;
+        // Победа только при уничтожении базы противника
+        const playerTownHall = this.buildings.find(b => b.faction === this.faction && b.type === 'town_hall');
+        const aiTownHall = this.buildings.find(b => b.faction === this.ai && b.type === 'town_hall');
         
-        if (pPts >= 7) {
-            this.over = true;
-            this.winner = this.faction;
-        }
-        if (aPts >= 7) {
+        if (!playerTownHall) {
             this.over = true;
             this.winner = this.ai;
         }
-        if (!this.buildings.find(b => b.faction === this.faction && b.type === 'town_hall')) {
-            this.over = true;
-            this.winner = this.ai;
-        }
-        if (!this.buildings.find(b => b.faction === this.ai && b.type === 'town_hall')) {
+        if (!aiTownHall) {
             this.over = true;
             this.winner = this.faction;
         }

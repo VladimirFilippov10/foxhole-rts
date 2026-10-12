@@ -45,14 +45,38 @@ export const VEHICLE_COSTS = {
     hatchet: { s: 30, c: 20, m: 10 },
     falchion: { s: 55, c: 40, m: 30 },
     hoplite: { s: 35, c: 25, m: 15 },
-    warden_artillery: { s: 55, c: 40, m: 30 }, // Дороже, мощнее
-    colonial_artillery: { s: 45, c: 30, m: 20 }, // Дешевле, мобильнее
+    warden_artillery: { s: 55, c: 40, m: 30 },
+    colonial_artillery: { s: 45, c: 30, m: 20 },
+    // Логистика
+    truck: { s: 25, c: 15, m: 10 }, // Грузовик - перевозит БК
+    fuel_truck: { s: 30, c: 20, m: 15 }, // Бензовоз - перевозит топливо
+    engineer: { s: 40, c: 30, m: 25 }, // Инженерная машина - ремонтирует
 };
 
 export const BUILDING_COSTS = {
     barracks: { s: 40, c: 20, m: 20 },
     factory: { s: 50, c: 30, m: 40 },
     refinery: { s: 30, c: 15, m: 30 },
+};
+
+// Укрепления (бункеры) - одинаковые для обеих фракций
+export const FORTIFICATION_COSTS = {
+    bunker_light: { s: 30, c: 20, m: 25, hp: 300, defense: 10, range: 120 },
+    bunker_medium: { s: 60, c: 40, m: 50, hp: 600, defense: 20, range: 150 },
+    bunker_heavy: { s: 100, c: 70, m: 80, hp: 1000, defense: 35, range: 180 },
+};
+
+// Система БК и топлива
+export const SUPPLY_SYSTEM = {
+    maxAmmo: 100, // Максимум БК
+    maxFuel: 100, // Максимум топлива
+    ammoConsumption: 0.5, // Расход БК за выстрел
+    fuelConsumption: 0.1, // Расход топлива за движение
+    ammoRegenRate: 0.05, // Скорость восстановления БК в базе
+    fuelRegenRate: 0.08, // Скорость восстановления топлива в базе
+    truckCapacity: 50, // Вместимость грузовика
+    fuelTruckCapacity: 60, // Вместимость бензовоза
+    engineerRepairRate: 0.2, // Скорость ремонта инженерной машиной
 };
 
 export function gridToPos(col, row) {

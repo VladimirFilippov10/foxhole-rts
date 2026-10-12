@@ -542,6 +542,51 @@ function drawBuilding(ctx, b, cam) {
     const x = b.x - cam.x;
     const y = b.y - cam.y;
     const col = COLORS[b.faction];
+    
+    // Укрепления (бункеры)
+    if (b.type && b.type.startsWith('bunker_')) {
+        const sz = b.type === 'bunker_light' ? 30 : b.type === 'bunker_medium' ? 38 : 46;
+        
+        // Тень
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillRect(x - sz / 2 + 3, y - sz / 2 + 3, sz, sz);
+        
+        // Основание бункера
+        ctx.fillStyle = '#4a4a4a';
+        ctx.fillRect(x - sz / 2, y - sz / 2, sz, sz);
+        
+        // Стены бункера
+        ctx.strokeStyle = '#2a2a2a';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x - sz / 2, y - sz / 2, sz, sz);
+        
+        // Бойницы
+        ctx.fillStyle = '#1a1a1a';
+        const slitSize = sz * 0.15;
+        ctx.fillRect(x - sz / 4, y - sz / 4, slitSize, slitSize);
+        ctx.fillRect(x + sz / 4 - slitSize, y - sz / 4, slitSize, slitSize);
+        ctx.fillRect(x - sz / 4, y + sz / 4 - slitSize, slitSize, slitSize);
+        ctx.fillRect(x + sz / 4 - slitSize, y + sz / 4 - slitSize, slitSize, slitSize);
+        
+        // Уровень укрепления (звёздочки)
+        if (b.level) {
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('★'.repeat(b.level), x, y - sz / 2 - 8);
+        }
+        
+        // Полоска HP
+        const hpPct = b.hp / b.maxHp;
+        ctx.fillStyle = '#333';
+        ctx.fillRect(x - sz / 2, y + sz / 2 + 3, sz, 4);
+        ctx.fillStyle = hpPct > 0.5 ? '#22c55e' : hpPct > 0.25 ? '#eab308' : '#ef4444';
+        ctx.fillRect(x - sz / 2, y + sz / 2 + 3, sz * hpPct, 4);
+        
+        return;
+    }
+    
+    // Обычные здания
     const sz = b.type === 'town_hall' ? 48 : 38;
     
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
@@ -664,6 +709,64 @@ function drawUnit(ctx, u, cam, selected, hovered) {
             ctx.fillStyle = col.s;
             ctx.fillRect(-sz * 0.25, 0, sz * 0.5, sz * 0.3);
         }
+        
+        // Грузовик
+        if (u.type === 'truck') {
+            ctx.fillStyle = col.s;
+            ctx.fillRect(-sz * 0.4, -sz * 0.25, sz * 0.8, sz * 0.5);
+            // Кузов
+            ctx.fillStyle = '#8b4513';
+            ctx.fillRect(-sz * 0.1, -sz * 0.2, sz * 0.5, sz * 0.4);
+            // Колёса
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(-sz * 0.3, sz * 0.25, sz * 0.1, 0, Math.PI * 2);
+            ctx.arc(sz * 0.3, sz * 0.25, sz * 0.1, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Бензовоз
+        if (u.type === 'fuel_truck') {
+            ctx.fillStyle = col.s;
+            ctx.fillRect(-sz * 0.4, -sz * 0.25, sz * 0.8, sz * 0.5);
+            // Цистерна
+            ctx.fillStyle = '#dc2626';
+            ctx.beginPath();
+            ctx.ellipse(sz * 0.1, 0, sz * 0.3, sz * 0.2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#991b1b';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            // Колёса
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(-sz * 0.3, sz * 0.25, sz * 0.1, 0, Math.PI * 2);
+            ctx.arc(sz * 0.3, sz * 0.25, sz * 0.1, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Инженерная машина
+        if (u.type === 'engineer') {
+            ctx.fillStyle = col.s;
+            ctx.fillRect(-sz * 0.4, -sz * 0.25, sz * 0.8, sz * 0.5);
+            // Кран
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, -sz * 0.1);
+            ctx.lineTo(sz * 0.3, -sz * 0.3);
+            ctx.lineTo(sz * 0.4, -sz * 0.2);
+            ctx.stroke();
+            // Инструменты
+            ctx.fillStyle = '#6b7280';
+            ctx.fillRect(-sz * 0.2, -sz * 0.15, sz * 0.15, sz * 0.1);
+            // Колёса
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(-sz * 0.3, sz * 0.25, sz * 0.1, 0, Math.PI * 2);
+            ctx.arc(sz * 0.3, sz * 0.25, sz * 0.1, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
     
     ctx.restore();
@@ -717,6 +820,48 @@ function drawUnit(ctx, u, cam, selected, hovered) {
         ctx.fillRect(x - sz / 2, y - sz / 2 - 8, sz, 3);
         ctx.fillStyle = pct > 0.5 ? '#22c55e' : pct > 0.25 ? '#eab308' : '#ef4444';
         ctx.fillRect(x - sz / 2, y - sz / 2 - 8, sz * pct, 3);
+    }
+    
+    // Полоски БК и топлива (всегда видны)
+    if (u.ammo !== undefined && u.maxAmmo > 0) {
+        const barWidth = sz * 1.2;
+        const barHeight = 3;
+        const barY = y + sz / 2 + 18;
+        
+        // БК (оранжевый)
+        const ammoPct = u.ammo / u.maxAmmo;
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(x - barWidth / 2, barY, barWidth, barHeight);
+        ctx.fillStyle = '#f97316';
+        ctx.fillRect(x - barWidth / 2, barY, barWidth * ammoPct, barHeight);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x - barWidth / 2, barY, barWidth, barHeight);
+        
+        // Топливо (синий)
+        const fuelPct = u.fuel / u.maxFuel;
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(x - barWidth / 2, barY + 5, barWidth, barHeight);
+        ctx.fillStyle = '#3b82f6';
+        ctx.fillRect(x - barWidth / 2, barY + 5, barWidth * fuelPct, barHeight);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x - barWidth / 2, barY + 5, barWidth, barHeight);
+    }
+    
+    // Подпись техники при наведении (для вражеской техники)
+    if (hovered && u.faction !== G.faction) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(x - 50, y - sz / 2 - 30, 100, 18);
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - 50, y - sz / 2 - 30, 100, 18);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(u.label || u.type, x, y - sz / 2 - 21);
     }
 }
 

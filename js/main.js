@@ -13,6 +13,8 @@ let selectedGameMode = 'normal';
 let lastClickTime = 0;
 let factoryMenuOpen = false;
 let aoeMode = false;
+let buildMode = false;
+let selectedFortificationType = null;
 
 // Vehicle info for factory menu
 const VEHICLE_INFO = {
@@ -25,6 +27,16 @@ const VEHICLE_INFO = {
     hoplite: { name: 'Hoplite APC', icon: '🛡️', stats: 'HP:200 DMG:18 RNG:140 SPD:1.6', cost: VEHICLE_COSTS.hoplite },
     warden_artillery: { name: 'Warden Artillery', icon: '🎯', stats: 'HP:100 DMG:85 RNG:500 AoE:80 SPD:0.3 CD:8s', cost: VEHICLE_COSTS.warden_artillery },
     colonial_artillery: { name: 'Colonial Artillery', icon: '🎯', stats: 'HP:110 DMG:75 RNG:400 AoE:70 SPD:0.6 CD:7s', cost: VEHICLE_COSTS.colonial_artillery },
+    truck: { name: 'Грузовик', icon: '🚚', stats: 'HP:120 SPD:1.8 Пополняет БК', cost: VEHICLE_COSTS.truck },
+    fuel_truck: { name: 'Бензовоз', icon: '⛽', stats: 'HP:140 SPD:1.6 Пополняет топливо', cost: VEHICLE_COSTS.fuel_truck },
+    engineer: { name: 'Инженер', icon: '🔧', stats: 'HP:160 SPD:1.2 Ремонтирует технику', cost: VEHICLE_COSTS.engineer },
+};
+
+// Fortification info
+const FORTIFICATION_INFO = {
+    bunker_light: { name: 'Лёгкий бункер', icon: '🏰', stats: 'HP:300 DEF:10 RNG:120', cost: { s: 30, c: 20, m: 25 } },
+    bunker_medium: { name: 'Средний бункер', icon: '🏯', stats: 'HP:600 DEF:20 RNG:150', cost: { s: 60, c: 40, m: 50 } },
+    bunker_heavy: { name: 'Тяжёлый бункер', icon: '🏰', stats: 'HP:1000 DEF:35 RNG:180', cost: { s: 100, c: 70, m: 80 } },
 };
 
 // Initialize
@@ -277,6 +289,22 @@ function handleMouseDown(e) {
         return;
     }
     
+    // Build mode - place fortification
+    if (buildMode && selectedFortificationType) {
+        const result = game.buildFortification(selectedFortificationType, worldX, worldY, game.faction);
+        if (result) {
+            notify(`${FORTIFICATION_INFO[selectedFortificationType].name} построен!`);
+            buildMode = false;
+            selectedFortificationType = null;
+            const btn = document.getElementById('buildBtn');
+            btn.style.borderColor = '#374151';
+            btn.style.background = 'rgba(17,24,39,0.9)';
+        } else {
+            notify('Недостаточно ресурсов или нельзя строить здесь!');
+        }
+        return;
+    }
+    
     // Double click or move mode - move units
     if (isDouble || game.moveMode) {
         if (game.selected.length > 0) {
@@ -416,6 +444,61 @@ window.toggleAoEMode = function() {
         btn.style.borderColor = '#374151';
         btn.style.background = 'rgba(17,24,39,0.9)';
     }
+};
+
+window.toggleBuildMode = function() {
+    if (!game) return;
+    buildMode = !buildMode;
+    const btn = document.getElementById('buildBtn');
+    
+    if (buildMode) {
+        btn.style.borderColor = '#22c55e';
+        btn.style.background = 'rgba(34,197,94,0.15)';
+        showFortificationMenu();
+    } else {
+        btn.style.borderColor = '#374151';
+        btn.style.background = 'rgba(17,24,39,0.9)';
+        hideFortificationMenu();
+    }
+};
+
+function showFortificationMenu() {
+    // Создаём меню выбора типа укрепления
+    let menu = document.getElementById('fortificationMenu');
+    if (!menu) {
+        menu = document.createElement('div');
+        menu.id = 'fortificationMenu';
+        menu.style.cssText = 'position:fixed;bottom:5rem;right:1rem;background:rgba(17,24,39,0.95);border:2px solid #4b5563;border-radius:12px;padding:1rem;z-index:300;min-width:280px;';
+        document.body.appendChild(menu);
+    }
+    
+    menu.innerHTML = `
+        <h3 style="font-size:1rem;margin-bottom:0.75rem;color:#22c55e;border-bottom:1px solid #374151;padding-bottom:0.5rem;">🏰 Строительство укреплений</h3>
+        <div style="display:grid;grid-template-columns:1fr;gap:0.5rem;">
+            ${Object.entries(FORTIFICATION_INFO).map(([type, info]) => `
+                <div class="unit-card" onclick="selectFortification('${type}')" style="cursor:pointer;">
+                    <div class="unit-name">${info.icon} ${info.name}</div>
+                    <div class="unit-stats">${info.stats}</div>
+                    <div class="unit-cost">S:${info.cost.s} C:${info.cost.c} M:${info.cost.m}</div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    menu.style.display = 'block';
+}
+
+function hideFortificationMenu() {
+    const menu = document.getElementById('fortificationMenu');
+    if (menu) {
+        menu.style.display = 'none';
+    }
+    selectedFortificationType = null;
+}
+
+window.selectFortification = function(type) {
+    selectedFortificationType = type;
+    notify(`Выбрано: ${FORTIFICATION_INFO[type].name}. Кликните на карту для строительства.`);
+    hideFortificationMenu();
 };
 
 function notify(msg) {

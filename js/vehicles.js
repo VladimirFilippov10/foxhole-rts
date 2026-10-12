@@ -1,6 +1,9 @@
 // ===== VEHICLE CLASS HIERARCHY =====
 // Wardens: Gallagher, Devitt, Niska
 // Colonials: Falchion, Hatchet, Hoplite
+// Logistics: Truck, FuelTruck, Engineer
+
+import { SUPPLY_SYSTEM } from './constants.js';
 
 export class Vehicle {
     constructor(type, faction, x, y) {
@@ -24,10 +27,42 @@ export class Vehicle {
         this.size = 20;
         this.label = 'Vehicle';
         this.armor = 0;
+        
+        // Система БК и топлива
+        this.ammo = SUPPLY_SYSTEM.maxAmmo;
+        this.maxAmmo = SUPPLY_SYSTEM.maxAmmo;
+        this.fuel = SUPPLY_SYSTEM.maxFuel;
+        this.maxFuel = SUPPLY_SYSTEM.maxFuel;
     }
     
     takeDamage(dmg) {
         this.hp -= Math.max(1, dmg - this.armor);
+    }
+    
+    canAttack() {
+        return this.ammo >= SUPPLY_SYSTEM.ammoConsumption;
+    }
+    
+    useAmmo() {
+        this.ammo = Math.max(0, this.ammo - SUPPLY_SYSTEM.ammoConsumption);
+    }
+    
+    useFuel() {
+        this.fuel = Math.max(0, this.fuel - SUPPLY_SYSTEM.fuelConsumption);
+    }
+    
+    canMove() {
+        return this.fuel > 0;
+    }
+    
+    regenerateAtBase() {
+        // Автоматическое пополнение в базе
+        if (this.ammo < this.maxAmmo) {
+            this.ammo = Math.min(this.maxAmmo, this.ammo + SUPPLY_SYSTEM.ammoRegenRate);
+        }
+        if (this.fuel < this.maxFuel) {
+            this.fuel = Math.min(this.maxFuel, this.fuel + SUPPLY_SYSTEM.fuelRegenRate);
+        }
     }
 }
 
@@ -163,6 +198,99 @@ export class ColonialArtillery extends Vehicle {
     }
 }
 
+// ===== LOGISTICS VEHICLES =====
+export class Truck extends Vehicle {
+    constructor(faction, x, y) {
+        super('truck', faction, x, y);
+        this.hp = this.maxHp = 120;
+        this.dmg = 0; // Без оружия
+        this.range = 0;
+        this.spd = 1.8; // Быстрый
+        this.cd = 0;
+        this.size = 22;
+        this.armor = 2;
+        this.label = 'Грузовик';
+        this.cargoType = 'ammo'; // Тип груза
+        this.cargoCapacity = SUPPLY_SYSTEM.truckCapacity;
+        this.currentCargo = SUPPLY_SYSTEM.truckCapacity;
+    }
+    
+    // Пополнение БК у другой техники
+    supplyAmmo(targetUnit) {
+        if (this.currentCargo > 0 && targetUnit.ammo < targetUnit.maxAmmo) {
+            const amount = Math.min(
+                this.currentCargo,
+                targetUnit.maxAmmo - targetUnit.ammo,
+                20 // Скорость пополнения
+            );
+            targetUnit.ammo += amount;
+            this.currentCargo -= amount;
+            return amount;
+        }
+        return 0;
+    }
+}
+
+export class FuelTruck extends Vehicle {
+    constructor(faction, x, y) {
+        super('fuel_truck', faction, x, y);
+        this.hp = this.maxHp = 140;
+        this.dmg = 0;
+        this.range = 0;
+        this.spd = 1.6;
+        this.cd = 0;
+        this.size = 24;
+        this.armor = 2;
+        this.label = 'Бензовоз';
+        this.cargoType = 'fuel';
+        this.cargoCapacity = SUPPLY_SYSTEM.fuelTruckCapacity;
+        this.currentCargo = SUPPLY_SYSTEM.fuelTruckCapacity;
+    }
+    
+    // Пополнение топлива у другой техники
+    supplyFuel(targetUnit) {
+        if (this.currentCargo > 0 && targetUnit.fuel < targetUnit.maxFuel) {
+            const amount = Math.min(
+                this.currentCargo,
+                targetUnit.maxFuel - targetUnit.fuel,
+                25 // Скорость пополнения
+            );
+            targetUnit.fuel += amount;
+            this.currentCargo -= amount;
+            return amount;
+        }
+        return 0;
+    }
+}
+
+export class Engineer extends Vehicle {
+    constructor(faction, x, y) {
+        super('engineer', faction, x, y);
+        this.hp = this.maxHp = 160;
+        this.dmg = 0;
+        this.range = 0;
+        this.spd = 1.2; // Медленная
+        this.cd = 0;
+        this.size = 24;
+        this.armor = 3;
+        this.label = 'Инженерная машина';
+        this.repairRange = 80; // Радиус ремонта
+    }
+    
+    // Ремонт другой техники
+    repairUnit(targetUnit) {
+        if (targetUnit.hp < targetUnit.maxHp) {
+            const amount = Math.min(
+                SUPPLY_SYSTEM.engineerRepairRate,
+                targetUnit.maxHp - targetUnit.hp
+            );
+            targetUnit.hp += amount;
+            return amount;
+        }
+        return 0;
+    }
+}
+
 export function createVehicle(type, faction, x, y) {
     const map = {
         infantry: Infantry,
@@ -174,12 +302,15 @@ export function createVehicle(type, faction, x, y) {
         hoplite: Hoplite,
         warden_artillery: WardenArtillery,
         colonial_artillery: ColonialArtillery,
+        truck: Truck,
+        fuel_truck: FuelTruck,
+        engineer: Engineer,
     };
     return new (map[type] || Vehicle)(faction, x, y);
 }
 
 // Доступная техника по фракциям
 export const FACTION_VEHICLES = {
-    wardens: ['devitt', 'gallagher', 'niska', 'warden_artillery'],
-    colonials: ['hatchet', 'falchion', 'hoplite', 'colonial_artillery'],
+    wardens: ['devitt', 'gallagher', 'niska', 'warden_artillery', 'truck', 'fuel_truck', 'engineer'],
+    colonials: ['hatchet', 'falchion', 'hoplite', 'colonial_artillery', 'truck', 'fuel_truck', 'engineer'],
 };
