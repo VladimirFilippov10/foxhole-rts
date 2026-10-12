@@ -454,43 +454,51 @@ function openFactoryMenu(factory, mx, my) {
 
 function updateFactoryQueue(factory) {
     const queue = game.getProductionProgress(factory.id);
-    let queueHtml = '';
     
-    if (queue.length > 0) {
-        queueHtml = '<div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid #374151;">';
-        queueHtml += '<div style="font-size:0.75rem;color:#9ca3af;margin-bottom:0.5rem;">📋 Очередь производства:</div>';
-        
-        queue.forEach((item, index) => {
-            const info = VEHICLE_INFO[item.type];
-            const elapsed = game.time - item.startTime;
-            const buildTimeTicks = item.buildTime * 60;
-            const progress = Math.min(100, (elapsed / buildTimeTicks) * 100);
-            
-            queueHtml += `
-                <div style="margin-bottom:0.5rem;">
-                    <div style="font-size:0.7rem;color:#d1d5db;">${info.icon} ${info.name}</div>
-                    <div style="background:#1f2937;height:4px;border-radius:2px;overflow:hidden;margin-top:2px;">
-                        <div style="background:#60a5fa;height:100%;width:${progress}%;transition:width 0.3s;"></div>
-                    </div>
-                    <div style="font-size:0.6rem;color:#6b7280;margin-top:2px;">${Math.floor(progress)}% - ${Math.ceil((buildTimeTicks - elapsed) / 60)}с</div>
-                </div>
-            `;
-        });
-        
-        queueHtml += '</div>';
-    }
-    
-    // Добавляем очередь в меню
+    // Удаляем старую очередь если есть
     const menu = document.getElementById('factoryMenu');
     const existingQueue = menu.querySelector('.production-queue');
     if (existingQueue) {
-        existingQueue.innerHTML = queueHtml;
-    } else {
-        const queueDiv = document.createElement('div');
-        queueDiv.className = 'production-queue';
-        queueDiv.innerHTML = queueHtml;
-        menu.appendChild(queueDiv);
+        existingQueue.remove();
     }
+    
+    // Если очередь пустая - не создаём ничего
+    if (queue.length === 0) {
+        return;
+    }
+    
+    // Создаём новую очередь
+    const queueDiv = document.createElement('div');
+    queueDiv.className = 'production-queue';
+    queueDiv.style.marginTop = '1rem';
+    queueDiv.style.paddingTop = '0.75rem';
+    queueDiv.style.borderTop = '1px solid #374151';
+    
+    let queueHtml = '<div style="font-size:0.75rem;color:#9ca3af;margin-bottom:0.5rem;">📋 Очередь производства:</div>';
+    
+    queue.forEach((item, index) => {
+        const info = VEHICLE_INFO[item.type];
+        const elapsed = game.time - item.startTime;
+        const buildTimeTicks = item.buildTime * 60;
+        const progress = Math.min(100, (elapsed / buildTimeTicks) * 100);
+        const remainingTime = Math.max(0, Math.ceil((buildTimeTicks - elapsed) / 60));
+        
+        queueHtml += `
+            <div style="margin-bottom:0.5rem;">
+                <div style="font-size:0.7rem;color:#d1d5db;">${info.icon} ${info.name}</div>
+                <div style="background:#1f2937;height:6px;border-radius:3px;overflow:hidden;margin-top:3px;border:1px solid #374151;">
+                    <div style="background:linear-gradient(90deg, #60a5fa, #3b82f6);height:100%;width:${progress}%;"></div>
+                </div>
+                <div style="font-size:0.65rem;color:#9ca3af;margin-top:3px;display:flex;justify-content:space-between;">
+                    <span>${Math.floor(progress)}%</span>
+                    <span>${remainingTime}с</span>
+                </div>
+            </div>
+        `;
+    });
+    
+    queueDiv.innerHTML = queueHtml;
+    menu.appendChild(queueDiv);
 }
 
 function trainUnit(type, factory) {
