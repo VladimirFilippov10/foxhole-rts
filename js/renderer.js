@@ -768,8 +768,8 @@ function drawUnit(ctx, u, cam, selected, hovered) {
             ctx.fill();
         }
         
-        // Flatbed truck (Duna/Hauler)
-        if (u.type === 'duna' || u.type === 'hauler') {
+        // Flatbed truck
+        if (u.type === 'flatbed') {
             // Кабина
             ctx.fillStyle = col.s;
             ctx.fillRect(-sz * 0.4, -sz * 0.25, sz * 0.35, sz * 0.5);

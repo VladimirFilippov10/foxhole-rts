@@ -126,7 +126,7 @@ export class Game {
             
             // Логистика: грузовики, бензовозы, инженеры, flatbed
             if (u.type === 'truck' || u.type === 'fuel_truck' || u.type === 'engineer' || 
-                u.type === 'duna' || u.type === 'hauler') {
+                u.type === 'flatbed') {
                 this.handleLogistics(u);
             }
             
@@ -157,76 +157,73 @@ export class Game {
                 const timeSinceLastAttack = this.time - u.lastAtk;
                 if (timeSinceLastAttack >= u.cd) {
                     // Проверка БК перед атакой
-                    if (u.canAttack && !u.canAttack()) {
-                        return; // Нет БК - не атакуем
-                    }
-                    
-                    u.lastAtk = this.time;
-                    
-                    // Расход БК при атаке
-                    if (u.useAmmo) {
-                        u.useAmmo();
-                    }
-                    
-                    // Artillery AoE attack
-                    if (u.aoe && u.aoeRadius) {
-                        // Damage all enemies in radius around target
-                        this.units.forEach(enemy => {
-                            if (enemy.faction !== u.faction && enemy.hp > 0) {
-                                const distToTarget = dist(attackTarget.x, attackTarget.y, enemy.x, enemy.y);
-                                if (distToTarget <= u.aoeRadius) {
-                                    // Damage decreases with distance from center
-                                    const damageMultiplier = 1 - (distToTarget / u.aoeRadius) * 0.5;
-                                    enemy.takeDamage(Math.floor(u.dmg * damageMultiplier));
-                                }
-                            }
-                        });
+                    if (!u.canAttack || u.canAttack()) {
+                        u.lastAtk = this.time;
                         
-                        // Big explosion effect
-                        this.addParticles(attackTarget.x, attackTarget.y, '#ff6b00', 20);
-                        this.addParticles(attackTarget.x, attackTarget.y, '#ffcc00', 15);
-                        this.addParticles(attackTarget.x, attackTarget.y, '#ff0000', 10);
-                        
-                        // Clear aoeTarget after firing
-                        if (u.aoeTarget) {
-                            u.aoeTarget = null;
+                        // Расход БК при атаке
+                        if (u.useAmmo) {
+                            u.useAmmo();
                         }
-                    } else {
-                        // Normal single target attack
-                        attackTarget.takeDamage(u.dmg);
-                        this.addParticles(attackTarget.x, attackTarget.y, '#ffcc00', 4);
+                        
+                        // Artillery AoE attack
+                        if (u.aoe && u.aoeRadius) {
+                            // Damage all enemies in radius around target
+                            this.units.forEach(enemy => {
+                                if (enemy.faction !== u.faction && enemy.hp > 0) {
+                                    const distToTarget = dist(attackTarget.x, attackTarget.y, enemy.x, enemy.y);
+                                    if (distToTarget <= u.aoeRadius) {
+                                        // Damage decreases with distance from center
+                                        const damageMultiplier = 1 - (distToTarget / u.aoeRadius) * 0.5;
+                                        enemy.takeDamage(Math.floor(u.dmg * damageMultiplier));
+                                    }
+                                }
+                            });
+                            
+                            // Big explosion effect
+                            this.addParticles(attackTarget.x, attackTarget.y, '#ff6b00', 20);
+                            this.addParticles(attackTarget.x, attackTarget.y, '#ffcc00', 15);
+                            this.addParticles(attackTarget.x, attackTarget.y, '#ff0000', 10);
+                            
+                            // Clear aoeTarget after firing
+                            if (u.aoeTarget) {
+                                u.aoeTarget = null;
+                            }
+                        } else {
+                            // Normal single target attack
+                            attackTarget.takeDamage(u.dmg);
+                            this.addParticles(attackTarget.x, attackTarget.y, '#ffcc00', 4);
+                        }
                     }
                 }
             }
             // Move to target
-            else if (u.tx !== undefined) {
+            if (u.tx !== undefined) {
                 const d = dist(u.x, u.y, u.tx, u.ty);
                 if (d > 5) {
                     // Проверка топлива
-                    if (!u.canMove()) {
+                    if (u.canMove && !u.canMove()) {
                         u.tx = undefined;
                         u.ty = undefined;
-                        return;
-                    }
-                    
-                    const r = u.spd / d;
-                    const nx = u.x + (u.tx - u.x) * r;
-                    const ny = u.y + (u.ty - u.y) * r;
-                    // Check buildings (vehicles only)
-                    const blockedByBuilding = this.isBlockedForVehicle(nx, ny, u);
-                    
-                    if (!blockedByBuilding) {
-                        // Update direction based on movement
-                        u.direction = Math.atan2(ny - u.y, nx - u.x);
-                        u.x = nx;
-                        u.y = ny;
+                    } else {
+                        const r = u.spd / d;
+                        const nx = u.x + (u.tx - u.x) * r;
+                        const ny = u.y + (u.ty - u.y) * r;
+                        // Check buildings (vehicles only)
+                        const blockedByBuilding = this.isBlockedForVehicle(nx, ny, u);
                         
-                        // Расход топлива при движении
-                        if (u.useFuel) {
-                            u.useFuel();
+                        if (!blockedByBuilding) {
+                            // Update direction based on movement
+                            u.direction = Math.atan2(ny - u.y, nx - u.x);
+                            u.x = nx;
+                            u.y = ny;
+                            
+                            // Расход топлива при движении
+                            if (u.useFuel) {
+                                u.useFuel();
+                            }
                         }
+                        // If blocked by building, keep trying (will go around)
                     }
-                    // If blocked by building, keep trying (will go around)
                 } else {
                     u.tx = undefined;
                     u.ty = undefined;
@@ -349,7 +346,7 @@ export class Game {
         }
         
         // Flatbed пополняет БК артиллерии
-        if ((unit.type === 'duna' || unit.type === 'hauler') && unit.supplyArtillery) {
+        if (unit.type === 'flatbed' && unit.supplyArtillery) {
             // Ищем ближайшую артиллерию
             let nearestArtillery = null;
             let artilleryDist = Infinity;

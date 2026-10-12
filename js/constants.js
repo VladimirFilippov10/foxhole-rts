@@ -51,9 +51,8 @@ export const VEHICLE_COSTS = {
     truck: { s: 25, c: 15, m: 10, buildTime: 10 }, // Грузовик - перевозит БК
     fuel_truck: { s: 30, c: 20, m: 15, buildTime: 12 }, // Бензовоз - перевозит топливо
     engineer: { s: 40, c: 30, m: 25, buildTime: 20 }, // Инженерная машина - ремонтирует
-    // Flatbed для артиллерии
-    duna: { s: 35, c: 25, m: 20, buildTime: 15 }, // Wardens flatbed
-    hauler: { s: 35, c: 25, m: 20, buildTime: 15 }, // Colonials flatbed
+    // Flatbed для артиллерии (общий для обеих фракций)
+    flatbed: { s: 35, c: 25, m: 20, buildTime: 15 }, // Flatbed truck
 };
 
 export const BUILDING_COSTS = {

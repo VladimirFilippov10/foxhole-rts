@@ -30,8 +30,7 @@ const VEHICLE_INFO = {
     truck: { name: 'Грузовик', icon: '🚚', stats: 'HP:120 SPD:1.8 Пополняет БК', cost: VEHICLE_COSTS.truck },
     fuel_truck: { name: 'Бензовоз', icon: '⛽', stats: 'HP:140 SPD:1.6 Пополняет топливо', cost: VEHICLE_COSTS.fuel_truck },
     engineer: { name: 'Инженер', icon: '🔧', stats: 'HP:160 SPD:1.2 Ремонтирует технику', cost: VEHICLE_COSTS.engineer },
-    duna: { name: 'Duna', icon: '🚛', stats: 'HP:150 SPD:1.5 Перевозит снаряды для артиллерии', cost: VEHICLE_COSTS.duna },
-    hauler: { name: 'Hauler', icon: '🚛', stats: 'HP:150 SPD:1.5 Перевозит снаряды для артиллерии', cost: VEHICLE_COSTS.hauler },
+    flatbed: { name: 'Flatbed', icon: '🚛', stats: 'HP:150 SPD:1.5 Перевозит снаряды для артиллерии', cost: VEHICLE_COSTS.flatbed },
 };
 
 // Fortification info

@@ -326,10 +326,10 @@ export class Engineer extends Vehicle {
     }
 }
 
-// ===== FLATBED TRUCKS FOR ARTILLERY =====
+// ===== FLATBED TRUCK FOR ARTILLERY (общий для обеих фракций) =====
 export class Flatbed extends Vehicle {
-    constructor(type, faction, x, y) {
-        super(type, faction, x, y);
+    constructor(faction, x, y) {
+        super('flatbed', faction, x, y);
         this.hp = this.maxHp = 150;
         this.dmg = 0;
         this.range = 0;
@@ -337,7 +337,7 @@ export class Flatbed extends Vehicle {
         this.cd = 0;
         this.size = 26;
         this.armor = 2;
-        this.label = type === 'duna' ? 'Duna' : 'Hauler';
+        this.label = 'Flatbed';
         this.cargoType = 'artillery_ammo';
         this.cargoCapacity = SUPPLY_SYSTEM.flatbedCapacity;
         this.currentCargo = SUPPLY_SYSTEM.flatbedCapacity;
@@ -383,18 +383,15 @@ export function createVehicle(type, faction, x, y) {
         truck: Truck,
         fuel_truck: FuelTruck,
         engineer: Engineer,
-        duna: (f, x, y) => new Flatbed('duna', f, x, y),
-        hauler: (f, x, y) => new Flatbed('hauler', f, x, y),
+        flatbed: Flatbed,
     };
     const creator = map[type];
     if (!creator) return new Vehicle(type, faction, x, y);
-    return typeof creator === 'function' && creator.length === 3 
-        ? creator(faction, x, y) 
-        : new creator(faction, x, y);
+    return new creator(faction, x, y);
 }
 
 // Доступная техника по фракциям
 export const FACTION_VEHICLES = {
-    wardens: ['devitt', 'gallagher', 'niska', 'warden_artillery', 'truck', 'fuel_truck', 'engineer', 'duna'],
-    colonials: ['hatchet', 'falchion', 'hoplite', 'colonial_artillery', 'truck', 'fuel_truck', 'engineer', 'hauler'],
+    wardens: ['devitt', 'gallagher', 'niska', 'warden_artillery', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
+    colonials: ['hatchet', 'falchion', 'hoplite', 'colonial_artillery', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
 };
