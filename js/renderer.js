@@ -117,6 +117,28 @@ export function render(ctx, G, canvas) {
         ctx.fill();
     });
     ctx.globalAlpha = 1;
+    
+    // Tracers
+    G.tracers.forEach(tracer => {
+        const alpha = tracer.life / tracer.maxLife;
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = tracer.color;
+        ctx.lineWidth = tracer.width;
+        ctx.lineCap = 'round';
+        
+        // Draw tracer line
+        ctx.beginPath();
+        ctx.moveTo(tracer.fromX - cam.x, tracer.fromY - cam.y);
+        ctx.lineTo(tracer.currentX - cam.x, tracer.currentY - cam.y);
+        ctx.stroke();
+        
+        // Draw bright head
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(tracer.currentX - cam.x, tracer.currentY - cam.y, tracer.width * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1;
 
     // Move mode indicator
     if (G.moveMode) {
@@ -1003,87 +1025,260 @@ function drawCapturePoint(ctx, cp, cam) {
 }
 
 function drawFortifications(ctx, x, y, level, col) {
-    // Level 1: Sandbags
+    // Level 1: Sandbags and small barriers
     if (level >= 1) {
+        // More sandbags in defensive positions
         const sandbagPositions = [
-            { angle: 0, dist: 40 },
-            { angle: Math.PI / 2, dist: 40 },
-            { angle: Math.PI, dist: 40 },
-            { angle: Math.PI * 1.5, dist: 40 },
+            // Main perimeter
+            { angle: 0, dist: 45 },
+            { angle: Math.PI / 4, dist: 45 },
+            { angle: Math.PI / 2, dist: 45 },
+            { angle: Math.PI * 3 / 4, dist: 45 },
+            { angle: Math.PI, dist: 45 },
+            { angle: Math.PI * 5 / 4, dist: 45 },
+            { angle: Math.PI * 3 / 2, dist: 45 },
+            { angle: Math.PI * 7 / 4, dist: 45 },
+            // Inner ring
+            { angle: Math.PI / 6, dist: 30 },
+            { angle: Math.PI / 2 + Math.PI / 6, dist: 30 },
+            { angle: Math.PI + Math.PI / 6, dist: 30 },
+            { angle: Math.PI * 3 / 2 + Math.PI / 6, dist: 30 },
         ];
         
         sandbagPositions.forEach(pos => {
             const sx = x + Math.cos(pos.angle) * pos.dist;
             const sy = y + Math.sin(pos.angle) * pos.dist;
             
+            // Sandbag shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.beginPath();
+            ctx.ellipse(sx + 1, sy + 1, 9, 6, pos.angle, 0, Math.PI * 2);
+            ctx.fill();
+            
             // Sandbag
             ctx.fillStyle = '#8b7355';
             ctx.beginPath();
-            ctx.ellipse(sx, sy, 8, 5, pos.angle, 0, Math.PI * 2);
+            ctx.ellipse(sx, sy, 9, 6, pos.angle, 0, Math.PI * 2);
             ctx.fill();
             ctx.strokeStyle = '#6b5335';
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 1.5;
             ctx.stroke();
+            
+            // Sandbag texture
+            ctx.fillStyle = '#7a6345';
+            ctx.beginPath();
+            ctx.ellipse(sx - 2, sy - 1, 3, 2, pos.angle, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        
+        // Small barriers
+        const barrierPositions = [
+            { angle: Math.PI / 8, dist: 38 },
+            { angle: Math.PI * 5 / 8, dist: 38 },
+            { angle: Math.PI * 9 / 8, dist: 38 },
+            { angle: Math.PI * 13 / 8, dist: 38 },
+        ];
+        
+        barrierPositions.forEach(pos => {
+            const bx = x + Math.cos(pos.angle) * pos.dist;
+            const by = y + Math.sin(pos.angle) * pos.dist;
+            
+            ctx.save();
+            ctx.translate(bx, by);
+            ctx.rotate(pos.angle);
+            
+            // Barrier
+            ctx.fillStyle = '#5a4a3a';
+            ctx.fillRect(-6, -3, 12, 6);
+            ctx.strokeStyle = '#3a2a1a';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-6, -3, 12, 6);
+            
+            ctx.restore();
         });
     }
     
-    // Level 2: Concrete walls
+    // Level 2: Concrete walls and mini-bunkers
     if (level >= 2) {
+        // Keep level 1 elements
+        // (sandbags are already drawn)
+        
+        // Concrete walls - more extensive
         const wallPositions = [
-            { x: x - 50, y: y, width: 20, height: 8 },
-            { x: x + 50, y: y, width: 20, height: 8 },
-            { x: x, y: y - 50, width: 8, height: 20 },
-            { x: x, y: y + 50, width: 8, height: 20 },
+            { x: x - 55, y: y, width: 25, height: 10 },
+            { x: x + 55, y: y, width: 25, height: 10 },
+            { x: x, y: y - 55, width: 10, height: 25 },
+            { x: x, y: y + 55, width: 10, height: 25 },
+            // Diagonal walls
+            { x: x - 40, y: y - 40, width: 20, height: 8, rotate: Math.PI / 4 },
+            { x: x + 40, y: y - 40, width: 20, height: 8, rotate: -Math.PI / 4 },
+            { x: x - 40, y: y + 40, width: 20, height: 8, rotate: -Math.PI / 4 },
+            { x: x + 40, y: y + 40, width: 20, height: 8, rotate: Math.PI / 4 },
         ];
         
         wallPositions.forEach(wall => {
+            ctx.save();
+            ctx.translate(wall.x, wall.y);
+            if (wall.rotate) ctx.rotate(wall.rotate);
+            
             // Wall shadow
             ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-            ctx.fillRect(wall.x - wall.width / 2 + 2, wall.y - wall.height / 2 + 2, wall.width, wall.height);
+            ctx.fillRect(-wall.width / 2 + 2, -wall.height / 2 + 2, wall.width, wall.height);
             
             // Wall
             ctx.fillStyle = '#6b7280';
-            ctx.fillRect(wall.x - wall.width / 2, wall.y - wall.height / 2, wall.width, wall.height);
+            ctx.fillRect(-wall.width / 2, -wall.height / 2, wall.width, wall.height);
             ctx.strokeStyle = '#4b5563';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(wall.x - wall.width / 2, wall.y - wall.height / 2, wall.width, wall.height);
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(-wall.width / 2, -wall.height / 2, wall.width, wall.height);
+            
+            // Wall texture
+            ctx.fillStyle = '#5b6270';
+            for (let i = 0; i < 3; i++) {
+                ctx.fillRect(-wall.width / 2 + i * 8, -wall.height / 2, 2, wall.height);
+            }
+            
+            ctx.restore();
+        });
+        
+        // Mini-bunkers
+        const bunkerPositions = [
+            { angle: Math.PI / 3, dist: 50 },
+            { angle: Math.PI, dist: 50 },
+            { angle: Math.PI * 5 / 3, dist: 50 },
+        ];
+        
+        bunkerPositions.forEach(pos => {
+            const bx = x + Math.cos(pos.angle) * pos.dist;
+            const by = y + Math.sin(pos.angle) * pos.dist;
+            
+            ctx.save();
+            ctx.translate(bx, by);
+            ctx.rotate(pos.angle + Math.PI);
+            
+            // Bunker shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(-10 + 2, -8 + 2, 20, 16);
+            
+            // Bunker body
+            ctx.fillStyle = '#4a4a4a';
+            ctx.fillRect(-10, -8, 20, 16);
+            ctx.strokeStyle = '#2a2a2a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-10, -8, 20, 16);
+            
+            // Bunker roof
+            ctx.fillStyle = '#3a3a3a';
+            ctx.fillRect(-11, -9, 22, 3);
+            
+            // Firing slit
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(-2, -4, 4, 2);
+            
+            // Door
+            ctx.fillStyle = '#3a3a3a';
+            ctx.fillRect(-3, 2, 6, 6);
+            
+            ctx.restore();
         });
     }
     
-    // Level 3: Turrets
+    // Level 3: Turrets and heavy fortifications
     if (level >= 3) {
+        // Keep level 1 and 2 elements
+        // (sandbags, walls, mini-bunkers are already drawn)
+        
+        // Heavy turrets
         const turretPositions = [
-            { angle: Math.PI / 4, dist: 60 },
-            { angle: Math.PI * 3 / 4, dist: 60 },
-            { angle: Math.PI * 5 / 4, dist: 60 },
-            { angle: Math.PI * 7 / 4, dist: 60 },
+            { angle: Math.PI / 4, dist: 65 },
+            { angle: Math.PI * 3 / 4, dist: 65 },
+            { angle: Math.PI * 5 / 4, dist: 65 },
+            { angle: Math.PI * 7 / 4, dist: 65 },
         ];
         
         turretPositions.forEach(pos => {
             const tx = x + Math.cos(pos.angle) * pos.dist;
             const ty = y + Math.sin(pos.angle) * pos.dist;
             
+            // Turret shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.beginPath();
+            ctx.arc(tx + 2, ty + 2, 12, 0, Math.PI * 2);
+            ctx.fill();
+            
             // Turret base
             ctx.fillStyle = '#374151';
             ctx.beginPath();
-            ctx.arc(tx, ty, 10, 0, Math.PI * 2);
+            ctx.arc(tx, ty, 12, 0, Math.PI * 2);
             ctx.fill();
             ctx.strokeStyle = '#1f2937';
             ctx.lineWidth = 2;
             ctx.stroke();
             
+            // Turret platform
+            ctx.fillStyle = '#4b5563';
+            ctx.beginPath();
+            ctx.arc(tx, ty, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
             // Turret barrel
             ctx.strokeStyle = col.p;
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(tx, ty);
-            ctx.lineTo(tx + Math.cos(pos.angle) * 15, ty + Math.sin(pos.angle) * 15);
+            ctx.lineTo(tx + Math.cos(pos.angle) * 18, ty + Math.sin(pos.angle) * 18);
             ctx.stroke();
+            
+            // Barrel tip
+            ctx.fillStyle = '#1f2937';
+            ctx.beginPath();
+            ctx.arc(tx + Math.cos(pos.angle) * 18, ty + Math.sin(pos.angle) * 18, 3, 0, Math.PI * 2);
+            ctx.fill();
             
             // Turret highlight
             ctx.fillStyle = col.a;
             ctx.beginPath();
-            ctx.arc(tx, ty, 4, 0, Math.PI * 2);
+            ctx.arc(tx, ty, 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Turret details
+            ctx.strokeStyle = '#1f2937';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(tx, ty, 10, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+        
+        // Anti-aircraft defense
+        const aaPositions = [
+            { angle: 0, dist: 70 },
+            { angle: Math.PI, dist: 70 },
+        ];
+        
+        aaPositions.forEach(pos => {
+            const ax = x + Math.cos(pos.angle) * pos.dist;
+            const ay = y + Math.sin(pos.angle) * pos.dist;
+            
+            // AA base
+            ctx.fillStyle = '#2a2a2a';
+            ctx.fillRect(ax - 8, ay - 8, 16, 16);
+            ctx.strokeStyle = '#1a1a1a';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(ax - 8, ay - 8, 16, 16);
+            
+            // AA barrel
+            ctx.strokeStyle = col.p;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(ax + Math.cos(pos.angle) * 12, ay + Math.sin(pos.angle) * 12 - 8);
+            ctx.stroke();
+            
+            // AA radar dish
+            ctx.fillStyle = col.a;
+            ctx.beginPath();
+            ctx.arc(ax, ay - 10, 4, 0, Math.PI * 2);
             ctx.fill();
         });
     }

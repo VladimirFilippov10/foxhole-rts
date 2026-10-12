@@ -31,6 +31,9 @@ export class Game {
             infantry: 20, // Базовый лимит пехоты
             vehicles: 10, // Базовый лимит техники
         };
+        
+        // Система трассеров
+        this.tracers = []; // Массив трассеров
     }
 
     init(cps, mines, buildings, units) {
@@ -110,6 +113,9 @@ export class Game {
             p.life--;
             return p.life > 0;
         });
+        
+        // Tracers
+        this.updateTracers();
 
         // Win check
         this.checkWinCondition();
@@ -233,6 +239,9 @@ export class Game {
                         
                         // Artillery AoE attack
                         if (u.aoe && u.aoeRadius) {
+                            // Add artillery tracer
+                            this.addTracer(u.x, u.y, attackTarget.x, attackTarget.y, 'artillery');
+                            
                             // Damage all enemies in radius around target
                             this.units.forEach(enemy => {
                                 if (enemy.faction !== u.faction && enemy.hp > 0) {
@@ -256,6 +265,10 @@ export class Game {
                             }
                         } else {
                             // Normal single target attack
+                            // Add tracer based on unit type
+                            const tracerType = (u.type === 'warden_artillery' || u.type === 'colonial_artillery') ? 'shell' : 'bullet';
+                            this.addTracer(u.x, u.y, attackTarget.x, attackTarget.y, tracerType);
+                            
                             attackTarget.takeDamage(u.dmg);
                             this.addParticles(attackTarget.x, attackTarget.y, '#ffcc00', 4);
                         }
@@ -608,9 +621,9 @@ export class Game {
     getTerritoryDefenseStats(defenseLevel) {
         const stats = [
             { damage: 0, range: 0, hp: 0 },      // Уровень 0 - нет обороны
-            { damage: 15, range: 120, hp: 300 },  // Уровень 1
-            { damage: 25, range: 150, hp: 600 },  // Уровень 2
-            { damage: 40, range: 180, hp: 1000 }, // Уровень 3
+            { damage: 15, range: 250, hp: 300 },  // Уровень 1 - увеличен радиус
+            { damage: 25, range: 350, hp: 600 },  // Уровень 2 - увеличен радиус
+            { damage: 40, range: 450, hp: 1000 }, // Уровень 3 - увеличен радиус
         ];
         return stats[defenseLevel] || stats[0];
     }
@@ -755,6 +768,10 @@ export class Game {
                 // Атакуем если нашли врага
                 if (nearestEnemy) {
                     cp.lastAtk = this.time;
+                    
+                    // Add defense tracer
+                    this.addTracer(cp.x, cp.y, nearestEnemy.x, nearestEnemy.y, 'defense');
+                    
                     nearestEnemy.takeDamage(stats.damage);
                     
                     // Визуальный эффект выстрела
@@ -905,5 +922,49 @@ export class Game {
                 size: 2 + Math.random() * 3,
             });
         }
+    }
+    
+    addTracer(fromX, fromY, toX, toY, type = 'bullet') {
+        const tracers = {
+            bullet: { color: '#ffeb3b', width: 2, speed: 15, life: 10 },
+            shell: { color: '#ff9800', width: 3, speed: 12, life: 15 },
+            artillery: { color: '#f44336', width: 4, speed: 8, life: 20 },
+            defense: { color: '#4caf50', width: 2, speed: 14, life: 12 }
+        };
+        
+        const config = tracers[type] || tracers.bullet;
+        
+        this.tracers.push({
+            fromX, fromY,
+            toX, toY,
+            currentX: fromX,
+            currentY: fromY,
+            color: config.color,
+            width: config.width,
+            speed: config.speed,
+            life: config.life,
+            maxLife: config.life,
+            type
+        });
+    }
+    
+    updateTracers() {
+        this.tracers = this.tracers.filter(tracer => {
+            // Двигаем трассер к цели
+            const dx = tracer.toX - tracer.currentX;
+            const dy = tracer.toY - tracer.currentY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist < tracer.speed) {
+                tracer.currentX = tracer.toX;
+                tracer.currentY = tracer.toY;
+                tracer.life--;
+            } else {
+                tracer.currentX += (dx / dist) * tracer.speed;
+                tracer.currentY += (dy / dist) * tracer.speed;
+            }
+            
+            return tracer.life > 0;
+        });
     }
 }
