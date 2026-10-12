@@ -225,11 +225,13 @@ export class Game {
             }
             
             // Attack if possible
+            let isAttacking = false;
             if (canAttack && attackTarget) {
                 const timeSinceLastAttack = this.time - u.lastAtk;
                 if (timeSinceLastAttack >= u.cd) {
                     // Проверка БК перед атакой
                     if (!u.canAttack || u.canAttack()) {
+                        isAttacking = true;
                         u.lastAtk = this.time;
                         
                         // Расход БК при атаке
@@ -275,8 +277,10 @@ export class Game {
                     }
                 }
             }
-            // Move to target if not attacking or target is out of range
-            else if (u.tx !== undefined) {
+            
+            // Move to target - can move even if enemy is nearby but out of range
+            // Only stop moving if actively attacking
+            if (!isAttacking && u.tx !== undefined) {
                 const d = dist(u.x, u.y, u.tx, u.ty);
                 if (d > 5) {
                     // Проверка топлива

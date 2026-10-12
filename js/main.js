@@ -312,6 +312,23 @@ function handleMouseDown(e) {
     const worldX = e.clientX + game.cam.x;
     const worldY = e.clientY + game.cam.y;
     
+    // Right click - move units
+    if (e.button === 2) {
+        if (game.selected.length > 0) {
+            const selUnits = game.units.filter(u => game.selected.includes(u.id));
+            const cols = Math.ceil(Math.sqrt(selUnits.length));
+            selUnits.forEach((u, i) => {
+                const row = Math.floor(i / cols);
+                const col = i % cols;
+                u.tx = worldX + (col - cols / 2) * 25;
+                u.ty = worldY + (row - cols / 2) * 25;
+            });
+            // Add move indicator particles
+            game.addParticles(worldX, worldY, '#22c55e', 5);
+        }
+        return;
+    }
+    
     // Check minimap click
     const mw = 180, mh = 120;
     const mx = canvas.width - mw - 10, my = canvas.height - mh - 50;
