@@ -25,6 +25,12 @@ export class Game {
         
         // Система производства
         this.productionQueue = []; // Очередь производства [{type, faction, buildingId, startTime, buildTime}]
+        
+        // Система лимитов юнитов
+        this.unitLimits = {
+            infantry: 20, // Базовый лимит пехоты
+            vehicles: 10, // Базовый лимит техники
+        };
     }
 
     init(cps, mines, buildings, units) {
@@ -83,6 +89,9 @@ export class Game {
         
         // Mines
         this.updateMines();
+        
+        // Update unit limits based on captured points
+        this.updateUnitLimits();
 
         // AI
         if (this.aiController) {
