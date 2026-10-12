@@ -86,9 +86,15 @@ export const SUPPLY_SYSTEM = {
     logisticsReplenishRate: 0.5, // Скорость пополнения логистики на базе
 };
 
+export const GRID_SCALE = 1.5; // Масштабирование карты для более медленной игры
+
 export function gridToPos(col, row) {
     // col: 0-11 (A-L), row: 0-14 (1-15)
-    return { x: col * CELL_W + CELL_W / 2, y: row * CELL_H + CELL_H / 2 };
+    // Увеличенные координаты для более медленной игры
+    return { 
+        x: col * CELL_W * GRID_SCALE + CELL_W * GRID_SCALE / 2, 
+        y: row * CELL_H * GRID_SCALE + CELL_H * GRID_SCALE / 2 
+    };
 }
 
 export function letterToCol(letter) {

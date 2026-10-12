@@ -482,6 +482,34 @@ function drawCapturePoint(ctx, cp, cam) {
     ctx.stroke();
     ctx.setLineDash([]);
     
+    // Defense level indicator (if owned and has defense)
+    if (cp.owner !== 'neutral' && cp.defenseLevel > 0) {
+        // Draw defense range circle
+        const stats = [
+            { range: 0 },
+            { range: 120 },
+            { range: 150 },
+            { range: 180 },
+        ];
+        const defRange = stats[cp.defenseLevel].range;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, defRange, 0, Math.PI * 2);
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        // Draw defense level stars
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const stars = '★'.repeat(cp.defenseLevel);
+        ctx.fillText(stars, x, y + cp.radius * 0.3);
+    }
+    
     // Capture progress
     if (cp.capturing) {
         const cCol = COLORS[cp.capturing];
@@ -929,7 +957,7 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
 function drawMinimap(ctx, G, canvas) {
     const mw = 180, mh = 120;
     const mx = canvas.width - mw - 10, my = canvas.height - mh - 50;
-    const sx = mw / 3000, sy = mh / 2250;
+    const sx = mw / 4500, sy = mh / 3375; // Увеличенная карта
     
     ctx.fillStyle = 'rgba(0,0,0,0.85)';
     ctx.fillRect(mx - 2, my - 2, mw + 4, mh + 4);

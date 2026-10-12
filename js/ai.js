@@ -350,6 +350,9 @@ export class AI {
             if (targetDist <= art.range && targetDist >= (art.minRange || 100)) {
                 // Устанавливаем цель для AoE атаки
                 art.aoeTarget = { x: target.cp.x, y: target.cp.y };
+                
+                // Отправляем сопровождение к артиллерии
+                this.sendEscortToArtillery(art);
             }
             // Если цель слишком близко - отступаем
             else if (targetDist < (art.minRange || 100)) {
@@ -363,6 +366,30 @@ export class AI {
                 art.ty = target.cp.y + (Math.random() - 0.5) * 100;
             }
         });
+    }
+    
+    sendEscortToArtillery(artillery) {
+        // Находим свободные юниты для сопровождения
+        const availableUnits = this.G.units.filter(u => 
+            u.faction === this.G.ai && 
+            u.hp > 0 && 
+            u.tx === undefined && // Не имеет цели
+            u !== artillery &&
+            (u.type === 'infantry' || u.type === 'devitt' || u.type === 'hatchet' || 
+             u.type === 'gallagher' || u.type === 'falchion' || 
+             u.type === 'niska' || u.type === 'hoplite')
+        );
+        
+        // Отправляем 2-3 юнита в сопровождение
+        const escortCount = Math.min(3, availableUnits.length);
+        for (let i = 0; i < escortCount; i++) {
+            const escort = availableUnits[i];
+            // Позиция рядом с артиллерией
+            const angle = (i / escortCount) * Math.PI * 2;
+            const escortDist = 50;
+            escort.tx = artillery.x + Math.cos(angle) * escortDist;
+            escort.ty = artillery.y + Math.sin(angle) * escortDist;
+        }
     }
 
     findDefensiveTarget(fromX, fromY) {

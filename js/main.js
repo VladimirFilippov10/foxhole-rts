@@ -33,12 +33,12 @@ const VEHICLE_INFO = {
     flatbed: { name: 'Flatbed', icon: '🚛', stats: 'HP:150 SPD:1.5 Перевозит снаряды для артиллерии', cost: VEHICLE_COSTS.flatbed },
 };
 
-// Fortification info
-const FORTIFICATION_INFO = {
-    bunker_light: { name: 'Лёгкий бункер', icon: '🏰', stats: 'HP:300 DEF:10 RNG:120', cost: { s: 30, c: 20, m: 25 } },
-    bunker_medium: { name: 'Средний бункер', icon: '🏯', stats: 'HP:600 DEF:20 RNG:150', cost: { s: 60, c: 40, m: 50 } },
-    bunker_heavy: { name: 'Тяжёлый бункер', icon: '🏰', stats: 'HP:1000 DEF:35 RNG:180', cost: { s: 100, c: 70, m: 80 } },
-};
+// Defense upgrade info
+const DEFENSE_UPGRADE_INFO = [
+    { level: 1, name: 'Оборона Уровень 1', icon: '🛡️', stats: 'DMG:15 RNG:120', cost: { s: 50, c: 30, m: 40 } },
+    { level: 2, name: 'Оборона Уровень 2', icon: '🛡️🛡️', stats: 'DMG:25 RNG:150', cost: { s: 100, c: 60, m: 80 } },
+    { level: 3, name: 'Оборона Уровень 3', icon: '🛡️🛡️🛡️', stats: 'DMG:40 RNG:180', cost: { s: 150, c: 90, m: 120 } },
+];
 
 // Initialize
 window.addEventListener('load', () => {
@@ -307,7 +307,7 @@ function handleMouseDown(e) {
     const mw = 180, mh = 120;
     const mx = canvas.width - mw - 10, my = canvas.height - mh - 50;
     if (e.clientX >= mx && e.clientX <= mx + mw && e.clientY >= my && e.clientY <= my + mh) {
-        const mapW = 3000, mapH = 2250;
+        const mapW = 4500, mapH = 3375; // Увеличенная карта (1.5x)
         const clickX = (e.clientX - mx) / mw;
         const clickY = (e.clientY - my) / mh;
         game.cam.x = Math.max(0, Math.min(mapW - canvas.width, clickX * mapW - canvas.width / 2));
@@ -343,18 +343,32 @@ function handleMouseDown(e) {
         return;
     }
     
-    // Build mode - place fortification
-    if (buildMode && selectedFortificationType) {
-        const result = game.buildFortification(selectedFortificationType, worldX, worldY, game.faction);
-        if (result) {
-            notify(`${FORTIFICATION_INFO[selectedFortificationType].name} построен!`);
-            buildMode = false;
-            selectedFortificationType = null;
-            const btn = document.getElementById('buildBtn');
-            btn.style.borderColor = '#374151';
-            btn.style.background = 'rgba(17,24,39,0.9)';
+    // Build mode - upgrade territory defense
+    if (buildMode) {
+        // Проверяем клик по захваченной территории
+        const clickedCP = game.cps.find(cp => {
+            const d = dist(cp.x, cp.y, worldX, worldY);
+            return d <= cp.radius && cp.owner === game.faction;
+        });
+        
+        if (clickedCP) {
+            const cpIndex = game.cps.indexOf(clickedCP);
+            const result = game.upgradeTerritoryDefense(cpIndex);
+            if (result) {
+                notify(`${clickedCP.name}: оборона улучшена до уровня ${clickedCP.defenseLevel}!`);
+                buildMode = false;
+                const btn = document.getElementById('buildBtn');
+                btn.style.borderColor = '#374151';
+                btn.style.background = 'rgba(17,24,39,0.9)';
+            } else {
+                if (clickedCP.defenseLevel >= 3) {
+                    notify('Максимальный уровень обороны достигнут!');
+                } else {
+                    notify('Недостаточно ресурсов!');
+                }
+            }
         } else {
-            notify('Недостаточно ресурсов или нельзя строить здесь!');
+            notify('Кликните по захваченной территории для улучшения обороны!');
         }
         return;
     }
@@ -582,20 +596,27 @@ window.toggleBuildMode = function() {
 };
 
 function showFortificationMenu() {
-    // Создаём меню выбора типа укрепления
+    // Создаём меню улучшения обороны территорий
     let menu = document.getElementById('fortificationMenu');
     if (!menu) {
         menu = document.createElement('div');
         menu.id = 'fortificationMenu';
-        menu.style.cssText = 'position:fixed;bottom:5rem;right:1rem;background:rgba(17,24,39,0.95);border:2px solid #4b5563;border-radius:12px;padding:1rem;z-index:300;min-width:280px;';
+        menu.style.cssText = 'position:fixed;bottom:5rem;right:1rem;background:rgba(17,24,39,0.95);border:2px solid #4b5563;border-radius:12px;padding:1rem;z-index:300;min-width:320px;';
         document.body.appendChild(menu);
     }
     
+    const defenseInfo = [
+        { level: 1, name: 'Оборона Уровень 1', icon: '🛡️', stats: 'DMG:15 RNG:120 HP:300', cost: { s: 50, c: 30, m: 40 } },
+        { level: 2, name: 'Оборона Уровень 2', icon: '🛡️🛡️', stats: 'DMG:25 RNG:150 HP:600', cost: { s: 100, c: 60, m: 80 } },
+        { level: 3, name: 'Оборона Уровень 3', icon: '🛡️🛡️🛡️', stats: 'DMG:40 RNG:180 HP:1000', cost: { s: 150, c: 90, m: 120 } },
+    ];
+    
     menu.innerHTML = `
-        <h3 style="font-size:1rem;margin-bottom:0.75rem;color:#22c55e;border-bottom:1px solid #374151;padding-bottom:0.5rem;">🏰 Строительство укреплений</h3>
+        <h3 style="font-size:1rem;margin-bottom:0.75rem;color:#22c55e;border-bottom:1px solid #374151;padding-bottom:0.5rem;">🏰 Улучшение обороны территорий</h3>
+        <p style="font-size:0.75rem;color:#9ca3af;margin-bottom:0.75rem;">Кликните по захваченной территории для улучшения</p>
         <div style="display:grid;grid-template-columns:1fr;gap:0.5rem;">
-            ${Object.entries(FORTIFICATION_INFO).map(([type, info]) => `
-                <div class="unit-card" onclick="selectFortification('${type}')" style="cursor:pointer;">
+            ${defenseInfo.map(info => `
+                <div class="unit-card" style="cursor:default;">
                     <div class="unit-name">${info.icon} ${info.name}</div>
                     <div class="unit-stats">${info.stats}</div>
                     <div class="unit-cost">S:${info.cost.s} C:${info.cost.c} M:${info.cost.m}</div>
@@ -614,10 +635,9 @@ function hideFortificationMenu() {
     selectedFortificationType = null;
 }
 
-window.selectFortification = function(type) {
-    selectedFortificationType = type;
-    buildMode = true; // Включаем режим строительства
-    notify(`Выбрано: ${FORTIFICATION_INFO[type].name}. Кликните на карту для строительства.`);
+window.selectFortification = function(level) {
+    buildMode = true; // Включаем режим улучшения обороны
+    notify(`Выбрано улучшение обороны уровня ${level}. Кликните по захваченной территории.`);
     hideFortificationMenu();
     
     // Обновляем кнопку BUILD

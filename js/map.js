@@ -2,6 +2,8 @@
 import { gridToPos } from './constants.js';
 
 // Grid: A-L (cols 0-11), rows 1-15 (0-14)
+// Увеличенные размеры для более медленной игры
+export const GRID_SCALE = 1.5; // Масштабирование карты
 export const LOCATIONS = [
     // Northern part (rows 1-4)
     { name: "Callahan's Pass", col: 11, row: 0, type: 'label' },
@@ -57,22 +59,22 @@ export const LOCATIONS = [
     { name: 'Path to the Sun', col: 1, row: 13, type: 'label' },
 ];
 
-// Capture points - expanded to 14 cities
+// Capture points - увеличенные радиусы для более медленной игры
 export const CAPTURE_POINTS = [
-    { name: "Callahan Gate", col: 1, row: 2, radius: 100, owner: 'wardens' },
-    { name: "Callahan's Cache", col: 9, row: 1, radius: 70, owner: 'neutral' },
-    { name: 'The Plaza', col: 4, row: 4, radius: 70, owner: 'neutral' },
-    { name: "Callahan's Belt", col: 9, row: 4, radius: 70, owner: 'neutral' },
-    { name: 'Catpal Trail', col: 1, row: 5, radius: 70, owner: 'neutral' },
-    { name: 'Iron Hills', col: 6, row: 2, radius: 70, owner: 'neutral' },
-    { name: 'Border Watch', col: 3, row: 7, radius: 70, owner: 'neutral' },
-    { name: 'Liberation Point', col: 1, row: 8, radius: 70, owner: 'neutral' },
-    { name: "Hope's Causeway", col: 6, row: 8, radius: 70, owner: 'neutral' },
-    { name: 'Crossroads', col: 4, row: 10, radius: 70, owner: 'neutral' },
-    { name: 'The Salt Farms', col: 5, row: 11, radius: 70, owner: 'neutral' },
-    { name: 'Brine Glen', col: 9, row: 9, radius: 70, owner: 'neutral' },
-    { name: 'Eastern Outpost', col: 10, row: 6, radius: 70, owner: 'neutral' },
-    { name: 'The Salt March', col: 7, row: 11, radius: 100, owner: 'colonials' },
+    { name: "Callahan Gate", col: 1, row: 2, radius: 150, owner: 'wardens', defenseLevel: 0 },
+    { name: "Callahan's Cache", col: 9, row: 1, radius: 105, owner: 'neutral', defenseLevel: 0 },
+    { name: 'The Plaza', col: 4, row: 4, radius: 105, owner: 'neutral', defenseLevel: 0 },
+    { name: "Callahan's Belt", col: 9, row: 4, radius: 105, owner: 'neutral', defenseLevel: 0 },
+    { name: 'Catpal Trail', col: 1, row: 5, radius: 105, owner: 'neutral', defenseLevel: 0 },
+    { name: 'Iron Hills', col: 6, row: 2, radius: 105, owner: 'neutral', defenseLevel: 0 },
+    { name: 'Border Watch', col: 3, row: 7, radius: 105, owner: 'neutral', defenseLevel: 0 },
+    { name: 'Liberation Point', col: 1, row: 8, radius: 105, owner: 'neutral', defenseLevel: 0 },
+    { name: "Hope's Causeway", col: 6, row: 8, radius: 105, owner: 'neutral', defenseLevel: 0 },
+    { name: 'Crossroads', col: 4, row: 10, radius: 105, owner: 'neutral', defenseLevel: 0 },
+    { name: 'The Salt Farms', col: 5, row: 11, radius: 105, owner: 'neutral', defenseLevel: 0 },
+    { name: 'Brine Glen', col: 9, row: 9, radius: 105, owner: 'neutral', defenseLevel: 0 },
+    { name: 'Eastern Outpost', col: 10, row: 6, radius: 105, owner: 'neutral', defenseLevel: 0 },
+    { name: 'The Salt March', col: 7, row: 11, radius: 150, owner: 'colonials', defenseLevel: 0 },
 ];
 
 // Resource mines - expanded to 10 mines

@@ -63,7 +63,7 @@ export class Game {
         if (this.keys?.['a'] || this.keys?.['arrowleft']) this.cam.x -= spd;
         if (this.keys?.['d'] || this.keys?.['arrowright']) this.cam.x += spd;
         
-        const mapW = 3000, mapH = 2250;
+        const mapW = 4500, mapH = 3375; // Увеличенная карта (1.5x)
         this.cam.x = Math.max(0, Math.min(mapW - window.innerWidth, this.cam.x));
         this.cam.y = Math.max(0, Math.min(mapH - window.innerHeight, this.cam.y));
 
@@ -143,14 +143,27 @@ export class Game {
                 this.handleLogistics(u);
             }
             
-            // Find nearest enemy
+            // Find nearest enemy (units or buildings)
             let nearest = null, nearDist = Infinity;
+            
+            // Check enemy units
             this.units.forEach(e => {
                 if (e.faction !== u.faction && e.hp > 0) {
                     const d = dist(u.x, u.y, e.x, e.y);
                     if (d < nearDist) {
                         nearDist = d;
                         nearest = e;
+                    }
+                }
+            });
+            
+            // Check enemy buildings
+            this.buildings.forEach(b => {
+                if (b.faction !== u.faction && b.hp > 0) {
+                    const d = dist(u.x, u.y, b.x, b.y);
+                    if (d < nearDist) {
+                        nearDist = d;
+                        nearest = b;
                     }
                 }
             });
@@ -167,13 +180,26 @@ export class Game {
                 if (targetDist >= minRange && targetDist <= u.range) {
                     attackTarget = { x: u.aoeTarget.x, y: u.aoeTarget.y };
                     canAttack = true;
+                } else if (targetDist < minRange) {
+                    // Target too close - retreat instead of spinning
+                    const retreatAngle = Math.atan2(u.y - u.aoeTarget.y, u.x - u.aoeTarget.x);
+                    u.tx = u.x + Math.cos(retreatAngle) * 100;
+                    u.ty = u.y + Math.sin(retreatAngle) * 100;
+                    u.aoeTarget = null; // Clear target
                 }
             } else if (nearest && nearest.hp > 0) {
                 const targetDist = dist(u.x, u.y, nearest.x, nearest.y);
+                const minRange = u.minRange || 0;
+                
                 // Check if target is in attack range
-                if (targetDist <= u.range && u.dmg > 0 && u.cd > 0) {
+                if (targetDist <= u.range && targetDist >= minRange && u.dmg > 0 && u.cd > 0) {
                     attackTarget = nearest;
                     canAttack = true;
+                } else if (targetDist < minRange && u.aoe) {
+                    // Artillery: target too close - retreat
+                    const retreatAngle = Math.atan2(u.y - nearest.y, u.x - nearest.x);
+                    u.tx = u.x + Math.cos(retreatAngle) * 100;
+                    u.ty = u.y + Math.sin(retreatAngle) * 100;
                 }
             }
             
@@ -464,7 +490,42 @@ export class Game {
         }
     }
     
-    // Система укреплений
+    // Система обороны территорий
+    upgradeTerritoryDefense(cpIndex) {
+        const cp = this.cps[cpIndex];
+        if (!cp || cp.owner !== this.faction) return false;
+        if (cp.defenseLevel >= 3) return false; // Максимум 3 уровня
+        
+        const upgradeCosts = [
+            { s: 50, c: 30, m: 40 },   // Уровень 1
+            { s: 100, c: 60, m: 80 },  // Уровень 2
+            { s: 150, c: 90, m: 120 }, // Уровень 3
+        ];
+        
+        const cost = upgradeCosts[cp.defenseLevel];
+        if (this.res.s < cost.s || this.res.c < cost.c || this.res.m < cost.m) {
+            return false;
+        }
+        
+        this.res.s -= cost.s;
+        this.res.c -= cost.c;
+        this.res.m -= cost.m;
+        cp.defenseLevel++;
+        
+        return true;
+    }
+    
+    getTerritoryDefenseStats(defenseLevel) {
+        const stats = [
+            { damage: 0, range: 0, hp: 0 },      // Уровень 0 - нет обороны
+            { damage: 15, range: 120, hp: 300 },  // Уровень 1
+            { damage: 25, range: 150, hp: 600 },  // Уровень 2
+            { damage: 40, range: 180, hp: 1000 }, // Уровень 3
+        ];
+        return stats[defenseLevel] || stats[0];
+    }
+    
+    // Система укреплений (старая - можно удалить)
     buildFortification(type, x, y, faction) {
         const FORTIFICATION_COSTS = {
             bunker_light: { s: 30, c: 20, m: 25, hp: 300, defense: 10, range: 120, buildTime: 10 },
@@ -575,6 +636,42 @@ export class Game {
                 }
             }
         });
+        
+        // Оборона территорий атакует врагов
+        this.cps.forEach(cp => {
+            if (cp.owner !== 'neutral' && cp.defenseLevel > 0) {
+                const stats = this.getTerritoryDefenseStats(cp.defenseLevel);
+                
+                // Инициализация таймера атаки
+                if (cp.lastAtk === undefined) cp.lastAtk = 0;
+                
+                // Проверяем кулдаун (2 секунды между выстрелами)
+                if (this.time - cp.lastAtk < 120) return;
+                
+                // Ищем ближайшего врага в радиусе действия
+                let nearestEnemy = null;
+                let nearestDist = Infinity;
+                
+                this.units.forEach(u => {
+                    if (u.faction !== cp.owner && u.hp > 0) {
+                        const d = dist(cp.x, cp.y, u.x, u.y);
+                        if (d <= stats.range && d < nearestDist) {
+                            nearestDist = d;
+                            nearestEnemy = u;
+                        }
+                    }
+                });
+                
+                // Атакуем если нашли врага
+                if (nearestEnemy) {
+                    cp.lastAtk = this.time;
+                    nearestEnemy.takeDamage(stats.damage);
+                    
+                    // Визуальный эффект выстрела
+                    this.addParticles(nearestEnemy.x, nearestEnemy.y, '#ffcc00', 3);
+                }
+            }
+        });
     }
     
     upgradeFortification(fortification) {
@@ -651,15 +748,18 @@ export class Game {
     }
 
     checkWinCondition() {
-        // Победа только при уничтожении базы противника
-        const playerTownHall = this.buildings.find(b => b.faction === this.faction && b.type === 'town_hall');
-        const aiTownHall = this.buildings.find(b => b.faction === this.ai && b.type === 'town_hall');
+        // Проверяем наличие территорий у каждой стороны
+        const playerPoints = this.cps.filter(c => c.owner === this.faction).length;
+        const aiPoints = this.cps.filter(c => c.owner === this.ai).length;
         
-        if (!playerTownHall) {
+        // Если у игрока нет территорий - он проиграл
+        if (playerPoints === 0) {
             this.over = true;
             this.winner = this.ai;
         }
-        if (!aiTownHall) {
+        
+        // Если у ИИ нет территорий - игрок победил
+        if (aiPoints === 0) {
             this.over = true;
             this.winner = this.faction;
         }
