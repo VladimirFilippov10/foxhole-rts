@@ -3,717 +3,1179 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>War of the Continent - 2D RTS</title>
+    <title>War of the Continent — Deadlands</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            width: 100%;
-            height: 100vh;
-            overflow: hidden;
+            width: 100%; height: 100vh; overflow: hidden;
             background: #111827;
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            color: white;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            color: white; user-select: none;
         }
-        
-        #gameCanvas {
-            display: block;
-            cursor: crosshair;
-        }
-        
-        .menu {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+        canvas { display: block; cursor: crosshair; }
+
+        /* Screens */
+        .screen {
+            position: fixed; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
             z-index: 1000;
+            background: linear-gradient(135deg, #1f2937, #111827);
         }
-        
-        .menu h1 {
-            font-size: 4rem;
-            font-weight: bold;
-            margin-bottom: 0.5rem;
-            letter-spacing: 0.1em;
-        }
-        
-        .menu p {
-            color: #9ca3af;
-            font-size: 1.2rem;
-            margin-bottom: 3rem;
-        }
-        
-        .faction-buttons {
-            display: flex;
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-        
+        .screen.hidden { display: none; }
+
+        .screen h1 { font-size: 3.5rem; letter-spacing: 0.1em; margin-bottom: 0.5rem; }
+        .screen .subtitle { color: #9ca3af; font-size: 1.1rem; margin-bottom: 2rem; }
+
+        /* Faction buttons */
+        .faction-row { display: flex; gap: 2rem; margin-bottom: 2rem; }
         .faction-btn {
-            width: 280px;
-            height: 320px;
-            border: 2px solid;
-            border-radius: 12px;
-            padding: 1.5rem;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            width: 240px; height: 280px; border: 2px solid;
+            border-radius: 12px; padding: 1.5rem; cursor: pointer;
+            transition: all 0.3s; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
         }
-        
         .faction-btn.wardens {
-            background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 100%);
+            background: linear-gradient(135deg, #1e3a5f, #1e40af);
             border-color: #3b82f6;
         }
-        
         .faction-btn.colonials {
-            background: linear-gradient(135deg, #5f1e1e 0%, #b91c1c 100%);
+            background: linear-gradient(135deg, #5f1e1e, #b91c1c);
             border-color: #ef4444;
         }
-        
-        .faction-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        .faction-btn:hover { transform: scale(1.05); box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+        .faction-btn .icon { font-size: 3.5rem; margin-bottom: 0.75rem; }
+        .faction-btn h2 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+        .faction-btn p { font-size: 0.8rem; color: rgba(255,255,255,0.7); text-align: center; line-height: 1.4; }
+
+        /* Location cards */
+        .location-grid { display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center; max-width: 900px; }
+        .location-card {
+            width: 260px; padding: 1.5rem; border-radius: 12px;
+            border: 2px solid #374151; background: rgba(31,41,55,0.8);
+            cursor: pointer; transition: all 0.3s; text-align: center;
         }
-        
-        .faction-btn .icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-        }
-        
-        .faction-btn h2 {
-            font-size: 1.8rem;
-            margin-bottom: 0.5rem;
-        }
-        
-        .faction-btn p {
-            font-size: 0.9rem;
-            color: rgba(255,255,255,0.7);
-            text-align: center;
-        }
-        
-        .hud {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            padding: 1rem;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 100;
-            pointer-events: none;
-        }
-        
-        .resources {
-            display: flex;
-            gap: 1.5rem;
-            pointer-events: auto;
-        }
-        
-        .resource {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .resource-icon {
-            font-size: 1.5rem;
-        }
-        
-        .resource-value {
-            font-family: monospace;
-            font-size: 1rem;
-        }
-        
-        .resource-label {
-            font-size: 0.75rem;
-            color: #9ca3af;
-        }
-        
-        .faction-indicator {
+        .location-card:hover { border-color: #60a5fa; transform: translateY(-4px); }
+        .location-card.locked { opacity: 0.4; cursor: not-allowed; }
+        .location-card .loc-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+        .location-card h3 { font-size: 1.2rem; margin-bottom: 0.3rem; }
+        .location-card p { font-size: 0.75rem; color: #9ca3af; }
+
+        /* HUD */
+        .hud-top {
+            position: fixed; top: 0; left: 0; right: 0;
             padding: 0.5rem 1rem;
-            border-radius: 4px;
-            font-size: 0.875rem;
-            font-weight: bold;
-            pointer-events: auto;
-        }
-        
-        .faction-indicator.wardens {
-            background: rgba(30, 58, 95, 0.8);
-            color: #60a5fa;
-        }
-        
-        .faction-indicator.colonials {
-            background: rgba(95, 30, 30, 0.8);
-            color: #f87171;
-        }
-        
-        .bottom-hud {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            padding: 1rem;
-            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent);
+            display: flex; justify-content: space-between; align-items: center;
             z-index: 100;
-            pointer-events: none;
         }
-        
-        .selection-info {
-            background: rgba(17, 24, 39, 0.9);
-            border: 1px solid #374151;
-            border-radius: 8px;
-            padding: 0.75rem;
-            pointer-events: auto;
+        .res-group { display: flex; gap: 1.2rem; }
+        .res { display: flex; align-items: center; gap: 0.4rem; }
+        .res-icon { font-size: 1.2rem; }
+        .res-val { font-family: monospace; font-size: 0.9rem; }
+        .res-lbl { font-size: 0.65rem; color: #9ca3af; }
+        .faction-badge {
+            padding: 0.3rem 0.8rem; border-radius: 4px;
+            font-size: 0.75rem; font-weight: bold;
         }
-        
-        .action-buttons {
-            display: flex;
-            gap: 0.5rem;
-            pointer-events: auto;
+        .faction-badge.wardens { background: rgba(30,58,95,0.8); color: #60a5fa; }
+        .faction-badge.colonials { background: rgba(95,30,30,0.8); color: #f87171; }
+        .territory-count { font-family: monospace; font-size: 0.8rem; color: #d1d5db; }
+
+        /* Bottom panel */
+        .hud-bottom {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            padding: 0.5rem 1rem;
+            background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
+            display: flex; justify-content: space-between; align-items: flex-end;
+            z-index: 100;
         }
-        
-        .action-btn {
-            background: rgba(17, 24, 39, 0.9);
-            border: 1px solid #374151;
-            border-radius: 8px;
-            padding: 0.5rem;
-            color: white;
-            cursor: pointer;
-            transition: all 0.2s;
+        .sel-info {
+            background: rgba(17,24,39,0.9); border: 1px solid #374151;
+            border-radius: 8px; padding: 0.5rem 0.75rem; min-width: 180px;
         }
-        
-        .action-btn:hover:not(:disabled) {
-            background: rgba(31, 41, 55, 0.9);
-            border-color: #4b5563;
+        .sel-info p { font-size: 0.75rem; color: #d1d5db; }
+        .sel-info .sel-type { font-size: 0.65rem; color: #9ca3af; }
+
+        .actions { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
+        .act-btn {
+            background: rgba(17,24,39,0.9); border: 1px solid #374151;
+            border-radius: 6px; padding: 0.4rem 0.6rem; color: white;
+            cursor: pointer; font-size: 0.7rem; transition: all 0.2s;
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
         }
-        
-        .action-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        .act-btn:hover:not(:disabled) { background: rgba(31,41,55,0.9); border-color: #4b5563; }
+        .act-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .act-btn.active { border-color: #fbbf24; background: rgba(251,191,36,0.15); }
+        .act-btn .act-icon { font-size: 1.2rem; }
+        .act-btn .act-cost { font-size: 0.55rem; color: #9ca3af; }
+
+        /* Notification */
+        .notif {
+            position: fixed; top: 4rem; left: 50%; transform: translateX(-50%);
+            background: rgba(17,24,39,0.95); border: 1px solid #4b5563;
+            border-radius: 8px; padding: 0.75rem 1.25rem; z-index: 200;
+            font-size: 0.85rem; animation: fadeIn 0.3s;
         }
-        
-        .notification {
-            position: fixed;
-            top: 5rem;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(17, 24, 39, 0.95);
-            border: 1px solid #4b5563;
-            border-radius: 8px;
-            padding: 1rem 1.5rem;
-            z-index: 200;
-            animation: fadeIn 0.3s ease-out;
+        .notif.hidden { display: none; }
+        @keyframes fadeIn { from { opacity:0; transform:translateX(-50%) translateY(-8px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+
+        .controls-hint {
+            position: fixed; top: 3.5rem; right: 1rem;
+            font-size: 0.65rem; color: #6b7280; text-align: right;
+            line-height: 1.5; z-index: 100;
         }
-        
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateX(-50%) translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(-50%) translateY(0);
-            }
+
+        .mode-indicator {
+            position: fixed; top: 3.5rem; left: 1rem;
+            background: rgba(251,191,36,0.2); border: 1px solid #fbbf24;
+            border-radius: 6px; padding: 0.3rem 0.7rem;
+            font-size: 0.75rem; color: #fbbf24; z-index: 200;
         }
-        
-        .controls-help {
-            position: fixed;
-            top: 4rem;
-            right: 1rem;
-            font-size: 0.75rem;
-            color: #6b7280;
-            text-align: right;
-            pointer-events: none;
-        }
+        .mode-indicator.hidden { display: none; }
     </style>
 </head>
 <body>
-    <div id="menu" class="menu">
-        <h1>WAR OF THE CONTINENT</h1>
-        <p>2D RTS в стиле Foxhole</p>
-        
-        <div class="faction-buttons">
-            <button class="faction-btn wardens" onclick="startGame('wardens')">
-                <div class="icon">🛡️</div>
-                <h2>WARDENS</h2>
-                <p>Тяжёлая бронетехника<br>Промышленное превосходство<br>Дальнобойная артиллерия</p>
-            </button>
-            
-            <button class="faction-btn colonials" onclick="startGame('colonials')">
-                <div class="icon">⚔️</div>
-                <h2>COLONIALS</h2>
-                <p>Быстрые полугусеничники<br>Партизанская тактика<br>Скоростное производство</p>
-            </button>
-        </div>
-        
-        <div style="color: #6b7280; font-size: 0.875rem; text-align: center; max-width: 600px;">
-            <p>Две нации сражаются за контроль над континентом. Захватывайте территории, стройте здания, создавайте технику и разгромите противника!</p>
-        </div>
-    </div>
-    
-    <canvas id="gameCanvas"></canvas>
-    
-    <div id="hud" class="hud" style="display: none;">
-        <div class="resources">
-            <div class="resource">
-                <span class="resource-icon">📦</span>
-                <span class="resource-value" id="supplies">200</span>
-                <span class="resource-label">SUP</span>
-            </div>
-            <div class="resource">
-                <span class="resource-icon">⚙️</span>
-                <span class="resource-value" id="components">100</span>
-                <span class="resource-label">COMP</span>
-            </div>
-            <div class="resource">
-                <span class="resource-icon">🪨</span>
-                <span class="resource-value" id="materials">80</span>
-                <span class="resource-label">MAT</span>
-            </div>
-        </div>
-        
-        <div style="display: flex; align-items: center; gap: 1rem;">
-            <div style="color: #d1d5db; font-family: monospace; font-size: 0.875rem;">
-                Territories: <span id="territoryCount">1</span>/9
-            </div>
-            <div id="factionIndicator" class="faction-indicator wardens">
-                🛡️ WARDENS
-            </div>
-        </div>
-    </div>
-    
-    <div id="bottomHud" class="bottom-hud" style="display: none;">
-        <div id="selectionInfo" class="selection-info" style="display: none;"></div>
-        
-        <div class="action-buttons">
-            <button class="action-btn" onclick="buildStructure('barracks')" title="Barracks - S:40 C:20 M:20">
-                🏠 Barracks
-            </button>
-            <button class="action-btn" onclick="buildStructure('factory')" title="Factory - S:50 C:30 M:40">
-                🏭 Factory
-            </button>
-            <button class="action-btn" onclick="buildStructure('refinery')" title="Refinery - S:30 C:15 M:30">
-                ⛽ Refinery
-            </button>
-        </div>
-    </div>
-    
-    <div id="controlsHelp" class="controls-help" style="display: none;">
-        <p>WASD - Camera</p>
-        <p>Click - Select</p>
-        <p>Right-click - Move</p>
-        <p>Shift+Drag - Pan</p>
-    </div>
-    
-    <div id="notification" class="notification" style="display: none;"></div>
 
-    <script>
-        // Game State
-        let gameState = null;
-        let canvas, ctx;
-        let animationId = null;
-        let keys = {};
-        let mousePos = { x: 0, y: 0 };
-        let isDragging = false;
-        let lastMousePos = { x: 0, y: 0 };
-        let placingBuilding = null;
-        
-        // Constants
-        const UNIT_TYPES = {
-            infantry: { health: 50, damage: 8, range: 120, speed: 1.5, cost: { supplies: 10, components: 0, materials: 0 }, size: 10 },
-            light_tank: { health: 200, damage: 25, range: 150, speed: 2, cost: { supplies: 30, components: 20, materials: 10 }, size: 22 },
-            heavy_tank: { health: 400, damage: 45, range: 160, speed: 1.2, cost: { supplies: 50, components: 40, materials: 30 }, size: 28 },
-            artillery: { health: 150, damage: 60, range: 300, speed: 0.8, cost: { supplies: 40, components: 30, materials: 20 }, size: 24 }
-        };
-        
-        const BUILDING_TYPES = {
-            barracks: { health: 400, cost: { supplies: 40, components: 20, materials: 20 }, size: 40 },
-            factory: { health: 500, cost: { supplies: 50, components: 30, materials: 40 }, size: 45 },
-            refinery: { health: 300, cost: { supplies: 30, components: 15, materials: 30 }, size: 40 }
-        };
-        
-        const FACTION_COLORS = {
-            wardens: { primary: '#2563eb', secondary: '#1d4ed8', accent: '#60a5fa' },
-            colonials: { primary: '#dc2626', secondary: '#b91c1c', accent: '#f87171' }
-        };
-        
-        // Initialize
-        function init() {
-            canvas = document.getElementById('gameCanvas');
-            ctx = canvas.getContext('2d');
-            resizeCanvas();
-            window.addEventListener('resize', resizeCanvas);
-            window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-            window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-            canvas.addEventListener('mousedown', handleMouseDown);
-            canvas.addEventListener('mousemove', handleMouseMove);
-            canvas.addEventListener('mouseup', handleMouseUp);
-            canvas.addEventListener('contextmenu', e => e.preventDefault());
+<!-- MENU SCREEN -->
+<div id="menuScreen" class="screen">
+    <h1>⚔️ WAR OF THE CONTINENT</h1>
+    <p class="subtitle">2D RTS в стиле Foxhole</p>
+    <div class="faction-row">
+        <button class="faction-btn wardens" onclick="selectFaction('wardens')">
+            <div class="icon">🛡️</div>
+            <h2>WARDENS</h2>
+            <p>Тяжёлая бронетехника<br>Промышленное превосходство<br>Дальнобойная артиллерия</p>
+        </button>
+        <button class="faction-btn colonials" onclick="selectFaction('colonials')">
+            <div class="icon">⚔️</div>
+            <h2>COLONIALS</h2>
+            <p>Быстрые полугусеничники<br>Партизанская тактика<br>Скоростное производство</p>
+        </button>
+    </div>
+</div>
+
+<!-- LOCATION SELECT SCREEN -->
+<div id="locationScreen" class="screen hidden">
+    <h1>🗺️ ВЫБОР ЛОКАЦИИ</h1>
+    <p class="subtitle">Выберите поле боя</p>
+    <div class="location-grid">
+        <div class="location-card" onclick="selectLocation('deadlands')">
+            <div class="loc-icon">🏔️</div>
+            <h3>Deadlands</h3>
+            <p>Центральный фронт. Города, реки, мосты. 9 точек захвата.</p>
+        </div>
+        <div class="location-card locked">
+            <div class="loc-icon">🌊</div>
+            <h3>Howl County</h3>
+            <p>Скоро...</p>
+        </div>
+        <div class="location-card locked">
+            <div class="loc-icon">🏜️</div>
+            <h3>Kingscain</h3>
+            <p>Скоро...</p>
+        </div>
+    </div>
+</div>
+
+<!-- GAME -->
+<canvas id="gameCanvas"></canvas>
+
+<div id="hudTop" class="hud-top" style="display:none;">
+    <div class="res-group">
+        <div class="res"><span class="res-icon">📦</span><span class="res-val" id="rSup">200</span><span class="res-lbl">SUP</span></div>
+        <div class="res"><span class="res-icon">⚙️</span><span class="res-val" id="rComp">100</span><span class="res-lbl">COMP</span></div>
+        <div class="res"><span class="res-icon">🪨</span><span class="res-val" id="rMat">80</span><span class="res-lbl">MAT</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:1rem;">
+        <span class="territory-count">Territories: <span id="tCount">1</span>/9</span>
+        <span id="factionBadge" class="faction-badge wardens">🛡️ WARDENS</span>
+    </div>
+</div>
+
+<div id="hudBottom" class="hud-bottom" style="display:none;">
+    <div id="selInfo" class="sel-info" style="display:none;"></div>
+    <div class="actions">
+        <button class="act-btn" onclick="trainUnit('infantry')" title="Пехота">
+            <span class="act-icon">🔫</span>Infantry
+            <span class="act-cost">S:10</span>
+        </button>
+        <button class="act-btn" onclick="trainUnit('light_tank')" title="Лёгкий танк">
+            <span class="act-icon">🚗</span>Light Tank
+            <span class="act-cost">S:30 C:20 M:10</span>
+        </button>
+        <button class="act-btn" onclick="trainUnit('heavy_tank')" title="Тяжёлый танк">
+            <span class="act-icon">🛡️</span>Heavy Tank
+            <span class="act-cost">S:50 C:40 M:30</span>
+        </button>
+        <button class="act-btn" onclick="trainUnit('halftrack')" title="Полугусеничник">
+            <span class="act-icon">🚙</span>Halftrack
+            <span class="act-cost">S:35 C:25 M:15</span>
+        </button>
+        <button class="act-btn" onclick="trainUnit('artillery')" title="Артиллерия">
+            <span class="act-icon">💥</span>Artillery
+            <span class="act-cost">S:40 C:30 M:20</span>
+        </button>
+        <button class="act-btn" onclick="trainUnit('truck')" title="Грузовик">
+            <span class="act-icon">🚚</span>Truck
+            <span class="act-cost">S:20 C:10 M:5</span>
+        </button>
+        <button class="act-btn" id="moveBtn" onclick="toggleMoveMode()" title="Режим перемещения">
+            <span class="act-icon">🎯</span>MOVE
+        </button>
+    </div>
+</div>
+
+<div id="controlsHint" class="controls-hint" style="display:none;">
+    WASD — камера<br>
+    Клик — выбор<br>
+    Двойной клик — перемещение<br>
+    Кнопка MOVE + клик — перемещение
+</div>
+
+<div id="modeIndicator" class="mode-indicator hidden">🎯 MOVE MODE — кликните на карту</div>
+<div id="notif" class="notif hidden"></div>
+
+<script>
+// ===== GAME STATE =====
+let G = null; // game state
+let canvas, ctx;
+let keys = {};
+let mousePos = { x: 0, y: 0 };
+let moveMode = false;
+let selectedFaction = 'wardens';
+let particles = [];
+let lastClickTime = 0;
+let isDragging = false;
+let dragStart = { x: 0, y: 0 };
+
+// ===== CONSTANTS =====
+const UNIT_DEFS = {
+    infantry:    { hp: 50,  dmg: 8,  range: 120, spd: 1.5, cost: {s:10,c:0,m:0},   size: 8,  cd: 50, label: 'Пехота' },
+    light_tank:  { hp: 200, dmg: 25, range: 150, spd: 2.2, cost: {s:30,c:20,m:10},  size: 20, cd: 60, label: 'Лёгкий танк' },
+    heavy_tank:  { hp: 400, dmg: 45, range: 160, spd: 1.2, cost: {s:50,c:40,m:30},  size: 26, cd: 70, label: 'Тяжёлый танк' },
+    halftrack:   { hp: 180, dmg: 15, range: 140, spd: 2.0, cost: {s:35,c:25,m:15},  size: 20, cd: 55, label: 'Полугусеничник' },
+    artillery:   { hp: 120, dmg: 70, range: 350, spd: 0.7, cost: {s:40,c:30,m:20},  size: 22, cd: 120, label: 'Артиллерия' },
+    truck:       { hp: 80,  dmg: 0,  range: 0,   spd: 2.8, cost: {s:20,c:10,m:5},   size: 18, cd: 0,  label: 'Грузовик' },
+};
+
+const BLDG_DEFS = {
+    barracks: { hp: 400, cost: {s:40,c:20,m:20}, size: 38, label: 'Казарма', trains: ['infantry'] },
+    factory:  { hp: 500, cost: {s:50,c:30,m:40}, size: 44, label: 'Завод',   trains: ['light_tank','heavy_tank','halftrack','artillery','truck'] },
+    refinery: { hp: 300, cost: {s:30,c:15,m:30}, size: 38, label: 'НПЗ' },
+};
+
+const COLORS = {
+    wardens:   { p: '#2563eb', s: '#1d4ed8', a: '#60a5fa', bg: '#1e3a5f' },
+    colonials: { p: '#dc2626', s: '#b91c1c', a: '#f87171', bg: '#5f1e1e' },
+    neutral:   { p: '#6b7280', s: '#4b5563', a: '#9ca3af' },
+};
+
+// ===== DEADLANDS MAP DATA =====
+const MAP_W = 3200, MAP_H = 2200;
+
+// Cities (named locations with buildings)
+const CITIES = [
+    { name: 'Clanshead Valley', x: 350,  y: 350,  size: 'large' },
+    { name: "Oar's Rest",       x: 900,  y: 280,  size: 'medium' },
+    { name: 'Godcrofts',        x: 1100, y: 600,  size: 'medium' },
+    { name: 'Fisherman\'s Row', x: 1700, y: 350,  size: 'medium' },
+    { name: 'Merentis',         x: 1600, y: 1050, size: 'large' },
+    { name: "Callahan's Passage",x: 2200, y: 650, size: 'medium' },
+    { name: 'Basrash',          x: 2700, y: 1050, size: 'large' },
+    { name: 'Kalokai',          x: 1300, y: 1600, size: 'medium' },
+    { name: "Allod's Reach",    x: 600,  y: 1500, size: 'medium' },
+];
+
+// Roads connecting cities (pairs of city indices)
+const ROADS = [
+    [0, 1], [1, 2], [2, 3], [3, 5], [5, 6],
+    [0, 8], [8, 7], [7, 4], [4, 2], [4, 6],
+    [1, 4], [2, 4],
+];
+
+// River path (series of points for a winding river)
+const RIVER_POINTS = [
+    { x: 1400, y: 0 },
+    { x: 1350, y: 200 },
+    { x: 1450, y: 400 },
+    { x: 1380, y: 600 },
+    { x: 1500, y: 800 },
+    { x: 1420, y: 1000 },
+    { x: 1500, y: 1200 },
+    { x: 1380, y: 1400 },
+    { x: 1450, y: 1600 },
+    { x: 1400, y: 1800 },
+    { x: 1420, y: 2000 },
+    { x: 1400, y: 2200 },
+];
+
+// Second smaller river
+const RIVER2_POINTS = [
+    { x: 0, y: 1100 },
+    { x: 200, y: 1050 },
+    { x: 400, y: 1100 },
+    { x: 600, y: 1080 },
+    { x: 800, y: 1120 },
+    { x: 1000, y: 1060 },
+    { x: 1200, y: 1100 },
+    { x: 1420, y: 1000 },
+];
+
+// Bridges (where roads cross rivers)
+const BRIDGES = [
+    { x: 1400, y: 280,  angle: 0 },   // Road 0-1 crosses main river
+    { x: 1430, y: 600,  angle: 0.2 }, // Road 1-2 crosses main river
+    { x: 1460, y: 1050, angle: 0 },   // Road near Merentis
+    { x: 600,  y: 1090, angle: 0.1 }, // Road 8-7 crosses secondary river
+];
+
+// Capture points (at cities)
+const CAPTURE_POINTS = CITIES.map((c, i) => ({
+    id: 'cp' + i,
+    name: c.name,
+    x: c.x, y: c.y,
+    radius: c.size === 'large' ? 90 : 70,
+    owner: 'neutral',
+    progress: 0,
+    capturing: null,
+}));
+
+// ===== SCREEN MANAGEMENT =====
+function selectFaction(f) {
+    selectedFaction = f;
+    document.getElementById('menuScreen').classList.add('hidden');
+    document.getElementById('locationScreen').classList.remove('hidden');
+}
+
+function selectLocation(loc) {
+    if (loc !== 'deadlands') return;
+    document.getElementById('locationScreen').classList.add('hidden');
+    document.getElementById('hudTop').style.display = 'flex';
+    document.getElementById('hudBottom').style.display = 'flex';
+    document.getElementById('controlsHint').style.display = 'block';
+
+    const badge = document.getElementById('factionBadge');
+    badge.className = 'faction-badge ' + selectedFaction;
+    badge.innerHTML = selectedFaction === 'wardens' ? '🛡️ WARDENS' : '⚔️ COLONIALS';
+
+    initGame();
+}
+
+// ===== GAME INIT =====
+let nextId = 1;
+function uid() { return 'e' + (nextId++); }
+
+function initGame() {
+    const ai = selectedFaction === 'wardens' ? 'colonials' : 'wardens';
+
+    // Set up capture points
+    const cps = CAPTURE_POINTS.map((cp, i) => ({
+        ...cp,
+        owner: i === 0 ? selectedFaction : (i === 6 ? ai : 'neutral'),
+        progress: i === 0 || i === 6 ? 100 : 0,
+        capturing: null,
+    }));
+
+    G = {
+        faction: selectedFaction,
+        ai: ai,
+        res: { s: 200, c: 100, m: 80 },
+        units: [],
+        buildings: [],
+        cps: cps,
+        selected: [],
+        selBldg: null,
+        cam: { x: 0, y: 0 },
+        time: 0,
+        over: false,
+        winner: null,
+    };
+
+    // Player buildings at Clanshead Valley
+    G.buildings.push({ id: uid(), type: 'town_hall', faction: selectedFaction, x: 300, y: 300, hp: 1000, maxHp: 1000 });
+    G.buildings.push({ id: uid(), type: 'barracks', faction: selectedFaction, x: 450, y: 280, hp: 400, maxHp: 400 });
+    G.buildings.push({ id: uid(), type: 'factory', faction: selectedFaction, x: 300, y: 450, hp: 500, maxHp: 500 });
+
+    // AI buildings at Basrash
+    G.buildings.push({ id: uid(), type: 'town_hall', faction: ai, x: 2700, y: 1000, hp: 1000, maxHp: 1000 });
+    G.buildings.push({ id: uid(), type: 'barracks', faction: ai, x: 2550, y: 1000, hp: 400, maxHp: 400 });
+    G.buildings.push({ id: uid(), type: 'factory', faction: ai, x: 2700, y: 1150, hp: 500, maxHp: 500 });
+
+    // Starting units
+    spawnSquad(selectedFaction, 380, 400, 'infantry', 6);
+    spawnSquad(selectedFaction, 350, 500, 'light_tank', 2);
+    spawnSquad(ai, 2650, 1050, 'infantry', 6);
+    spawnSquad(ai, 2600, 1100, 'light_tank', 2);
+    spawnSquad(ai, 2700, 950, 'heavy_tank', 1);
+
+    // Center camera on player base
+    G.cam.x = Math.max(0, 350 - canvas.width / 2);
+    G.cam.y = Math.max(0, 350 - canvas.height / 2);
+
+    requestAnimationFrame(loop);
+}
+
+function spawnSquad(faction, bx, by, type, count) {
+    const def = UNIT_DEFS[type];
+    for (let i = 0; i < count; i++) {
+        G.units.push({
+            id: uid(), type, faction,
+            x: bx + (i % 4) * 25 - 35,
+            y: by + Math.floor(i / 4) * 25 - 10,
+            hp: def.hp, maxHp: def.hp,
+            dmg: def.dmg, range: def.range, spd: def.spd,
+            cd: def.cd, lastAtk: 0,
+            tx: undefined, ty: undefined,
+        });
+    }
+}
+
+// ===== GAME LOOP =====
+function loop() {
+    if (!G) return;
+    update();
+    render();
+    requestAnimationFrame(loop);
+}
+
+function update() {
+    G.time++;
+
+    // Camera
+    const spd = 7;
+    if (keys['w'] || keys['arrowup']) G.cam.y -= spd;
+    if (keys['s'] || keys['arrowdown']) G.cam.y += spd;
+    if (keys['a'] || keys['arrowleft']) G.cam.x -= spd;
+    if (keys['d'] || keys['arrowright']) G.cam.x += spd;
+    G.cam.x = Math.max(0, Math.min(MAP_W - canvas.width, G.cam.x));
+    G.cam.y = Math.max(0, Math.min(MAP_H - canvas.height, G.cam.y));
+
+    // Resources
+    const pts = G.cps.filter(c => c.owner === G.faction).length;
+    G.res.s += pts * 0.03;
+    G.res.c += pts * 0.015;
+    G.res.m += pts * 0.01;
+
+    // Unit AI & movement
+    G.units.forEach(u => {
+        // Find nearest enemy
+        let nearest = null, nearDist = Infinity;
+        G.units.forEach(e => {
+            if (e.faction === u.faction || e.hp <= 0) return;
+            const d = dist(u.x, u.y, e.x, e.y);
+            if (d < nearDist) { nearDist = d; nearest = e; }
+        });
+
+        // Attack
+        if (nearest && nearDist <= u.range && u.dmg > 0) {
+            if (G.time - u.lastAtk >= u.cd) {
+                u.lastAtk = G.time;
+                nearest.hp -= u.dmg;
+                // Attack visual
+                addParticles(nearest.x, nearest.y, u.type === 'artillery' ? '#ff6b00' : '#ffcc00', u.type === 'artillery' ? 10 : 4);
+            }
         }
-        
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+        // Move to target
+        else if (u.tx !== undefined) {
+            const d = dist(u.x, u.y, u.tx, u.ty);
+            if (d > 5) {
+                const r = u.spd / d;
+                u.x += (u.tx - u.x) * r;
+                u.y += (u.ty - u.y) * r;
+            } else {
+                u.tx = undefined; u.ty = undefined;
+            }
         }
-        
-        function startGame(faction) {
-            document.getElementById('menu').style.display = 'none';
-            document.getElementById('hud').style.display = 'flex';
-            document.getElementById('bottomHud').style.display = 'flex';
-            document.getElementById('controlsHelp').style.display = 'block';
-            
-            const indicator = document.getElementById('factionIndicator');
-            indicator.className = 'faction-indicator ' + faction;
-            indicator.innerHTML = faction === 'wardens' ? '🛡️ WARDENS' : '⚔️ COLONIALS';
-            
-            gameState = createInitialState(faction);
-            gameLoop();
+        // AI: move toward nearest enemy if AI unit
+        else if (u.faction === G.ai && nearest) {
+            const d = dist(u.x, u.y, nearest.x, nearest.y);
+            if (d > u.range * 0.8) {
+                const r = u.spd / d;
+                u.x += (nearest.x - u.x) * r;
+                u.y += (nearest.y - u.y) * r;
+            }
         }
-        
-        function createInitialState(playerFaction) {
-            const aiFaction = playerFaction === 'wardens' ? 'colonials' : 'wardens';
-            
-            return {
-                playerFaction,
-                resources: { supplies: 200, components: 100, materials: 80 },
-                units: [
-                    ...createSquad(playerFaction, { x: 350, y: 450 }, 'infantry', 5),
-                    ...createSquad(aiFaction, { x: 2650, y: 1050 }, 'infantry', 5)
-                ],
-                buildings: [
-                    { id: 'b1', type: 'town_hall', faction: playerFaction, position: { x: 300, y: 350 }, health: 1000, maxHealth: 1000 },
-                    { id: 'b2', type: 'barracks', faction: playerFaction, position: { x: 500, y: 350 }, health: 400, maxHealth: 400 },
-                    { id: 'b3', type: 'town_hall', faction: aiFaction, position: { x: 2700, y: 1000 }, health: 1000, maxHealth: 1000 },
-                    { id: 'b4', type: 'barracks', faction: aiFaction, position: { x: 2500, y: 1000 }, health: 400, maxHealth: 400 }
-                ],
-                capturePoints: [
-                    { id: 'cp1', name: 'Clanshead Valley', position: { x: 400, y: 400 }, radius: 80, owner: playerFaction, captureProgress: 100 },
-                    { id: 'cp2', name: 'Godcrofts', position: { x: 900, y: 600 }, radius: 80, owner: 'neutral', captureProgress: 0 },
-                    { id: 'cp3', name: 'Merentis', position: { x: 1500, y: 1000 }, radius: 90, owner: 'neutral', captureProgress: 0 },
-                    { id: 'cp4', name: 'Basrash', position: { x: 2600, y: 1000 }, radius: 90, owner: aiFaction, captureProgress: 100 }
-                ],
-                selectedUnits: [],
-                selectedBuilding: null,
-                cameraOffset: { x: 0, y: 0 },
-                mapWidth: 3000,
-                mapHeight: 2000,
-                gameTime: 0
-            };
+    });
+
+    // Remove dead
+    G.units = G.units.filter(u => u.hp > 0);
+
+    // Capture points
+    G.cps.forEach(cp => {
+        const pUnits = G.units.filter(u => u.faction === G.faction && dist(u.x, u.y, cp.x, cp.y) <= cp.radius);
+        const aUnits = G.units.filter(u => u.faction === G.ai && dist(u.x, u.y, cp.x, cp.y) <= cp.radius);
+
+        if (pUnits.length > 0 && aUnits.length === 0 && cp.owner !== G.faction) {
+            cp.progress = Math.min(100, cp.progress + pUnits.length * 0.2);
+            cp.capturing = G.faction;
+            if (cp.progress >= 100) cp.owner = G.faction;
+        } else if (aUnits.length > 0 && pUnits.length === 0 && cp.owner !== G.ai) {
+            cp.progress = Math.min(100, cp.progress + aUnits.length * 0.15);
+            cp.capturing = G.ai;
+            if (cp.progress >= 100) cp.owner = G.ai;
+        } else {
+            cp.capturing = null;
         }
-        
-        function createSquad(faction, position, type, count) {
-            const stats = UNIT_TYPES[type];
-            const units = [];
-            for (let i = 0; i < count; i++) {
-                units.push({
-                    id: 'u' + Math.random().toString(36).substr(2, 9),
-                    type,
-                    faction,
-                    position: {
-                        x: position.x + (i % 3) * 30 - 30,
-                        y: position.y + Math.floor(i / 3) * 30 - 15
-                    },
-                    health: stats.health,
-                    maxHealth: stats.health,
-                    damage: stats.damage,
-                    range: stats.range,
-                    speed: stats.speed,
-                    attackCooldown: 60,
-                    lastAttack: 0
+    });
+
+    // AI spawn
+    if (G.time % 400 === 0) {
+        const aiBarracks = G.buildings.find(b => b.faction === G.ai && b.type === 'barracks');
+        if (aiBarracks) {
+            spawnSquad(G.ai, aiBarracks.x + 50, aiBarracks.y + 50, 'infantry', 4);
+            // Send to nearest non-AI capture point
+            const target = G.cps.filter(c => c.owner !== G.ai).sort((a, b) => dist(aiBarracks.x, aiBarracks.y, a.x, a.y) - dist(aiBarracks.x, aiBarracks.y, b.x, b.y))[0];
+            if (target) {
+                G.units.filter(u => u.faction === G.ai && u.tx === undefined).forEach(u => {
+                    u.tx = target.x + (Math.random() - 0.5) * 60;
+                    u.ty = target.y + (Math.random() - 0.5) * 60;
                 });
             }
-            return units;
         }
-        
-        function gameLoop() {
-            if (!gameState) return;
-            
-            update();
-            render();
-            animationId = requestAnimationFrame(gameLoop);
-        }
-        
-        function update() {
-            gameState.gameTime++;
-            
-            // Camera movement
-            const speed = 8;
-            if (keys['w'] || keys['arrowup']) gameState.cameraOffset.y -= speed;
-            if (keys['s'] || keys['arrowdown']) gameState.cameraOffset.y += speed;
-            if (keys['a'] || keys['arrowleft']) gameState.cameraOffset.x -= speed;
-            if (keys['d'] || keys['arrowright']) gameState.cameraOffset.x += speed;
-            
-            gameState.cameraOffset.x = Math.max(0, Math.min(gameState.mapWidth - canvas.width, gameState.cameraOffset.x));
-            gameState.cameraOffset.y = Math.max(0, Math.min(gameState.mapHeight - canvas.height, gameState.cameraOffset.y));
-            
-            // Resource generation
-            const playerPoints = gameState.capturePoints.filter(p => p.owner === gameState.playerFaction).length;
-            gameState.resources.supplies += playerPoints * 0.02;
-            gameState.resources.components += playerPoints * 0.01;
-            gameState.resources.materials += playerPoints * 0.008;
-            
-            // Update units
-            gameState.units.forEach(unit => {
-                const enemies = gameState.units.filter(u => u.faction !== unit.faction && u.health > 0);
-                const nearestEnemy = enemies.reduce((nearest, enemy) => {
-                    const dist = distance(unit.position, enemy.position);
-                    if (!nearest || dist < distance(unit.position, nearest.position)) return enemy;
-                    return nearest;
-                }, null);
-                
-                if (nearestEnemy && distance(unit.position, nearestEnemy.position) <= unit.range) {
-                    if (gameState.gameTime - unit.lastAttack >= unit.attackCooldown) {
-                        unit.lastAttack = gameState.gameTime;
-                        nearestEnemy.health -= unit.damage;
-                    }
-                } else if (unit.targetPosition) {
-                    if (distance(unit.position, unit.targetPosition) > 5) {
-                        unit.position = moveTowards(unit.position, unit.targetPosition, unit.speed);
-                    } else {
-                        unit.targetPosition = undefined;
-                    }
-                }
-            });
-            
-            // Remove dead units
-            gameState.units = gameState.units.filter(u => u.health > 0);
-            
-            // Update HUD
-            document.getElementById('supplies').textContent = Math.floor(gameState.resources.supplies);
-            document.getElementById('components').textContent = Math.floor(gameState.resources.components);
-            document.getElementById('materials').textContent = Math.floor(gameState.resources.materials);
-            document.getElementById('territoryCount').textContent = playerPoints;
-        }
-        
-        function render() {
-            const cam = gameState.cameraOffset;
-            
-            // Background
-            ctx.fillStyle = '#2d4a2e';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Grid
-            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-            ctx.lineWidth = 1;
-            for (let x = -(cam.x % 50); x < canvas.width; x += 50) {
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, canvas.height);
-                ctx.stroke();
+    }
+    if (G.time % 700 === 0) {
+        const aiFactory = G.buildings.find(b => b.faction === G.ai && b.type === 'factory');
+        if (aiFactory) {
+            const tType = Math.random() > 0.5 ? 'heavy_tank' : 'light_tank';
+            spawnSquad(G.ai, aiFactory.x + 50, aiFactory.y + 50, tType, 1);
+            const target = G.cps.filter(c => c.owner !== G.ai).sort((a, b) => dist(aiFactory.x, aiFactory.y, a.x, a.y) - dist(aiFactory.x, aiFactory.y, b.x, b.y))[0];
+            if (target) {
+                G.units.filter(u => u.faction === G.ai && u.tx === undefined).slice(-2).forEach(u => {
+                    u.tx = target.x; u.ty = target.y;
+                });
             }
-            for (let y = -(cam.y % 50); y < canvas.height; y += 50) {
+        }
+    }
+
+    // Win check
+    const pPts = G.cps.filter(c => c.owner === G.faction).length;
+    const aPts = G.cps.filter(c => c.owner === G.ai).length;
+    if (pPts >= 7) { G.over = true; G.winner = G.faction; showEndScreen(); }
+    if (aPts >= 7) { G.over = true; G.winner = G.ai; showEndScreen(); }
+    if (!G.buildings.find(b => b.faction === G.faction && b.type === 'town_hall')) { G.over = true; G.winner = G.ai; showEndScreen(); }
+    if (!G.buildings.find(b => b.faction === G.ai && b.type === 'town_hall')) { G.over = true; G.winner = G.faction; showEndScreen(); }
+
+    // Particles
+    particles = particles.filter(p => { p.x += p.vx; p.y += p.vy; p.vx *= 0.94; p.vy *= 0.94; p.life--; return p.life > 0; });
+
+    // HUD
+    document.getElementById('rSup').textContent = Math.floor(G.res.s);
+    document.getElementById('rComp').textContent = Math.floor(G.res.c);
+    document.getElementById('rMat').textContent = Math.floor(G.res.m);
+    document.getElementById('tCount').textContent = pPts;
+
+    // Selection info
+    updateSelInfo();
+}
+
+function updateSelInfo() {
+    const el = document.getElementById('selInfo');
+    if (G.selected.length > 0) {
+        const units = G.units.filter(u => G.selected.includes(u.id));
+        const types = {};
+        units.forEach(u => { types[u.type] = (types[u.type] || 0) + 1; });
+        let html = `<p>Выбрано: ${units.length} юнитов</p>`;
+        Object.entries(types).forEach(([t, c]) => {
+            html += `<p class="sel-type">${UNIT_DEFS[t].label} ×${c}</p>`;
+        });
+        el.innerHTML = html;
+        el.style.display = 'block';
+    } else {
+        el.style.display = 'none';
+    }
+}
+
+// ===== RENDER =====
+function render() {
+    const cam = G.cam;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Terrain base
+    ctx.fillStyle = '#2a4a2c';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Terrain texture (subtle noise)
+    drawTerrainDetail(cam);
+
+    // Rivers
+    drawRiver(RIVER_POINTS, cam, 18, '#2a6090');
+    drawRiver(RIVER_POINTS, cam, 12, '#3a7ab0');
+    drawRiver(RIVER2_POINTS, cam, 14, '#2a6090');
+    drawRiver(RIVER2_POINTS, cam, 8, '#3a7ab0');
+
+    // Roads
+    ROADS.forEach(([a, b]) => {
+        const ca = CITIES[a], cb = CITIES[b];
+        // Road bed
+        ctx.strokeStyle = '#5a5040';
+        ctx.lineWidth = 14;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(ca.x - cam.x, ca.y - cam.y);
+        ctx.lineTo(cb.x - cam.x, cb.y - cam.y);
+        ctx.stroke();
+        // Road surface
+        ctx.strokeStyle = '#7a7060';
+        ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.moveTo(ca.x - cam.x, ca.y - cam.y);
+        ctx.lineTo(cb.x - cam.x, cb.y - cam.y);
+        ctx.stroke();
+        // Center line
+        ctx.strokeStyle = '#8a8070';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([8, 8]);
+        ctx.beginPath();
+        ctx.moveTo(ca.x - cam.x, ca.y - cam.y);
+        ctx.lineTo(cb.x - cam.x, cb.y - cam.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    });
+
+    // Bridges
+    BRIDGES.forEach(br => {
+        const bx = br.x - cam.x, by = br.y - cam.y;
+        ctx.fillStyle = '#8a7a60';
+        ctx.fillRect(bx - 20, by - 8, 40, 16);
+        ctx.strokeStyle = '#6a5a40';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bx - 20, by - 8, 40, 16);
+        // Railings
+        ctx.fillStyle = '#5a4a30';
+        ctx.fillRect(bx - 20, by - 10, 40, 3);
+        ctx.fillRect(bx - 20, by + 7, 40, 3);
+    });
+
+    // Cities (buildings cluster)
+    CITIES.forEach(city => {
+        drawCity(city, cam);
+    });
+
+    // Capture points
+    G.cps.forEach(cp => {
+        const x = cp.x - cam.x, y = cp.y - cam.y;
+        const col = cp.owner === 'neutral' ? COLORS.neutral : COLORS[cp.owner];
+
+        // Zone circle
+        ctx.beginPath();
+        ctx.arc(x, y, cp.radius, 0, Math.PI * 2);
+        ctx.fillStyle = col.p + '15';
+        ctx.fill();
+        ctx.strokeStyle = col.p + '80';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Capture progress ring
+        if (cp.capturing) {
+            const cCol = COLORS[cp.capturing];
+            ctx.beginPath();
+            ctx.arc(x, y, cp.radius * 0.6, -Math.PI / 2, -Math.PI / 2 + (cp.progress / 100) * Math.PI * 2);
+            ctx.strokeStyle = cCol.a;
+            ctx.lineWidth = 4;
+            ctx.stroke();
+        }
+
+        // Flag
+        ctx.fillStyle = col.p;
+        ctx.fillRect(x - 2, y - 18, 4, 24);
+        ctx.fillStyle = col.a;
+        ctx.fillRect(x + 2, y - 18, 14, 9);
+
+        // Name
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(cp.name, x, y - cp.radius - 10);
+    });
+
+    // Buildings
+    G.buildings.forEach(b => {
+        const x = b.x - cam.x, y = b.y - cam.y;
+        const col = COLORS[b.faction];
+        const sz = b.type === 'town_hall' ? 48 : 38;
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(x - sz/2 + 3, y - sz/2 + 3, sz, sz);
+
+        // Body
+        ctx.fillStyle = col.bg;
+        ctx.fillRect(x - sz/2, y - sz/2, sz, sz);
+        ctx.strokeStyle = col.p;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - sz/2, y - sz/2, sz, sz);
+
+        // Icon
+        ctx.fillStyle = col.a;
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const icons = { town_hall: 'HQ', barracks: 'BAR', factory: 'FAC', refinery: 'REF' };
+        ctx.fillText(icons[b.type] || 'BLD', x, y);
+
+        // HP bar
+        const hpPct = b.hp / b.maxHp;
+        ctx.fillStyle = '#333';
+        ctx.fillRect(x - sz/2, y + sz/2 + 3, sz, 4);
+        ctx.fillStyle = hpPct > 0.5 ? '#22c55e' : hpPct > 0.25 ? '#eab308' : '#ef4444';
+        ctx.fillRect(x - sz/2, y + sz/2 + 3, sz * hpPct, 4);
+    });
+
+    // Units
+    G.units.forEach(u => {
+        const x = u.x - cam.x, y = u.y - cam.y;
+        if (x < -40 || x > canvas.width + 40 || y < -40 || y > canvas.height + 40) return;
+
+        const col = COLORS[u.faction];
+        const sz = UNIT_DEFS[u.type].size;
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.beginPath();
+        ctx.ellipse(x + 2, y + 3, sz * 0.5, sz * 0.25, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (u.type === 'infantry') {
+            // Soldier
+            ctx.fillStyle = col.p;
+            ctx.beginPath();
+            ctx.arc(x, y, sz / 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            // Helmet
+            ctx.fillStyle = col.s;
+            ctx.beginPath();
+            ctx.arc(x, y - 1, sz / 3, Math.PI, 0);
+            ctx.fill();
+        } else {
+            // Vehicle body
+            ctx.fillStyle = col.p;
+            const vw = sz, vh = sz * 0.6;
+            ctx.fillRect(x - vw/2, y - vh/2, vw, vh);
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x - vw/2, y - vh/2, vw, vh);
+
+            if (u.type === 'light_tank' || u.type === 'heavy_tank') {
+                // Turret
+                ctx.fillStyle = col.s;
                 ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(canvas.width, y);
-                ctx.stroke();
-            }
-            
-            // Capture points
-            gameState.capturePoints.forEach(point => {
-                const x = point.position.x - cam.x;
-                const y = point.position.y - cam.y;
-                
-                ctx.beginPath();
-                ctx.arc(x, y, point.radius, 0, Math.PI * 2);
-                const color = point.owner === 'neutral' ? '#6b7280' : FACTION_COLORS[point.owner].primary;
-                ctx.fillStyle = color + '20';
+                ctx.arc(x, y, sz * 0.25, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 2;
+                // Barrel
+                ctx.strokeStyle = col.a;
+                ctx.lineWidth = u.type === 'heavy_tank' ? 3 : 2;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + sz * 0.55, y);
                 ctx.stroke();
-                
-                ctx.fillStyle = '#ffffff';
-                ctx.font = '11px monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText(point.name, x, y - point.radius - 8);
+                // Tracks
+                ctx.fillStyle = '#333';
+                ctx.fillRect(x - vw/2, y - vh/2 - 2, vw, 3);
+                ctx.fillRect(x - vw/2, y + vh/2 - 1, vw, 3);
+            }
+
+            if (u.type === 'halftrack') {
+                // Open top
+                ctx.fillStyle = col.s;
+                ctx.fillRect(x - sz * 0.3, y - vh * 0.3, sz * 0.6, vh * 0.6);
+                // Wheels
+                ctx.fillStyle = '#333';
+                ctx.beginPath(); ctx.arc(x - sz * 0.35, y + vh/2, 3, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(x + sz * 0.35, y + vh/2, 3, 0, Math.PI * 2); ctx.fill();
+            }
+
+            if (u.type === 'artillery') {
+                // Long barrel
+                ctx.strokeStyle = col.a;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + sz * 0.7, y - sz * 0.2);
+                ctx.stroke();
+                // Base
+                ctx.fillStyle = col.s;
+                ctx.fillRect(x - sz * 0.2, y, sz * 0.4, sz * 0.25);
+            }
+
+            if (u.type === 'truck') {
+                // Cab
+                ctx.fillStyle = col.s;
+                ctx.fillRect(x - sz/2, y - vh/2, sz * 0.35, vh);
+                // Bed
+                ctx.strokeStyle = col.a;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x - sz/2 + sz * 0.35, y - vh/2 + 2, sz * 0.65, vh - 4);
+            }
+        }
+
+        // Selection ring
+        if (G.selected.includes(u.id)) {
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x, y, sz / 2 + 6, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // HP bar
+        if (u.hp < u.maxHp) {
+            const pct = u.hp / u.maxHp;
+            ctx.fillStyle = '#333';
+            ctx.fillRect(x - sz/2, y - sz/2 - 8, sz, 3);
+            ctx.fillStyle = pct > 0.5 ? '#22c55e' : pct > 0.25 ? '#eab308' : '#ef4444';
+            ctx.fillRect(x - sz/2, y - sz/2 - 8, sz * pct, 3);
+        }
+    });
+
+    // Particles
+    particles.forEach(p => {
+        const alpha = p.life / p.maxLife;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x - cam.x, p.y - cam.y, p.size * alpha, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    // Move mode cursor indicator
+    if (moveMode) {
+        ctx.strokeStyle = '#fbbf2480';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(mousePos.x, mousePos.y, 15, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // Minimap
+    drawMinimap();
+}
+
+function drawTerrainDetail(cam) {
+    // Scattered trees
+    const trees = [
+        [150,700],[180,750],[200,680],[250,720],
+        [700,150],[750,180],[680,200],[800,160],
+        [1200,250],[1250,300],[1180,280],[1300,270],
+        [1900,500],[1950,550],[1880,480],[2000,520],
+        [2300,400],[2350,350],[2400,420],[2280,380],
+        [850,1200],[900,1250],[830,1180],[950,1220],
+        [1400,1650],[1450,1700],[1380,1620],[1500,1680],
+        [2500,1400],[2550,1450],[2480,1380],[2600,1420],
+        [400,1650],[450,1700],[380,1620],[500,1680],
+        [2800,600],[2850,550],[2900,620],[2780,580],
+        [100,1200],[150,1250],[80,1180],[200,1230],
+        [2100,1600],[2150,1650],[2080,1580],[2200,1620],
+        [1800,1800],[1850,1750],[1780,1820],[1900,1780],
+        [500,900],[550,850],[480,920],[600,880],
+        [2000,200],[2050,250],[1980,180],[2100,220],
+    ];
+    trees.forEach(([tx, ty]) => {
+        const sx = tx - cam.x, sy = ty - cam.y;
+        if (sx < -20 || sx > canvas.width + 20 || sy < -20 || sy > canvas.height + 20) return;
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.beginPath(); ctx.ellipse(sx+2, sy+10, 8, 4, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#3a2a18';
+        ctx.fillRect(sx-1.5, sy+2, 3, 10);
+        ctx.fillStyle = '#1a5a1a';
+        ctx.beginPath(); ctx.arc(sx, sy-2, 10, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#228b22';
+        ctx.beginPath(); ctx.arc(sx-2, sy-4, 7, 0, Math.PI*2); ctx.fill();
+    });
+
+    // Rocks
+    const rocks = [[500,700],[1200,800],[1700,1200],[2300,900],[900,1500],[1600,300],[2500,1600],[300,1100]];
+    rocks.forEach(([rx, ry]) => {
+        const sx = rx - cam.x, sy = ry - cam.y;
+        if (sx < -20 || sx > canvas.width + 20 || sy < -20 || sy > canvas.height + 20) return;
+        ctx.fillStyle = '#4a4a4a';
+        ctx.beginPath(); ctx.ellipse(sx, sy, 12, 8, 0.3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#5a5a5a';
+        ctx.beginPath(); ctx.ellipse(sx-2, sy-2, 8, 5, 0.3, 0, Math.PI*2); ctx.fill();
+    });
+}
+
+function drawRiver(points, cam, width, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(points[0].x - cam.x, points[0].y - cam.y);
+    for (let i = 1; i < points.length; i++) {
+        const prev = points[i-1], curr = points[i];
+        const cpx = (prev.x + curr.x) / 2 - cam.x;
+        const cpy = (prev.y + curr.y) / 2 - cam.y;
+        ctx.quadraticCurveTo(prev.x - cam.x, prev.y - cam.y, cpx, cpy);
+    }
+    ctx.stroke();
+}
+
+function drawCity(city, cam) {
+    const x = city.x - cam.x, y = city.y - cam.y;
+    const count = city.size === 'large' ? 8 : 5;
+    const spread = city.size === 'large' ? 60 : 40;
+
+    // Draw small buildings around the city
+    for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count;
+        const r = spread * (0.5 + Math.random() * 0.3);
+        const bx = x + Math.cos(angle) * r;
+        const by = y + Math.sin(angle) * r;
+        const bw = 8 + Math.random() * 8;
+        const bh = 8 + Math.random() * 8;
+
+        ctx.fillStyle = '#4a4035';
+        ctx.fillRect(bx - bw/2, by - bh/2, bw, bh);
+        ctx.strokeStyle = '#5a5045';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(bx - bw/2, by - bh/2, bw, bh);
+
+        // Roof
+        ctx.fillStyle = '#6a5a4a';
+        ctx.fillRect(bx - bw/2 - 1, by - bh/2 - 2, bw + 2, 3);
+    }
+}
+
+function drawMinimap() {
+    const mw = 180, mh = 120;
+    const mx = canvas.width - mw - 10, my = canvas.height - mh - 50;
+    const sx = mw / MAP_W, sy = mh / MAP_H;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.85)';
+    ctx.fillRect(mx - 2, my - 2, mw + 4, mh + 4);
+    ctx.fillStyle = '#1a2e1a';
+    ctx.fillRect(mx, my, mw, mh);
+
+    // Rivers on minimap
+    ctx.strokeStyle = '#2a6090';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(mx + RIVER_POINTS[0].x * sx, my + RIVER_POINTS[0].y * sy);
+    RIVER_POINTS.forEach(p => ctx.lineTo(mx + p.x * sx, my + p.y * sy));
+    ctx.stroke();
+
+    // Roads on minimap
+    ctx.strokeStyle = '#5a5040';
+    ctx.lineWidth = 1;
+    ROADS.forEach(([a, b]) => {
+        ctx.beginPath();
+        ctx.moveTo(mx + CITIES[a].x * sx, my + CITIES[a].y * sy);
+        ctx.lineTo(mx + CITIES[b].x * sx, my + CITIES[b].y * sy);
+        ctx.stroke();
+    });
+
+    // Capture points
+    G.cps.forEach(cp => {
+        const col = cp.owner === 'neutral' ? '#6b7280' : cp.owner === 'wardens' ? '#2563eb' : '#dc2626';
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(mx + cp.x * sx, my + cp.y * sy, 3, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // Buildings
+    G.buildings.forEach(b => {
+        ctx.fillStyle = b.faction === 'wardens' ? '#2563eb' : '#dc2626';
+        ctx.fillRect(mx + b.x * sx - 2, my + b.y * sy - 2, 4, 4);
+    });
+
+    // Units
+    G.units.forEach(u => {
+        ctx.fillStyle = u.faction === G.faction ? '#60a5fa' : '#f87171';
+        ctx.fillRect(mx + u.x * sx - 1, my + u.y * sy - 1, 2, 2);
+    });
+
+    // Camera viewport
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(mx + G.cam.x * sx, my + G.cam.y * sy, canvas.width * sx, canvas.height * sy);
+
+    ctx.strokeStyle = '#4b5563';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(mx - 2, my - 2, mw + 4, mh + 4);
+}
+
+// ===== INPUT =====
+function handleMouseDown(e) {
+    e.preventDefault();
+    const now = Date.now();
+    const isDouble = (now - lastClickTime) < 350;
+    lastClickTime = now;
+
+    const worldX = e.clientX + G.cam.x;
+    const worldY = e.clientY + G.cam.y;
+
+    // Double click or move mode → move units
+    if (isDouble || moveMode) {
+        if (G.selected.length > 0) {
+            // Formation move
+            const selUnits = G.units.filter(u => G.selected.includes(u.id));
+            const cols = Math.ceil(Math.sqrt(selUnits.length));
+            selUnits.forEach((u, i) => {
+                const row = Math.floor(i / cols);
+                const col = i % cols;
+                u.tx = worldX + (col - cols/2) * 25;
+                u.ty = worldY + (row - cols/2) * 25;
             });
-            
-            // Buildings
-            gameState.buildings.forEach(building => {
-                const x = building.position.x - cam.x;
-                const y = building.position.y - cam.y;
-                const colors = FACTION_COLORS[building.faction];
-                const size = 40;
-                
-                ctx.fillStyle = colors.primary;
-                ctx.fillRect(x - size / 2, y - size / 2, size, size);
-                ctx.strokeStyle = colors.accent;
-                ctx.lineWidth = 2;
-                ctx.strokeRect(x - size / 2, y - size / 2, size, size);
-                
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 10px monospace';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(building.type.toUpperCase().slice(0, 3), x, y);
-            });
-            
-            // Units
-            gameState.units.forEach(unit => {
-                const x = unit.position.x - cam.x;
-                const y = unit.position.y - cam.y;
-                const colors = FACTION_COLORS[unit.faction];
-                const size = UNIT_TYPES[unit.type].size;
-                
-                ctx.fillStyle = colors.primary;
-                if (unit.type === 'infantry') {
-                    ctx.beginPath();
-                    ctx.arc(x, y, size / 2, 0, Math.PI * 2);
-                    ctx.fill();
-                } else {
-                    ctx.fillRect(x - size / 2, y - size / 3, size, size * 0.65);
-                }
-                
-                if (gameState.selectedUnits.includes(unit.id)) {
-                    ctx.strokeStyle = '#fbbf24';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.arc(x, y, size / 2 + 5, 0, Math.PI * 2);
-                    ctx.stroke();
-                }
-            });
-        }
-        
-        function handleMouseDown(e) {
-            if (e.button === 2) {
-                if (placingBuilding) {
-                    placingBuilding = null;
-                    showNotification('Placement cancelled');
-                    return;
-                }
-                if (gameState.selectedUnits.length > 0) {
-                    const worldPos = {
-                        x: e.clientX + gameState.cameraOffset.x,
-                        y: e.clientY + gameState.cameraOffset.y
-                    };
-                    gameState.units.forEach(unit => {
-                        if (gameState.selectedUnits.includes(unit.id)) {
-                            unit.targetPosition = worldPos;
-                        }
-                    });
-                }
-                return;
-            }
-            
-            if (placingBuilding) {
-                const worldPos = {
-                    x: e.clientX + gameState.cameraOffset.x,
-                    y: e.clientY + gameState.cameraOffset.y
-                };
-                const cost = BUILDING_TYPES[placingBuilding].cost;
-                if (canAfford(gameState.resources, cost)) {
-                    gameState.resources.supplies -= cost.supplies;
-                    gameState.resources.components -= cost.components;
-                    gameState.resources.materials -= cost.materials;
-                    gameState.buildings.push({
-                        id: 'b' + Math.random().toString(36).substr(2, 9),
-                        type: placingBuilding,
-                        faction: gameState.playerFaction,
-                        position: worldPos,
-                        health: BUILDING_TYPES[placingBuilding].health,
-                        maxHealth: BUILDING_TYPES[placingBuilding].health
-                    });
-                    showNotification(placingBuilding + ' constructed!');
-                    placingBuilding = null;
-                } else {
-                    showNotification('Not enough resources!');
-                }
-                return;
-            }
-            
-            const worldPos = {
-                x: e.clientX + gameState.cameraOffset.x,
-                y: e.clientY + gameState.cameraOffset.y
-            };
-            
-            const clickedUnit = gameState.units.find(u => {
-                const dist = distance(u.position, worldPos);
-                return dist < 20 && u.faction === gameState.playerFaction;
-            });
-            
-            if (clickedUnit) {
-                gameState.selectedUnits = [clickedUnit.id];
-            } else {
-                gameState.selectedUnits = gameState.units.filter(u => {
-                    const dist = distance(u.position, worldPos);
-                    return dist < 60 && u.faction === gameState.playerFaction;
-                }).map(u => u.id);
+            if (moveMode) {
+                moveMode = false;
+                document.getElementById('moveBtn').classList.remove('active');
+                document.getElementById('modeIndicator').classList.add('hidden');
             }
         }
-        
-        function handleMouseMove(e) {
-            mousePos = { x: e.clientX, y: e.clientY };
-            
-            if (isDragging) {
-                const dx = e.clientX - lastMousePos.x;
-                const dy = e.clientY - lastMousePos.y;
-                lastMousePos = { x: e.clientX, y: e.clientY };
-                
-                gameState.cameraOffset.x -= dx;
-                gameState.cameraOffset.y -= dy;
-            }
-        }
-        
-        function handleMouseUp(e) {
-            isDragging = false;
-        }
-        
-        function buildStructure(type) {
-            const cost = BUILDING_TYPES[type].cost;
-            if (!canAfford(gameState.resources, cost)) {
-                showNotification('Not enough resources!');
-                return;
-            }
-            placingBuilding = type;
-            showNotification('Click on map to place ' + type + '. Right-click to cancel.');
-        }
-        
-        function showNotification(msg) {
-            const notif = document.getElementById('notification');
-            notif.textContent = msg;
-            notif.style.display = 'block';
-            setTimeout(() => notif.style.display = 'none', 3000);
-        }
-        
-        function distance(a, b) {
-            return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
-        }
-        
-        function moveTowards(from, to, speed) {
-            const dist = distance(from, to);
-            if (dist < speed) return { ...to };
-            const ratio = speed / dist;
-            return {
-                x: from.x + (to.x - from.x) * ratio,
-                y: from.y + (to.y - from.y) * ratio
-            };
-        }
-        
-        function canAfford(resources, cost) {
-            return resources.supplies >= cost.supplies &&
-                   resources.components >= cost.components &&
-                   resources.materials >= cost.materials;
-        }
-        
-        // Start
-        init();
-    </script>
+        return;
+    }
+
+    // Check minimap click
+    const mw = 180, mh = 120;
+    const mmx = canvas.width - mw - 10, mmy = canvas.height - mh - 50;
+    if (e.clientX >= mmx && e.clientX <= mmx + mw && e.clientY >= mmy && e.clientY <= mmy + mh) {
+        G.cam.x = ((e.clientX - mmx) / mw) * MAP_W - canvas.width / 2;
+        G.cam.y = ((e.clientY - mmy) / mh) * MAP_H - canvas.height / 2;
+        G.cam.x = Math.max(0, Math.min(MAP_W - canvas.width, G.cam.x));
+        G.cam.y = Math.max(0, Math.min(MAP_H - canvas.height, G.cam.y));
+        return;
+    }
+
+    // Select units
+    const clickedUnit = G.units.find(u => {
+        return dist(u.x, u.y, worldX, worldY) < 18 && u.faction === G.faction;
+    });
+
+    if (clickedUnit) {
+        G.selected = [clickedUnit.id];
+    } else {
+        // Area select
+        const nearby = G.units.filter(u => dist(u.x, u.y, worldX, worldY) < 50 && u.faction === G.faction);
+        G.selected = nearby.map(u => u.id);
+    }
+}
+
+function handleMouseMove(e) {
+    mousePos = { x: e.clientX, y: e.clientY };
+
+    // Edge scrolling
+    const edge = 30;
+    if (e.clientX < edge) G.cam.x -= 5;
+    if (e.clientX > canvas.width - edge) G.cam.x += 5;
+    if (e.clientY < edge) G.cam.y -= 5;
+    if (e.clientY > canvas.height - edge) G.cam.y += 5;
+}
+
+function toggleMoveMode() {
+    moveMode = !moveMode;
+    document.getElementById('moveBtn').classList.toggle('active', moveMode);
+    document.getElementById('modeIndicator').classList.toggle('hidden', !moveMode);
+}
+
+function trainUnit(type) {
+    const def = UNIT_DEFS[type];
+    const cost = def.cost;
+    if (G.res.s < cost.s || G.res.c < cost.c || G.res.m < cost.m) {
+        notify('Недостаточно ресурсов!');
+        return;
+    }
+
+    // Find appropriate building
+    const isInfantry = type === 'infantry';
+    const bldgType = isInfantry ? 'barracks' : 'factory';
+    const bldg = G.buildings.find(b => b.faction === G.faction && b.type === bldgType);
+    if (!bldg) {
+        notify(`Нужно построить ${isInfantry ? 'казарму' : 'завод'}!`);
+        return;
+    }
+
+    G.res.s -= cost.s;
+    G.res.c -= cost.c;
+    G.res.m -= cost.m;
+
+    G.units.push({
+        id: uid(), type, faction: G.faction,
+        x: bldg.x + 50, y: bldg.y + 50,
+        hp: def.hp, maxHp: def.hp,
+        dmg: def.dmg, range: def.range, spd: def.spd,
+        cd: def.cd, lastAtk: 0,
+        tx: undefined, ty: undefined,
+    });
+
+    notify(`${def.label} создан!`);
+}
+
+// ===== HELPERS =====
+function dist(x1, y1, x2, y2) {
+    return Math.sqrt((x1-x2)**2 + (y1-y2)**2);
+}
+
+function addParticles(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 1 + Math.random() * 2;
+        particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 15 + Math.random() * 10,
+            maxLife: 25,
+            color,
+            size: 2 + Math.random() * 3,
+        });
+    }
+}
+
+function notify(msg) {
+    const el = document.getElementById('notif');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => el.classList.add('hidden'), 2500);
+}
+
+function showEndScreen() {
+    cancelAnimationFrame(animationId);
+    const won = G.winner === G.faction;
+    document.getElementById('hudTop').style.display = 'none';
+    document.getElementById('hudBottom').style.display = 'none';
+    document.getElementById('controlsHint').style.display = 'none';
+
+    const div = document.createElement('div');
+    div.className = 'screen';
+    div.innerHTML = `
+        <div style="font-size:5rem;margin-bottom:1rem;">${won ? '🏆' : '💀'}</div>
+        <h1 style="color:${won ? '#fbbf24' : '#ef4444'}">${won ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ'}</h1>
+        <p class="subtitle">${won ? 'Вы захватили континент!' : 'Противник оказался сильнее.'}</p>
+        <div style="display:flex;gap:1rem;margin-top:1rem;">
+            <button onclick="location.reload()" style="padding:0.75rem 2rem;background:#2563eb;color:white;border:none;border-radius:8px;cursor:pointer;font-size:1rem;">Заново</button>
+        </div>
+    `;
+    document.body.appendChild(div);
+}
+
+// ===== INIT =====
+window.onload = () => {
+    canvas = document.getElementById('gameCanvas');
+    ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    });
+    window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+    window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+    canvas.addEventListener('mousedown', e => { if (G) handleMouseDown(e); });
+    canvas.addEventListener('mousemove', e => { if (G) handleMouseMove(e); });
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+};
+</script>
 </body>
 </html>
