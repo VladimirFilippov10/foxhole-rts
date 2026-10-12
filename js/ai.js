@@ -1,4 +1,4 @@
-// ===== AI SYSTEM - DEFENSIVE BEHAVIOR =====
+// ===== AI SYSTEM - STRATEGIC BEHAVIOR =====
 import { dist } from './constants.js';
 import { createVehicle } from './vehicles.js';
 
@@ -9,6 +9,9 @@ export class AI {
         this.difficulty = 1;
         this.defenseMode = true; // Начинаем в оборонительном режиме
         this.lastAttackTime = 0;
+        this.accumulatedForces = 0; // Счётчик накопленных сил
+        this.attackThreshold = 8; // Порог для начала атаки
+        this.artilleryPositions = []; // Позиции для артиллерии
     }
 
     update() {
@@ -20,20 +23,25 @@ export class AI {
             return; // Пропускаем производство если достигнут лимит
         }
 
-        // Спавн пехоты каждые 400 тиков (было 300)
+        // Спавн пехоты каждые 400 тиков
         if (this.timer % 400 === 0) {
             this.spawnInfantrySquad();
+            this.accumulatedForces++;
         }
 
-        // Спавн техники каждые 700 тиков (было 500)
+        // Спавн техники каждые 700 тиков
         if (this.timer % 700 === 0) {
             if (this.G.canProduceUnit('vehicle', this.G.ai)) {
                 this.spawnVehicle();
+                this.accumulatedForces += 2; // Техника ценнее
             }
         }
 
-        // Оборонительное поведение
-        this.defensiveBehavior();
+        // Стратегическое поведение
+        this.strategicBehavior();
+        
+        // Управление артиллерией
+        this.manageArtillery();
     }
 
     spawnInfantrySquad() {
@@ -76,6 +84,18 @@ export class AI {
             else types.push('falchion');
         }
         
+        // Добавляем артиллерию для дальнего обстрела
+        if (this.difficulty >= 2 && Math.random() < 0.3) {
+            const artilleryType = this.G.ai === 'wardens' ? 'warden_artillery' : 'colonial_artillery';
+            const unit = createVehicle(artilleryType, this.G.ai, factory.x + 60, factory.y + 60);
+            this.G.units.push(unit);
+            this.accumulatedForces += 3; // Артиллерия очень ценна
+            
+            // Артиллерия остаётся в оборонительной позиции
+            this.assignArtilleryPosition(unit);
+            return;
+        }
+        
         const type = types[Math.floor(Math.random() * types.length)];
         const unit = createVehicle(type, this.G.ai, factory.x + 60, factory.y + 60);
         this.G.units.push(unit);
@@ -90,8 +110,35 @@ export class AI {
             }
         }
     }
+    
+    assignArtilleryPosition(unit) {
+        // Находим позицию для артиллерии (далеко от фронта, но в радиусе атаки)
+        const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
+        const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction);
+        
+        if (aiPoints.length === 0 || playerPoints.length === 0) return;
+        
+        // Находим центральную точку своих территорий
+        const centerX = aiPoints.reduce((sum, cp) => sum + cp.x, 0) / aiPoints.length;
+        const centerY = aiPoints.reduce((sum, cp) => sum + cp.y, 0) / aiPoints.length;
+        
+        // Находим ближайшую вражескую точку
+        const nearestEnemy = playerPoints.reduce((closest, cp) => {
+            const d = dist(centerX, centerY, cp.x, cp.y);
+            return d < closest.dist ? { cp, dist: d } : closest;
+        }, { cp: null, dist: Infinity });
+        
+        if (!nearestEnemy.cp) return;
+        
+        // Позиционируем артиллерию на расстоянии 70-80% от максимальной дальности
+        const angle = Math.atan2(nearestEnemy.cp.y - centerY, nearestEnemy.cp.x - centerX);
+        const optimalDist = unit.range * 0.75;
+        
+        unit.tx = centerX + Math.cos(angle) * optimalDist;
+        unit.ty = centerY + Math.sin(angle) * optimalDist;
+    }
 
-    defensiveBehavior() {
+    strategicBehavior() {
         // Переключение между режимами каждые 2000 тиков
         if (this.timer % 2000 === 0) {
             this.defenseMode = !this.defenseMode;
@@ -106,11 +153,83 @@ export class AI {
             this.defenseMode = true;
         }
         
+        // Стратегия накопления сил и атаки
+        if (this.accumulatedForces >= this.attackThreshold && this.timer - this.lastAttackTime > 4000) {
+            this.defenseMode = false;
+            this.lastAttackTime = this.timer;
+            this.accumulatedForces = 0; // Сбрасываем счётчик после атаки
+            this.launchAttack();
+        }
+        
         // Если у нас больше точек и прошло достаточно времени - атакуем
         if (aiPoints > playerPoints + 2 && this.timer - this.lastAttackTime > 3000) {
             this.defenseMode = false;
             this.lastAttackTime = this.timer;
         }
+    }
+    
+    launchAttack() {
+        // Находим лучшую цель для атаки
+        const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction);
+        if (playerPoints.length === 0) return;
+        
+        // Выбираем самую ценную цель (базу или большую точку)
+        const target = playerPoints.reduce((best, cp) => {
+            const value = cp.radius + (cp.type === 'town_hall' ? 100 : 0);
+            return value > best.value ? { cp, value } : best;
+        }, { cp: null, value: 0 }).cp;
+        
+        if (!target) return;
+        
+        // Отправляем все доступные юниты в атаку
+        const aiUnits = this.G.units.filter(u => u.faction === this.G.ai && u.hp > 0);
+        aiUnits.forEach(unit => {
+            unit.tx = target.x + (Math.random() - 0.5) * 50;
+            unit.ty = target.y + (Math.random() - 0.5) * 50;
+        });
+    }
+    
+    manageArtillery() {
+        // Находим всю артиллерию ИИ
+        const artillery = this.G.units.filter(u => 
+            u.faction === this.G.ai && 
+            (u.type === 'warden_artillery' || u.type === 'colonial_artillery') &&
+            u.hp > 0
+        );
+        
+        if (artillery.length === 0) return;
+        
+        // Находим позиции для обстрела (далеко от вражеских территорий)
+        const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction);
+        if (playerPoints.length === 0) return;
+        
+        artillery.forEach(art => {
+            // Находим ближайшую вражескую точку
+            const target = playerPoints.reduce((closest, cp) => {
+                const d = dist(art.x, art.y, cp.x, cp.y);
+                return d < closest.dist ? { cp, dist: d } : closest;
+            }, { cp: null, dist: Infinity });
+            
+            if (!target.cp) return;
+            
+            // Если цель в радиусе атаки - стреляем
+            const targetDist = dist(art.x, art.y, target.cp.x, target.cp.y);
+            if (targetDist <= art.range && targetDist >= (art.minRange || 100)) {
+                // Устанавливаем цель для AoE атаки
+                art.aoeTarget = { x: target.cp.x, y: target.cp.y };
+            }
+            // Если цель слишком близко - отступаем
+            else if (targetDist < (art.minRange || 100)) {
+                const retreatAngle = Math.atan2(art.y - target.cp.y, art.x - target.cp.x);
+                art.tx = art.x + Math.cos(retreatAngle) * 100;
+                art.ty = art.y + Math.sin(retreatAngle) * 100;
+            }
+            // Если цель далеко - двигаемся ближе
+            else if (targetDist > art.range) {
+                art.tx = target.cp.x + (Math.random() - 0.5) * 100;
+                art.ty = target.cp.y + (Math.random() - 0.5) * 100;
+            }
+        });
     }
 
     findDefensiveTarget(fromX, fromY) {

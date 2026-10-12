@@ -1,5 +1,5 @@
 // ===== GAME LOGIC =====
-import { dist, distToSeg, GAME_MODES } from './constants.js';
+import { dist, distToSeg, GAME_MODES, SUPPLY_SYSTEM } from './constants.js';
 import { AI } from './ai.js';
 import { createVehicle } from './vehicles.js';
 
@@ -117,13 +117,14 @@ export class Game {
             // Update game time for reload calculation
             u.gameTime = this.time;
             
-            // Пополнение БК/топлива в базе
+            // Пополнение БК/топлива в базе (постепенное, с большим радиусом)
             const isInBase = this.buildings.some(b => 
                 b.faction === u.faction && 
                 b.type === 'town_hall' && 
-                dist(u.x, u.y, b.x, b.y) < 100
+                dist(u.x, u.y, b.x, b.y) < SUPPLY_SYSTEM.baseSupplyRadius
             );
             if (isInBase) {
+                // Постепенное пополнение каждый тик
                 if (u.regenerateAtBase) {
                     u.regenerateAtBase();
                 }
