@@ -1,6 +1,6 @@
 // ===== RENDERER =====
 import { COLORS } from './constants.js';
-import { RIVER_POINTS, ROADS, BRIDGES, WATER_ZONES, CITY_ZONES, TREES, BUSHES, ROCKS, GRASS_PATCHES } from './map.js';
+import { ROADS, CITY_ZONES, TREES, BUSHES, ROCKS, GRASS_PATCHES } from './map.js';
 
 export function render(ctx, G, canvas) {
     const cam = G.cam;
@@ -17,20 +17,8 @@ export function render(ctx, G, canvas) {
     // Grass patches
     drawGrassPatches(ctx, cam, canvas);
 
-    // Water zones (flooded areas)
-    drawWaterZones(ctx, WATER_ZONES, cam);
-
-    // River - multiple layers for depth
-    drawRiver(ctx, RIVER_POINTS, cam, 35, '#4a5a4a'); // Dark edge
-    drawRiver(ctx, RIVER_POINTS, cam, 28, '#5a6b5a'); // Main
-    drawRiver(ctx, RIVER_POINTS, cam, 20, '#6b7b6b'); // Light center
-    drawRiverHighlights(ctx, RIVER_POINTS, cam);
-
     // Roads - winding with curves
     drawRoads(ctx, ROADS, cam);
-
-    // Bridges
-    drawBridges(ctx, BRIDGES, cam);
 
     // City zones with detailed buildings
     drawCityZones(ctx, CITY_ZONES, cam);
@@ -818,16 +806,7 @@ function drawMinimap(ctx, G, canvas) {
     ctx.fillStyle = '#8b7355';
     ctx.fillRect(mx, my, mw, mh);
     
-    // River on minimap
-    ctx.strokeStyle = '#5a6b5a';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(mx + RIVER_POINTS[0].x * sx, my + RIVER_POINTS[0].y * sy);
-    for (let i = 1; i < RIVER_POINTS.length; i++) {
-        ctx.lineTo(mx + RIVER_POINTS[i].x * sx, my + RIVER_POINTS[i].y * sy);
-    }
-    ctx.stroke();
-    
+    // Cities on minimap
     G.cps.forEach(cp => {
         const col = cp.owner === 'neutral' ? '#6b7280' : cp.owner === 'wardens' ? '#2563eb' : '#dc2626';
         ctx.fillStyle = col;
@@ -836,22 +815,26 @@ function drawMinimap(ctx, G, canvas) {
         ctx.fill();
     });
     
+    // Mines on minimap
     G.mines.forEach(mine => {
         const col = mine.owner === 'neutral' ? '#fbbf24' : mine.owner === 'wardens' ? '#2563eb' : '#dc2626';
         ctx.fillStyle = col;
         ctx.fillRect(mx + mine.x * sx - 2, my + mine.y * sy - 2, 4, 4);
     });
     
+    // Buildings on minimap
     G.buildings.forEach(b => {
         ctx.fillStyle = b.faction === 'wardens' ? '#2563eb' : '#dc2626';
         ctx.fillRect(mx + b.x * sx - 2, my + b.y * sy - 2, 4, 4);
     });
     
+    // Units on minimap
     G.units.forEach(u => {
         ctx.fillStyle = u.faction === G.faction ? '#60a5fa' : '#f87171';
         ctx.fillRect(mx + u.x * sx - 1, my + u.y * sy - 1, 2, 2);
     });
     
+    // Camera viewport
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 1;
     ctx.strokeRect(mx + G.cam.x * sx, my + G.cam.y * sy, canvas.width * sx, canvas.height * sy);

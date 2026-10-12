@@ -73,22 +73,45 @@ export class AI {
     }
 
     findBestTarget(fromX, fromY) {
-        // Prioritize: uncaptured points > enemy buildings > enemy units
+        // Smart targeting: consider distance, value, and strategic importance
         const uncaptured = this.G.cps.filter(cp => cp.owner !== this.G.ai);
-        if (uncaptured.length > 0) {
-            return uncaptured.sort((a, b) => 
-                dist(fromX, fromY, a.x, a.y) - dist(fromX, fromY, b.x, b.y)
-            )[0];
-        }
+        if (uncaptured.length === 0) return null;
 
-        const enemyBuildings = this.G.buildings.filter(b => b.faction !== this.G.ai);
-        if (enemyBuildings.length > 0) {
-            return enemyBuildings.sort((a, b) => 
-                dist(fromX, fromY, a.x, a.y) - dist(fromX, fromY, b.x, b.y)
-            )[0];
-        }
+        // Score each target based on multiple factors
+        const scored = uncaptured.map(cp => {
+            const distance = dist(fromX, fromY, cp.x, cp.y);
+            let score = 0;
+            
+            // Prefer closer targets (inverse distance)
+            score += 1000 / (distance + 100);
+            
+            // Prefer targets that are being captured by player (defend/contest)
+            if (cp.capturing === this.G.faction) {
+                score += 500;
+            }
+            
+            // Prefer strategic positions (larger radius = more important)
+            score += cp.radius * 2;
+            
+            // Add some randomness to avoid predictable behavior
+            score += Math.random() * 100;
+            
+            // Prefer targets on different sides of the map (diversify attacks)
+            const myBase = this.G.cps.find(c => c.owner === this.G.ai);
+            if (myBase) {
+                const targetSide = cp.x < 1500 ? 'left' : 'right';
+                const mySide = myBase.x < 1500 ? 'left' : 'right';
+                if (targetSide !== mySide) {
+                    score += 200; // Bonus for attacking opposite side
+                }
+            }
+            
+            return { target: cp, score };
+        });
 
-        return null;
+        // Sort by score and pick the best
+        scored.sort((a, b) => b.score - a.score);
+        return scored[0].target;
     }
 
     assignSquadToTarget(units, target) {
@@ -111,52 +134,8 @@ export class AI {
     }
 
     calculatePath(fromX, fromY, toX, toY) {
-        const path = [];
-        
-        // Check if direct path crosses water
-        if (!this.crossesWater(fromX, fromY, toX, toY)) {
-            return []; // Direct path is fine
-        }
-
-        // Need to go through a bridge
-        const nearestBridge = BRIDGES.reduce((nearest, bridge) => {
-            const d = dist(fromX, fromY, bridge.x, bridge.y) + 
-                      dist(bridge.x, bridge.y, toX, toY);
-            if (!nearest || d < nearest.dist) {
-                return { bridge, dist: d };
-            }
-            return nearest;
-        }, null);
-
-        if (nearestBridge) {
-            // Path: current -> bridge -> target
-            path.push({ x: nearestBridge.bridge.x, y: nearestBridge.bridge.y });
-            path.push({ x: toX, y: toY });
-        }
-
-        return path;
-    }
-
-    crossesWater(x1, y1, x2, y2) {
-        // Check if line segment crosses any river segment
-        // Use larger distance (30) to account for river width
-        for (let i = 0; i < RIVER_POINTS.length - 1; i++) {
-            const p1 = RIVER_POINTS[i];
-            const p2 = RIVER_POINTS[i + 1];
-            
-            // Check multiple points along the line
-            const steps = 20;
-            for (let s = 0; s <= steps; s++) {
-                const t = s / steps;
-                const px = x1 + (x2 - x1) * t;
-                const py = y1 + (y2 - y1) * t;
-                
-                if (distToSeg(px, py, p1.x, p1.y, p2.x, p2.y) < 30) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        // No rivers now, so direct path is always fine
+        return [];
     }
 
     updateUnitMovement() {

@@ -167,19 +167,14 @@ export class Game {
                     const r = u.spd / d;
                     const nx = u.x + (u.tx - u.x) * r;
                     const ny = u.y + (u.ty - u.y) * r;
-                    // Check water (all units) and buildings (vehicles only)
-                    const blockedByWater = this.isWater(nx, ny);
+                    // Check buildings (vehicles only)
                     const blockedByBuilding = this.isBlockedForVehicle(nx, ny, u);
                     
-                    if (!blockedByWater && !blockedByBuilding) {
+                    if (!blockedByBuilding) {
                         // Update direction based on movement
                         u.direction = Math.atan2(ny - u.y, nx - u.x);
                         u.x = nx;
                         u.y = ny;
-                    } else if (blockedByWater) {
-                        // Can't cross water, cancel movement
-                        u.tx = undefined;
-                        u.ty = undefined;
                     }
                     // If blocked by building, keep trying (will go around)
                 } else {
@@ -237,15 +232,6 @@ export class Game {
                 if (mine.type === 'materials') this.res.m += 0.03;
             }
         });
-    }
-
-    isWater(x, y) {
-        for (let i = 0; i < RIVER_POINTS.length - 1; i++) {
-            const p1 = RIVER_POINTS[i];
-            const p2 = RIVER_POINTS[i + 1];
-            if (distToSeg(x, y, p1.x, p1.y, p2.x, p2.y) < 30) return true;
-        }
-        return false;
     }
 
     isBlockedForVehicle(x, y, unit) {
