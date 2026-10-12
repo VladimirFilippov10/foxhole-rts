@@ -59,7 +59,7 @@ export const LOCATIONS = [
 
 // Capture points
 export const CAPTURE_POINTS = [
-    { name: "Callahan Gate", col: 1, row: 2, radius: 100, owner: 'wardens' }, // The Spine - Wardens base
+    { name: "Callahan Gate", col: 1, row: 2, radius: 100, owner: 'wardens' },
     { name: "Callahan's Cache", col: 9, row: 1, radius: 70, owner: 'neutral' },
     { name: 'The Plaza', col: 4, row: 4, radius: 70, owner: 'neutral' },
     { name: "Callahan's Belt", col: 9, row: 4, radius: 70, owner: 'neutral' },
@@ -68,7 +68,7 @@ export const CAPTURE_POINTS = [
     { name: "Hope's Causeway", col: 6, row: 8, radius: 70, owner: 'neutral' },
     { name: 'The Salt Farms', col: 5, row: 11, radius: 70, owner: 'neutral' },
     { name: 'Brine Glen', col: 9, row: 9, radius: 70, owner: 'neutral' },
-    { name: 'The Salt March', col: 7, row: 11, radius: 100, owner: 'colonials' }, // Colonials base
+    { name: 'The Salt March', col: 7, row: 11, radius: 100, owner: 'colonials' },
 ];
 
 // Resource mines
@@ -83,33 +83,33 @@ export const RESOURCE_POINTS = [
 
 // Main river - winding with loop in center
 export const RIVER_POINTS = [
-    gridToPos(0.5, 5.5),  // Enters from left at B6
-    gridToPos(1.5, 5.8),  // B6-C6
-    gridToPos(2.5, 6.2),  // C6-D6
-    gridToPos(3.5, 6.5),  // D6-E6
-    gridToPos(4.5, 6.8),  // E6-F6 (The Crossing)
-    gridToPos(5.0, 7.2),  // F7 - starts curving down
-    gridToPos(5.5, 7.8),  // F8 - loop down
-    gridToPos(6.0, 8.2),  // G8 - bottom of loop
-    gridToPos(6.5, 8.0),  // G8 - coming back up
-    gridToPos(7.0, 7.5),  // H7-H8
-    gridToPos(7.5, 7.8),  // H8 - Hope's Causeway area
-    gridToPos(8.0, 8.2),  // I8-I9
-    gridToPos(8.5, 8.5),  // I9-J9
-    gridToPos(9.0, 8.8),  // J9
-    gridToPos(9.5, 9.0),  // J9-J10
-    gridToPos(10.0, 9.2), // K10
-    gridToPos(10.5, 9.5), // K10-L10
-    gridToPos(11.5, 9.8), // Exits right at L10-L11
+    gridToPos(0.5, 5.5),
+    gridToPos(1.5, 5.8),
+    gridToPos(2.5, 6.2),
+    gridToPos(3.5, 6.5),
+    gridToPos(4.5, 6.8),
+    gridToPos(5.0, 7.2),
+    gridToPos(5.5, 7.8),
+    gridToPos(6.0, 8.2),
+    gridToPos(6.5, 8.0),
+    gridToPos(7.0, 7.5),
+    gridToPos(7.5, 7.8),
+    gridToPos(8.0, 8.2),
+    gridToPos(8.5, 8.5),
+    gridToPos(9.0, 8.8),
+    gridToPos(9.5, 9.0),
+    gridToPos(10.0, 9.2),
+    gridToPos(10.5, 9.5),
+    gridToPos(11.5, 9.8),
 ];
 
-// Water zones (flooded areas)
+// Water zones
 export const WATER_ZONES = [
     { x: gridToPos(3, 9).x, y: gridToPos(3, 9).y, radius: 80, name: 'Flooded Fields' },
     { x: gridToPos(2, 10).x, y: gridToPos(2, 10).y, radius: 60, name: 'Concrete Shallows' },
 ];
 
-// Bridges and fords
+// Bridges
 export const BRIDGES = [
     { x: gridToPos(5, 5.5).x, y: gridToPos(5, 5.5).y, name: 'The Crossing', type: 'bridge' },
     { x: gridToPos(6, 8).x, y: gridToPos(6, 8).y, name: "Hope's Causeway", type: 'bridge' },
@@ -117,34 +117,25 @@ export const BRIDGES = [
     { x: gridToPos(4.5, 7).x, y: gridToPos(4.5, 7).y, name: 'Waterfoot Gap', type: 'ford' },
 ];
 
-// Roads - more winding paths
+// Roads
 export const ROADS = [
-    // Northern main road (winding)
     { from: [1, 2], to: [2, 1.5], curve: 0.3 },
     { from: [2, 1.5], to: [4, 1.2], curve: 0.2 },
     { from: [4, 1.2], to: [5, 2], curve: 0.4 },
     { from: [5, 2], to: [7, 1.5], curve: 0.3 },
     { from: [7, 1.5], to: [9, 1], curve: 0.2 },
     { from: [9, 1], to: [9, 2], curve: 0.1 },
-    
-    // Right side road
     { from: [9, 2], to: [9, 4], curve: 0.2 },
     { from: [9, 4], to: [9, 5], curve: 0.1 },
     { from: [9, 5], to: [9, 6], curve: 0.3 },
     { from: [9, 6], to: [9, 9], curve: 0.2 },
-    
-    // Left side road
     { from: [1, 2], to: [1, 5], curve: 0.2 },
     { from: [1, 5], to: [1, 8], curve: 0.3 },
     { from: [1, 8], to: [1, 11], curve: 0.2 },
-    
-    // Central connections
     { from: [4, 1.2], to: [4, 4], curve: 0.3 },
     { from: [4, 4], to: [5, 4], curve: 0.1 },
     { from: [5, 4], to: [5, 5], curve: 0.2 },
     { from: [5, 2], to: [5, 4], curve: 0.4 },
-    
-    // Southern connections
     { from: [1, 8], to: [2, 9], curve: 0.3 },
     { from: [2, 9], to: [2, 11], curve: 0.2 },
     { from: [2, 11], to: [5, 11], curve: 0.3 },
@@ -152,40 +143,58 @@ export const ROADS = [
     { from: [9, 9], to: [5, 11], curve: 0.4 },
 ];
 
-// City zones with buildings (for rendering)
+// City zones with detailed buildings
 export const CITY_ZONES = [
-    { col: 1, row: 2, radius: 120, buildings: 12 }, // Callahan Gate (large)
-    { col: 9, row: 1, radius: 80, buildings: 8 },
-    { col: 4, row: 4, radius: 80, buildings: 8 },
-    { col: 9, row: 4, radius: 80, buildings: 8 },
-    { col: 1, row: 5, radius: 70, buildings: 6 },
-    { col: 1, row: 8, radius: 70, buildings: 6 },
-    { col: 6, row: 8, radius: 70, buildings: 6 },
-    { col: 5, row: 11, radius: 70, buildings: 6 },
-    { col: 9, row: 9, radius: 70, buildings: 6 },
-    { col: 7, row: 11, radius: 120, buildings: 12 }, // Salt March (large)
+    { col: 1, row: 2, radius: 120, buildings: 15, type: 'military' },
+    { col: 9, row: 1, radius: 80, buildings: 10, type: 'cache' },
+    { col: 4, row: 4, radius: 80, buildings: 10, type: 'plaza' },
+    { col: 9, row: 4, radius: 80, buildings: 10, type: 'belt' },
+    { col: 1, row: 5, radius: 70, buildings: 8, type: 'settlement' },
+    { col: 1, row: 8, radius: 70, buildings: 8, type: 'settlement' },
+    { col: 6, row: 8, radius: 70, buildings: 8, type: 'causeway' },
+    { col: 5, row: 11, radius: 70, buildings: 8, type: 'farms' },
+    { col: 9, row: 9, radius: 70, buildings: 8, type: 'settlement' },
+    { col: 7, row: 11, radius: 120, buildings: 15, type: 'salt_march' },
 ];
 
-// Trees (scattered across map)
+// Trees (more variety)
 export const TREES = [];
-for (let i = 0; i < 200; i++) {
+for (let i = 0; i < 300; i++) {
     const x = Math.random() * 3000;
     const y = Math.random() * 2250;
-    // Avoid water and cities
     let valid = true;
     for (const cp of RIVER_POINTS) {
-        if (Math.sqrt((x - cp.x) ** 2 + (y - cp.y) ** 2) < 50) { valid = false; break; }
+        if (Math.sqrt((x - cp.x) ** 2 + (y - cp.y) ** 2) < 60) { valid = false; break; }
     }
-    if (valid) TREES.push({ x, y, size: 8 + Math.random() * 6 });
+    if (valid) {
+        const type = Math.random() < 0.7 ? 'pine' : 'oak';
+        TREES.push({ x, y, size: 10 + Math.random() * 8, type });
+    }
+}
+
+// Bushes
+export const BUSHES = [];
+for (let i = 0; i < 150; i++) {
+    const x = Math.random() * 3000;
+    const y = Math.random() * 2250;
+    BUSHES.push({ x, y, size: 5 + Math.random() * 5 });
+}
+
+// Rocks
+export const ROCKS = [];
+for (let i = 0; i < 80; i++) {
+    const x = Math.random() * 3000;
+    const y = Math.random() * 2250;
+    ROCKS.push({ x, y, size: 4 + Math.random() * 6 });
 }
 
 // Grass patches
 export const GRASS_PATCHES = [];
-for (let i = 0; i < 100; i++) {
+for (let i = 0; i < 120; i++) {
     GRASS_PATCHES.push({
         x: Math.random() * 3000,
         y: Math.random() * 2250,
-        radius: 20 + Math.random() * 30,
+        radius: 25 + Math.random() * 35,
     });
 }
 
