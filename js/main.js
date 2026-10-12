@@ -352,10 +352,11 @@ function handleMouseDown(e) {
         return;
     }
     
-    // Check if clicked on a flag (capture point)
+    // Check if clicked on a flag (capture point) - only if clicked very close to flag
     const clickedFlag = game.cps.find(cp => {
         const d = dist(cp.x, cp.y, worldX, worldY);
-        return d <= cp.radius && cp.owner === game.faction;
+        // Only trigger defense panel if clicked within 30px of flag center (not entire territory)
+        return d <= 30 && cp.owner === game.faction;
     });
     
     if (clickedFlag && !isDouble && !game.moveMode && !aoeMode) {
