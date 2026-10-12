@@ -34,16 +34,30 @@ export class AI {
             return; // Пропускаем производство если достигнут лимит
         }
 
-        // Спавн пехоты каждые 900 тиков (было 600)
-        if (this.timer % 900 === 0) {
+        // Проверка доминирования игрока (больше 50% точек)
+        const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction).length;
+        const totalPoints = this.G.cps.length;
+        const playerDominance = playerPoints > totalPoints * 0.5;
+        
+        // Базовые интервалы спавна (увеличены в 3 раза)
+        const infantrySpawnInterval = 2700; // 900 * 3
+        const vehicleSpawnInterval = 4500; // 1500 * 3
+        
+        // Если игрок доминирует, замедляем спавн ещё в 2 раза
+        const spawnMultiplier = playerDominance ? 2 : 1;
+        const actualInfantryInterval = infantrySpawnInterval * spawnMultiplier;
+        const actualVehicleInterval = vehicleSpawnInterval * spawnMultiplier;
+
+        // Спавн пехоты (с учётом доминирования)
+        if (this.timer % actualInfantryInterval === 0) {
             if (this.canAffordInfantry()) {
                 this.spawnInfantrySquad();
                 this.accumulatedForces++;
             }
         }
 
-        // Спавн техники каждые 1500 тиков (было 1000)
-        if (this.timer % 1500 === 0) {
+        // Спавн техники (с учётом доминирования)
+        if (this.timer % actualVehicleInterval === 0) {
             if (this.G.canProduceUnit('vehicle', this.G.ai) && this.canAffordVehicle()) {
                 this.spawnVehicle();
                 this.accumulatedForces += 2; // Техника ценнее

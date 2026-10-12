@@ -223,13 +223,8 @@ function gameLoop() {
             `;
         }
         
-        // Обновляем очередь производства если меню открыто
-        if (factoryMenuOpen) {
-            const factory = game.buildings.find(b => b.type === 'factory' && b.faction === game.faction);
-            if (factory) {
-                updateFactoryQueue(factory);
-            }
-        }
+        // Обновляем очередь производства (всегда видна слева вверху)
+        updateProductionQueueUI();
         
         updateSelInfo();
         
@@ -442,41 +437,41 @@ function openFactoryMenu(factory, mx, my) {
         if (canAfford) {
             card.onclick = () => {
                 trainUnit(type, factory);
-                updateFactoryQueue(factory); // Обновляем очередь после заказа
             };
         }
         grid.appendChild(card);
     });
-    
-    // Показываем очередь производства
-    updateFactoryQueue(factory);
 }
 
-function updateFactoryQueue(factory) {
-    const queue = game.getProductionProgress(factory.id);
+function updateProductionQueueUI() {
+    const queueContainer = document.getElementById('productionQueue');
+    const queueContent = document.getElementById('productionQueueContent');
     
-    // Удаляем старую очередь если есть
-    const menu = document.getElementById('factoryMenu');
-    const existingQueue = menu.querySelector('.production-queue');
-    if (existingQueue) {
-        existingQueue.remove();
-    }
+    if (!queueContainer || !queueContent || !game) return;
     
-    // Если очередь пустая - не создаём ничего
-    if (queue.length === 0) {
+    // Получаем все заводы игрока
+    const playerFactories = game.buildings.filter(b => b.type === 'factory' && b.faction === game.faction);
+    
+    // Собираем все элементы очереди со всех заводов
+    let allQueueItems = [];
+    playerFactories.forEach(factory => {
+        const queue = game.getProductionProgress(factory.id);
+        allQueueItems = allQueueItems.concat(queue);
+    });
+    
+    // Если очередь пустая - скрываем контейнер
+    if (allQueueItems.length === 0) {
+        queueContainer.style.display = 'none';
         return;
     }
     
-    // Создаём новую очередь
-    const queueDiv = document.createElement('div');
-    queueDiv.className = 'production-queue';
-    queueDiv.style.marginTop = '1rem';
-    queueDiv.style.paddingTop = '0.75rem';
-    queueDiv.style.borderTop = '1px solid #374151';
+    // Показываем контейнер
+    queueContainer.style.display = 'block';
     
-    let queueHtml = '<div style="font-size:0.75rem;color:#9ca3af;margin-bottom:0.5rem;">📋 Очередь производства:</div>';
+    // Генерируем HTML для очереди
+    let queueHtml = '';
     
-    queue.forEach((item, index) => {
+    allQueueItems.forEach((item, index) => {
         const info = VEHICLE_INFO[item.type];
         const elapsed = game.time - item.startTime;
         const buildTimeTicks = item.buildTime * 60;
@@ -497,8 +492,7 @@ function updateFactoryQueue(factory) {
         `;
     });
     
-    queueDiv.innerHTML = queueHtml;
-    menu.appendChild(queueDiv);
+    queueContent.innerHTML = queueHtml;
 }
 
 function trainUnit(type, factory) {
@@ -533,9 +527,6 @@ function trainUnit(type, factory) {
     const buildTime = cost.buildTime || 10; // По умолчанию 10 секунд
     game.addToProductionQueue(type, game.faction, factory.id, buildTime);
     notify(`${info.name} поставлен в очередь (${buildTime}с)`);
-    
-    // Обновляем очередь в меню
-    updateFactoryQueue(factory);
 }
 
 window.closeFactoryMenu = function() {
