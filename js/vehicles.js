@@ -22,11 +22,12 @@ export class Vehicle {
         this.maxHp = 100;
         this.dmg = 10;
         this.range = 100;
-        this.spd = 1.0; // Замедлено
+        this.spd = 1.0; // Базовая скорость
         this.cd = 60;
         this.size = 20;
         this.label = 'Vehicle';
         this.armor = 0;
+        this.tracked = false; // Гусеничная техника (танки, БТР, артиллерия)
         
         // Система БК и топлива
         this.ammo = SUPPLY_SYSTEM.maxAmmo;
@@ -91,6 +92,7 @@ export class Devitt extends Vehicle {
         this.size = 22;
         this.armor = 5;
         this.label = 'Devitt';
+        this.tracked = true; // Гусеничный танк
     }
 }
 
@@ -105,6 +107,7 @@ export class Gallagher extends Vehicle {
         this.size = 28;
         this.armor = 25;
         this.label = 'Gallagher 30mm';
+        this.tracked = true; // Гусеничный танк
     }
 }
 
@@ -119,6 +122,7 @@ export class Niska extends Vehicle {
         this.size = 22;
         this.armor = 4;
         this.label = 'Niska APC';
+        this.tracked = true; // Гусеничный БТР
     }
 }
 
@@ -134,6 +138,7 @@ export class Hatchet extends Vehicle {
         this.size = 20;
         this.armor = 3;
         this.label = 'Hatchet';
+        this.tracked = true; // Гусеничный танк
     }
 }
 
@@ -148,6 +153,7 @@ export class Falchion extends Vehicle {
         this.size = 26;
         this.armor = 10;
         this.label = 'Falchion';
+        this.tracked = true; // Гусеничный танк
     }
 }
 
@@ -162,6 +168,7 @@ export class Hoplite extends Vehicle {
         this.size = 20;
         this.armor = 3;
         this.label = 'Hoplite APC';
+        this.tracked = true; // Гусеничный БТР
     }
 }
 
@@ -180,6 +187,7 @@ export class WardenArtillery extends Vehicle {
         this.label = 'Warden Artillery';
         this.aoe = true; // Area of Effect attack
         this.aoeRadius = 80; // Большой радиус поражения
+        this.tracked = true; // Гусеничная артиллерия
     }
 }
 
@@ -197,6 +205,7 @@ export class ColonialArtillery extends Vehicle {
         this.label = 'Colonial Artillery';
         this.aoe = true; // Area of Effect attack
         this.aoeRadius = 70; // Средний радиус поражения
+        this.tracked = true; // Гусеничная артиллерия
     }
 }
 

@@ -300,7 +300,25 @@ export class Game {
                         u.lastX = u.x;
                         u.lastY = u.y;
                         
-                        const r = u.spd / d;
+                        // Проверяем, находится ли юнит на дороге
+                        const onRoad = this.isOnRoad(u.x, u.y);
+                        
+                        // Применяем модификаторы скорости
+                        let speedModifier = 1.0;
+                        if (onRoad) {
+                            speedModifier = 1.1; // +10% на дорогах для всех
+                            if (u.tracked) {
+                                speedModifier = 0.7; // -30% для гусеничных на дорогах
+                            }
+                        } else {
+                            speedModifier = 0.7; // -30% на земле для всех
+                            if (u.tracked) {
+                                speedModifier = 1.0; // Гусеничные не теряют скорость на земле
+                            }
+                        }
+                        
+                        const effectiveSpeed = u.spd * speedModifier;
+                        const r = effectiveSpeed / d;
                         const nx = u.x + (u.tx - u.x) * r;
                         const ny = u.y + (u.ty - u.y) * r;
                         // Check buildings (vehicles only)
@@ -445,6 +463,63 @@ export class Game {
             const d = dist(x, y, cx, cy);
             // Vehicles blocked only in the very center (20% of radius)
             if (d < zone.radius * 0.2) return true;
+        }
+        
+        return false;
+    }
+    
+    isOnRoad(x, y) {
+        // Import ROADS from map.js
+        const ROADS = [
+            { from: [1, 2], to: [2, 1.5], curve: 0.3 },
+            { from: [2, 1.5], to: [4, 1.2], curve: 0.2 },
+            { from: [4, 1.2], to: [5, 2], curve: 0.4 },
+            { from: [5, 2], to: [7, 1.5], curve: 0.3 },
+            { from: [7, 1.5], to: [9, 1], curve: 0.2 },
+            { from: [9, 1], to: [9, 2], curve: 0.1 },
+            { from: [9, 2], to: [9, 4], curve: 0.2 },
+            { from: [9, 4], to: [9, 5], curve: 0.1 },
+            { from: [9, 5], to: [9, 6], curve: 0.3 },
+            { from: [9, 6], to: [9, 9], curve: 0.2 },
+            { from: [1, 2], to: [1, 5], curve: 0.2 },
+            { from: [1, 5], to: [1, 8], curve: 0.3 },
+            { from: [1, 8], to: [1, 11], curve: 0.2 },
+            { from: [4, 1.2], to: [4, 4], curve: 0.3 },
+            { from: [4, 4], to: [5, 4], curve: 0.1 },
+            { from: [5, 4], to: [5, 5], curve: 0.2 },
+            { from: [5, 2], to: [5, 4], curve: 0.4 },
+            { from: [1, 8], to: [2, 9], curve: 0.3 },
+            { from: [2, 9], to: [2, 11], curve: 0.2 },
+            { from: [2, 11], to: [5, 11], curve: 0.3 },
+            { from: [5, 11], to: [7, 11], curve: 0.2 },
+            { from: [9, 9], to: [5, 11], curve: 0.4 },
+        ];
+        
+        const roadWidth = 15; // Half of road width (24px / 2 + margin)
+        
+        for (const road of ROADS) {
+            const fromX = road.from[0] * 250 + 125;
+            const fromY = road.from[1] * 150 + 75;
+            const toX = road.to[0] * 250 + 125;
+            const toY = road.to[1] * 150 + 75;
+            
+            // Calculate control point for quadratic curve
+            const midX = (fromX + toX) / 2 + (toY - fromY) * road.curve;
+            const midY = (fromY + toY) / 2 - (toX - fromX) * road.curve;
+            
+            // Check distance to road using multiple points along the curve
+            const steps = 20;
+            for (let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                // Quadratic bezier curve formula
+                const px = (1 - t) * (1 - t) * fromX + 2 * (1 - t) * t * midX + t * t * toX;
+                const py = (1 - t) * (1 - t) * fromY + 2 * (1 - t) * t * midY + t * t * toY;
+                
+                const d = dist(x, y, px, py);
+                if (d < roadWidth) {
+                    return true;
+                }
+            }
         }
         
         return false;

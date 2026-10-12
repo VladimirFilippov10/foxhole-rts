@@ -212,13 +212,28 @@ export const CITY_ZONES = [
     { col: 7, row: 11, radius: 180, buildings: 25, type: 'salt_march' },
 ];
 
-// Trees (more variety)
+// Trees (more variety) - avoid lakes
 export const TREES = [];
 for (let i = 0; i < 300; i++) {
     const x = Math.random() * 3000;
     const y = Math.random() * 2250;
-    const type = Math.random() < 0.7 ? 'pine' : 'oak';
-    TREES.push({ x, y, size: 10 + Math.random() * 8, type });
+    
+    // Check if tree would be on a lake
+    let onLake = false;
+    for (const lake of LAKES) {
+        const lakeX = lake.col * 250 + 125;
+        const lakeY = lake.row * 150 + 75;
+        const dist = Math.sqrt((x - lakeX) ** 2 + (y - lakeY) ** 2);
+        if (dist < lake.radius + 20) {
+            onLake = true;
+            break;
+        }
+    }
+    
+    if (!onLake) {
+        const type = Math.random() < 0.7 ? 'pine' : 'oak';
+        TREES.push({ x, y, size: 10 + Math.random() * 8, type });
+    }
 }
 
 // Bushes

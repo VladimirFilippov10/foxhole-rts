@@ -6,11 +6,11 @@ export function render(ctx, G, canvas) {
     const cam = G.cam;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Background - sandy/desert with variation
+    // Background - green terrain with variation
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, '#a08968');
-    gradient.addColorStop(0.5, '#8b7355');
-    gradient.addColorStop(1, '#9a8465');
+    gradient.addColorStop(0, '#5a7a4a');
+    gradient.addColorStop(0.5, '#4a6a3a');
+    gradient.addColorStop(1, '#5a7a4a');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -175,22 +175,63 @@ function drawLakes(ctx, lakes, cam, canvas) {
         
         if (x < -200 || x > canvas.width + 200 || y < -200 || y > canvas.height + 200) return;
         
-        // Draw lake water
+        // Draw lake water with irregular shape
         const gradient = ctx.createRadialGradient(x, y, 0, x, y, lake.radius);
         gradient.addColorStop(0, 'rgba(70, 130, 180, 0.8)');
         gradient.addColorStop(0.7, 'rgba(100, 149, 237, 0.6)');
         gradient.addColorStop(1, 'rgba(135, 206, 235, 0.4)');
         ctx.fillStyle = gradient;
+        
+        // Create irregular lake shape using multiple points
         ctx.beginPath();
-        ctx.ellipse(x, y, lake.radius, lake.radius * 0.8, 0, 0, Math.PI * 2);
+        const points = 12;
+        for (let i = 0; i <= points; i++) {
+            const angle = (i / points) * Math.PI * 2;
+            // Add variation to radius for irregular shape
+            const variation = 0.8 + Math.sin(angle * 3 + lake.col) * 0.2 + Math.cos(angle * 2 + lake.row) * 0.15;
+            const radiusX = lake.radius * variation;
+            const radiusY = lake.radius * 0.7 * (1 + Math.sin(angle * 2 + lake.col * 2) * 0.2);
+            const px = x + Math.cos(angle) * radiusX;
+            const py = y + Math.sin(angle) * radiusY;
+            
+            if (i === 0) {
+                ctx.moveTo(px, py);
+            } else {
+                // Use quadratic curves for smooth shape
+                const prevAngle = ((i - 1) / points) * Math.PI * 2;
+                const midAngle = (prevAngle + angle) / 2;
+                const midVariation = 0.8 + Math.sin(midAngle * 3 + lake.col) * 0.2 + Math.cos(midAngle * 2 + lake.row) * 0.15;
+                const midRadiusX = lake.radius * midVariation * 1.1;
+                const midRadiusY = lake.radius * 0.7 * (1 + Math.sin(midAngle * 2 + lake.col * 2) * 0.2) * 1.1;
+                const cpx = x + Math.cos(midAngle) * midRadiusX;
+                const cpy = y + Math.sin(midAngle) * midRadiusY;
+                ctx.quadraticCurveTo(cpx, cpy, px, py);
+            }
+        }
+        ctx.closePath();
         ctx.fill();
         
-        // Draw water ripples
+        // Draw water ripples with irregular shape
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
         ctx.lineWidth = 1;
-        for (let i = 1; i <= 3; i++) {
+        for (let r = 1; r <= 3; r++) {
             ctx.beginPath();
-            ctx.ellipse(x, y, lake.radius * (i / 4), lake.radius * 0.8 * (i / 4), 0, 0, Math.PI * 2);
+            const scale = r / 4;
+            for (let i = 0; i <= points; i++) {
+                const angle = (i / points) * Math.PI * 2;
+                const variation = 0.8 + Math.sin(angle * 3 + lake.col) * 0.2 + Math.cos(angle * 2 + lake.row) * 0.15;
+                const radiusX = lake.radius * variation * scale;
+                const radiusY = lake.radius * 0.7 * (1 + Math.sin(angle * 2 + lake.col * 2) * 0.2) * scale;
+                const px = x + Math.cos(angle) * radiusX;
+                const py = y + Math.sin(angle) * radiusY;
+                
+                if (i === 0) {
+                    ctx.moveTo(px, py);
+                } else {
+                    ctx.lineTo(px, py);
+                }
+            }
+            ctx.closePath();
             ctx.stroke();
         }
         
