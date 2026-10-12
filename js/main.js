@@ -42,17 +42,23 @@ const FORTIFICATION_INFO = {
 
 // Initialize
 window.addEventListener('load', () => {
-    canvas = document.getElementById('gameCanvas');
-    ctx = canvas.getContext('2d');
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-    
-    // Input handlers
-    window.addEventListener('keydown', e => { if (game) game.keys = game.keys || {}; game.keys[e.key.toLowerCase()] = true; });
-    window.addEventListener('keyup', e => { if (game) game.keys = game.keys || {}; game.keys[e.key.toLowerCase()] = false; });
-    canvas.addEventListener('mousedown', handleMouseDown);
-    canvas.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('contextmenu', e => e.preventDefault());
+    try {
+        canvas = document.getElementById('gameCanvas');
+        ctx = canvas.getContext('2d');
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Input handlers
+        window.addEventListener('keydown', e => { if (game) game.keys = game.keys || {}; game.keys[e.key.toLowerCase()] = true; });
+        window.addEventListener('keyup', e => { if (game) game.keys = game.keys || {}; game.keys[e.key.toLowerCase()] = false; });
+        canvas.addEventListener('mousedown', handleMouseDown);
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+        
+        console.log('✅ Игра инициализирована успешно');
+    } catch (error) {
+        console.error('❌ Ошибка инициализации:', error);
+    }
 });
 
 function resizeCanvas() {
@@ -96,109 +102,122 @@ window.backToMapSelect = function() {
 };
 
 function startGame() {
-    document.getElementById('hudTop').style.display = 'flex';
-    document.getElementById('controlsHint').style.display = 'block';
-    
-    const badge = document.getElementById('factionBadge');
-    badge.className = 'faction-badge ' + selectedFaction;
-    badge.innerHTML = selectedFaction === 'wardens' ? '🛡️ WARDENS' : '⚔️ COLONIALS';
-    
-    // Show game mode in HUD
-    const modeInfo = document.getElementById('gameModeInfo');
-    if (modeInfo) {
-        const mode = GAME_MODES[selectedGameMode];
-        modeInfo.textContent = `${mode.icon} ${mode.name}`;
+    try {
+        console.log('🎮 Запуск игры...');
+        
+        document.getElementById('hudTop').style.display = 'flex';
+        document.getElementById('controlsHint').style.display = 'block';
+        
+        const badge = document.getElementById('factionBadge');
+        badge.className = 'faction-badge ' + selectedFaction;
+        badge.innerHTML = selectedFaction === 'wardens' ? '🛡️ WARDENS' : '⚔️ COLONIALS';
+        
+        // Show game mode in HUD
+        const modeInfo = document.getElementById('gameModeInfo');
+        if (modeInfo) {
+            const mode = GAME_MODES[selectedGameMode];
+            modeInfo.textContent = `${mode.icon} ${mode.name}`;
+        }
+        
+        // Create game with selected mode
+        game = new Game(selectedFaction, selectedGameMode);
+        
+        // Set starting resources based on game mode
+        const startRes = GAME_MODES[selectedGameMode].startingResources;
+        game.res = { ...startRes };
+        
+        // Setup map
+        const cps = getCapturePointsInWorld();
+        const mines = getResourcePointsInWorld();
+        
+        // Find player and AI bases
+        // Wardens: Callahan Gate (index 0 - The Spine)
+        // Colonials: The Salt March (index 9)
+        const playerBaseIdx = selectedFaction === 'wardens' ? 0 : 9;
+        const aiBaseIdx = selectedFaction === 'wardens' ? 9 : 0;
+        
+        // Set ownership
+        cps[playerBaseIdx].owner = selectedFaction;
+        cps[playerBaseIdx].progress = 100;
+        cps[aiBaseIdx].owner = game.ai;
+        cps[aiBaseIdx].progress = 100;
+        
+        const playerBase = cps[playerBaseIdx];
+        const aiBase = cps[aiBaseIdx];
+        
+        // Create buildings
+        const buildings = [];
+        let nextId = 1;
+        const uid = () => 'b' + (nextId++);
+        
+        // Player buildings
+        buildings.push({ id: uid(), type: 'town_hall', faction: selectedFaction, x: playerBase.x - 50, y: playerBase.y - 50, hp: 2000, maxHp: 2000 });
+        buildings.push({ id: uid(), type: 'barracks', faction: selectedFaction, x: playerBase.x + 80, y: playerBase.y - 30, hp: 800, maxHp: 800 });
+        buildings.push({ id: uid(), type: 'factory', faction: selectedFaction, x: playerBase.x - 30, y: playerBase.y + 100, hp: 1000, maxHp: 1000 });
+        
+        // AI buildings
+        buildings.push({ id: uid(), type: 'town_hall', faction: game.ai, x: aiBase.x + 50, y: aiBase.y - 50, hp: 2000, maxHp: 2000 });
+        buildings.push({ id: uid(), type: 'barracks', faction: game.ai, x: aiBase.x - 80, y: aiBase.y - 30, hp: 800, maxHp: 800 });
+        buildings.push({ id: uid(), type: 'factory', faction: game.ai, x: aiBase.x + 30, y: aiBase.y + 100, hp: 1000, maxHp: 1000 });
+        
+        // Create starting units
+        const units = [];
+        
+        // Player units - use faction-specific vehicles
+        units.push(createVehicle('infantry', selectedFaction, playerBase.x + 30, playerBase.y + 50));
+        units.push(createVehicle('infantry', selectedFaction, playerBase.x + 50, playerBase.y + 50));
+        units.push(createVehicle('infantry', selectedFaction, playerBase.x + 70, playerBase.y + 50));
+        
+        // Wardens start with Devitt, Colonials with Hatchet
+        const playerLightTank = selectedFaction === 'wardens' ? 'devitt' : 'hatchet';
+        units.push(createVehicle(playerLightTank, selectedFaction, playerBase.x, playerBase.y + 120));
+        
+        // AI units
+        units.push(createVehicle('infantry', game.ai, aiBase.x - 30, aiBase.y + 50));
+        units.push(createVehicle('infantry', game.ai, aiBase.x - 50, aiBase.y + 50));
+        units.push(createVehicle('infantry', game.ai, aiBase.x - 70, aiBase.y + 50));
+        
+        const aiAPC = game.ai === 'wardens' ? 'niska' : 'hoplite';
+        units.push(createVehicle(aiAPC, game.ai, aiBase.x, aiBase.y + 120));
+        
+        const aiAssaultTank = game.ai === 'wardens' ? 'gallagher' : 'falchion';
+        units.push(createVehicle(aiAssaultTank, game.ai, aiBase.x + 50, aiBase.y - 30));
+        
+        // Initialize game
+        game.init(cps, mines, buildings, units);
+        game.notify = notify;
+        
+        console.log('✅ Игра инициализирована, запуск игрового цикла...');
+        
+        // Start game loop
+        gameLoop();
+    } catch (error) {
+        console.error('❌ Ошибка при запуске игры:', error);
+        alert('Ошибка при запуске игры: ' + error.message);
     }
-    
-    // Create game with selected mode
-    game = new Game(selectedFaction, selectedGameMode);
-    
-    // Set starting resources based on game mode
-    const startRes = GAME_MODES[selectedGameMode].startingResources;
-    game.res = { ...startRes };
-    
-    // Setup map
-    const cps = getCapturePointsInWorld();
-    const mines = getResourcePointsInWorld();
-    
-    // Find player and AI bases
-    // Wardens: Callahan Gate (index 0 - The Spine)
-    // Colonials: The Salt March (index 9)
-    const playerBaseIdx = selectedFaction === 'wardens' ? 0 : 9;
-    const aiBaseIdx = selectedFaction === 'wardens' ? 9 : 0;
-    
-    // Set ownership
-    cps[playerBaseIdx].owner = selectedFaction;
-    cps[playerBaseIdx].progress = 100;
-    cps[aiBaseIdx].owner = game.ai;
-    cps[aiBaseIdx].progress = 100;
-    
-    const playerBase = cps[playerBaseIdx];
-    const aiBase = cps[aiBaseIdx];
-    
-    // Create buildings
-    const buildings = [];
-    let nextId = 1;
-    const uid = () => 'b' + (nextId++);
-    
-    // Player buildings
-    buildings.push({ id: uid(), type: 'town_hall', faction: selectedFaction, x: playerBase.x - 50, y: playerBase.y - 50, hp: 2000, maxHp: 2000 });
-    buildings.push({ id: uid(), type: 'barracks', faction: selectedFaction, x: playerBase.x + 80, y: playerBase.y - 30, hp: 800, maxHp: 800 });
-    buildings.push({ id: uid(), type: 'factory', faction: selectedFaction, x: playerBase.x - 30, y: playerBase.y + 100, hp: 1000, maxHp: 1000 });
-    
-    // AI buildings
-    buildings.push({ id: uid(), type: 'town_hall', faction: game.ai, x: aiBase.x + 50, y: aiBase.y - 50, hp: 2000, maxHp: 2000 });
-    buildings.push({ id: uid(), type: 'barracks', faction: game.ai, x: aiBase.x - 80, y: aiBase.y - 30, hp: 800, maxHp: 800 });
-    buildings.push({ id: uid(), type: 'factory', faction: game.ai, x: aiBase.x + 30, y: aiBase.y + 100, hp: 1000, maxHp: 1000 });
-    
-    // Create starting units
-    const units = [];
-    
-    // Player units - use faction-specific vehicles
-    units.push(createVehicle('infantry', selectedFaction, playerBase.x + 30, playerBase.y + 50));
-    units.push(createVehicle('infantry', selectedFaction, playerBase.x + 50, playerBase.y + 50));
-    units.push(createVehicle('infantry', selectedFaction, playerBase.x + 70, playerBase.y + 50));
-    
-    // Wardens start with Devitt, Colonials with Hatchet
-    const playerLightTank = selectedFaction === 'wardens' ? 'devitt' : 'hatchet';
-    units.push(createVehicle(playerLightTank, selectedFaction, playerBase.x, playerBase.y + 120));
-    
-    // AI units
-    units.push(createVehicle('infantry', game.ai, aiBase.x - 30, aiBase.y + 50));
-    units.push(createVehicle('infantry', game.ai, aiBase.x - 50, aiBase.y + 50));
-    units.push(createVehicle('infantry', game.ai, aiBase.x - 70, aiBase.y + 50));
-    
-    const aiAPC = game.ai === 'wardens' ? 'niska' : 'hoplite';
-    units.push(createVehicle(aiAPC, game.ai, aiBase.x, aiBase.y + 120));
-    
-    const aiAssaultTank = game.ai === 'wardens' ? 'gallagher' : 'falchion';
-    units.push(createVehicle(aiAssaultTank, game.ai, aiBase.x + 50, aiBase.y - 30));
-    
-    // Initialize game
-    game.init(cps, mines, buildings, units);
-    game.notify = notify;
-    
-    // Start game loop
-    gameLoop();
 }
 
 function gameLoop() {
     if (!game) return;
     
-    game.update();
-    render(ctx, game, canvas);
-    
-    // Update HUD
-    document.getElementById('rSup').textContent = Math.floor(game.res.s);
-    document.getElementById('rComp').textContent = Math.floor(game.res.c);
-    document.getElementById('rMat').textContent = Math.floor(game.res.m);
-    document.getElementById('tCount').textContent = game.cps.filter(c => c.owner === game.faction).length;
-    
-    updateSelInfo();
-    
-    if (game.over) {
-        showEndScreen();
-        return;
+    try {
+        game.update();
+        render(ctx, game, canvas);
+        
+        // Update HUD
+        document.getElementById('rSup').textContent = Math.floor(game.res.s);
+        document.getElementById('rComp').textContent = Math.floor(game.res.c);
+        document.getElementById('rMat').textContent = Math.floor(game.res.m);
+        document.getElementById('tCount').textContent = game.cps.filter(c => c.owner === game.faction).length;
+        
+        updateSelInfo();
+        
+        if (game.over) {
+            showEndScreen();
+            return;
+        }
+    } catch (error) {
+        console.error('❌ Ошибка в игровом цикле:', error);
     }
     
     requestAnimationFrame(gameLoop);
