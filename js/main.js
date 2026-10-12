@@ -72,6 +72,16 @@ window.showMapSelect = function() {
     document.getElementById('mapSelectScreen').classList.remove('hidden');
 };
 
+window.showGameInfo = function() {
+    document.getElementById('menuScreen').classList.add('hidden');
+    document.getElementById('gameInfoScreen').classList.remove('hidden');
+};
+
+window.hideGameInfo = function() {
+    document.getElementById('gameInfoScreen').classList.add('hidden');
+    document.getElementById('menuScreen').classList.remove('hidden');
+};
+
 window.selectMap = function(map) {
     selectedMap = map;
     document.getElementById('mapSelectScreen').classList.add('hidden');

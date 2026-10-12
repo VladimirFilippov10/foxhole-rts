@@ -91,6 +91,52 @@ export const RESOURCE_POINTS = [
     { name: 'Coal Deposit', col: 8, row: 10, radius: 50, type: 'supplies' },
 ];
 
+// Lakes with fishing huts and docks
+export const LAKES = [
+    { 
+        name: 'Lake Serenity', 
+        col: 3, 
+        row: 4, 
+        radius: 80,
+        huts: [
+            { offsetX: -60, offsetY: -40 },
+            { offsetX: 70, offsetY: 30 }
+        ],
+        docks: [
+            { offsetX: -30, offsetY: 50 },
+            { offsetX: 50, offsetY: -50 }
+        ]
+    },
+    { 
+        name: 'Mirror Lake', 
+        col: 8, 
+        row: 7, 
+        radius: 70,
+        huts: [
+            { offsetX: -50, offsetY: 30 },
+            { offsetX: 60, offsetY: -20 }
+        ],
+        docks: [
+            { offsetX: 20, offsetY: 40 },
+            { offsetX: -40, offsetY: -40 }
+        ]
+    },
+    { 
+        name: 'Bluewater Lake', 
+        col: 5, 
+        row: 13, 
+        radius: 90,
+        huts: [
+            { offsetX: -70, offsetY: 20 },
+            { offsetX: 80, offsetY: -30 }
+        ],
+        docks: [
+            { offsetX: 40, offsetY: 50 },
+            { offsetX: -50, offsetY: -50 }
+        ]
+    }
+];
+
 // Rivers removed for now - terrain is open
 export const RIVER_POINTS = [];
 export const WATER_ZONES = [];

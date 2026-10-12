@@ -178,14 +178,29 @@ export class Game {
                 // Artillery has minimum range - can't shoot at close targets
                 const minRange = u.minRange || 100;
                 if (targetDist >= minRange && targetDist <= u.range) {
-                    attackTarget = { x: u.aoeTarget.x, y: u.aoeTarget.y };
+                    // Add random spread to artillery shots
+                    const spread = 30; // Random spread in pixels
+                    const randomX = u.aoeTarget.x + (Math.random() - 0.5) * spread;
+                    const randomY = u.aoeTarget.y + (Math.random() - 0.5) * spread;
+                    attackTarget = { x: randomX, y: randomY };
                     canAttack = true;
+                    
+                    // Track shots fired
+                    if (u.shotsFired === undefined) u.shotsFired = 0;
+                    u.shotsFired++;
+                    
+                    // After 5 shots, clear target
+                    if (u.shotsFired >= 5) {
+                        u.aoeTarget = null;
+                        u.shotsFired = 0;
+                    }
                 } else if (targetDist < minRange) {
                     // Target too close - retreat instead of spinning
                     const retreatAngle = Math.atan2(u.y - u.aoeTarget.y, u.x - u.aoeTarget.x);
                     u.tx = u.x + Math.cos(retreatAngle) * 100;
                     u.ty = u.y + Math.sin(retreatAngle) * 100;
                     u.aoeTarget = null; // Clear target
+                    u.shotsFired = 0;
                 }
             } else if (nearest && nearest.hp > 0) {
                 const targetDist = dist(u.x, u.y, nearest.x, nearest.y);
@@ -669,6 +684,42 @@ export class Game {
                     
                     // Визуальный эффект выстрела
                     this.addParticles(nearestEnemy.x, nearestEnemy.y, '#ffcc00', 3);
+                }
+                
+                // Уровень 3: защита от артиллерии (каждые 20 секунд)
+                if (cp.defenseLevel === 3) {
+                    if (cp.lastAntiArtillery === undefined) cp.lastAntiArtillery = 0;
+                    
+                    // Проверяем кулдаун (20 секунд = 1200 тиков)
+                    if (this.time - cp.lastAntiArtillery >= 1200) {
+                        // Ищем вражескую артиллерию которая обстреливает эту точку
+                        let enemyArtillery = null;
+                        let artilleryDist = Infinity;
+                        
+                        this.units.forEach(u => {
+                            if (u.faction !== cp.owner && u.hp > 0 && 
+                                (u.type === 'warden_artillery' || u.type === 'colonial_artillery')) {
+                                // Проверяем если артиллерия обстреливает эту точку
+                                if (u.aoeTarget && dist(u.aoeTarget.x, u.aoeTarget.y, cp.x, cp.y) < cp.radius) {
+                                    const d = dist(cp.x, cp.y, u.x, u.y);
+                                    if (d < artilleryDist) {
+                                        artilleryDist = d;
+                                        enemyArtillery = u;
+                                    }
+                                }
+                            }
+                        });
+                        
+                        // Атакуем вражескую артиллерию
+                        if (enemyArtillery) {
+                            cp.lastAntiArtillery = this.time;
+                            const antiArtilleryDamage = 50; // Урон по артиллерии
+                            enemyArtillery.takeDamage(antiArtilleryDamage);
+                            
+                            // Визуальный эффект
+                            this.addParticles(enemyArtillery.x, enemyArtillery.y, '#ff6600', 5);
+                        }
+                    }
                 }
             }
         });

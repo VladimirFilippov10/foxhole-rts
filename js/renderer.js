@@ -1,6 +1,6 @@
 // ===== RENDERER =====
 import { COLORS } from './constants.js';
-import { ROADS, CITY_ZONES, TREES, BUSHES, ROCKS, GRASS_PATCHES } from './map.js';
+import { ROADS, CITY_ZONES, TREES, BUSHES, ROCKS, GRASS_PATCHES, LAKES } from './map.js';
 
 export function render(ctx, G, canvas) {
     const cam = G.cam;
@@ -16,6 +16,9 @@ export function render(ctx, G, canvas) {
 
     // Grass patches
     drawGrassPatches(ctx, cam, canvas);
+
+    // Lakes with fishing huts and docks
+    drawLakes(ctx, LAKES, cam, canvas);
 
     // Roads - winding with curves
     drawRoads(ctx, ROADS, cam);
@@ -51,7 +54,7 @@ export function render(ctx, G, canvas) {
             const tx = u.aoeTarget.x - cam.x;
             const ty = u.aoeTarget.y - cam.y;
             
-            // Draw target circle
+            // Draw target circle with spread indicator
             ctx.beginPath();
             ctx.arc(tx, ty, u.aoeRadius, 0, Math.PI * 2);
             ctx.strokeStyle = '#ef4444';
@@ -66,11 +69,29 @@ export function render(ctx, G, canvas) {
             ctx.strokeStyle = '#ef4444';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.moveTo(tx - 15, ty);
-            ctx.lineTo(tx + 15, ty);
-            ctx.moveTo(tx, ty - 15);
-            ctx.lineTo(tx, ty + 15);
+            ctx.moveTo(tx - 20, ty);
+            ctx.lineTo(tx + 20, ty);
+            ctx.moveTo(tx, ty - 20);
+            ctx.lineTo(tx, ty + 20);
             ctx.stroke();
+            
+            // Draw spread indicator (random spread area)
+            const spread = 30;
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.arc(tx, ty, spread, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Draw shots fired counter
+            if (u.shotsFired !== undefined) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${u.shotsFired}/5`, tx, ty - 25);
+            }
             
             // Draw line from artillery to target
             const ux = u.x - cam.x;
@@ -142,6 +163,92 @@ function drawGrassPatches(ctx, cam, canvas) {
         ctx.beginPath();
         ctx.ellipse(x, y, patch.radius, patch.radius * 0.7, 0, 0, Math.PI * 2);
         ctx.fill();
+    });
+}
+
+function drawLakes(ctx, lakes, cam, canvas) {
+    lakes.forEach(lake => {
+        const centerX = lake.col * 250 + 125;
+        const centerY = lake.row * 150 + 75;
+        const x = centerX - cam.x;
+        const y = centerY - cam.y;
+        
+        if (x < -200 || x > canvas.width + 200 || y < -200 || y > canvas.height + 200) return;
+        
+        // Draw lake water
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, lake.radius);
+        gradient.addColorStop(0, 'rgba(70, 130, 180, 0.8)');
+        gradient.addColorStop(0.7, 'rgba(100, 149, 237, 0.6)');
+        gradient.addColorStop(1, 'rgba(135, 206, 235, 0.4)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.ellipse(x, y, lake.radius, lake.radius * 0.8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw water ripples
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i <= 3; i++) {
+            ctx.beginPath();
+            ctx.ellipse(x, y, lake.radius * (i / 4), lake.radius * 0.8 * (i / 4), 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        
+        // Draw fishing huts
+        lake.huts.forEach(hut => {
+            const hutX = x + hut.offsetX;
+            const hutY = y + hut.offsetY;
+            
+            // Hut shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fillRect(hutX - 9, hutY - 9, 20, 20);
+            
+            // Hut body
+            ctx.fillStyle = '#8b4513';
+            ctx.fillRect(hutX - 10, hutY - 10, 20, 20);
+            
+            // Hut roof
+            ctx.fillStyle = '#654321';
+            ctx.beginPath();
+            ctx.moveTo(hutX - 12, hutY - 10);
+            ctx.lineTo(hutX, hutY - 20);
+            ctx.lineTo(hutX + 12, hutY - 10);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Door
+            ctx.fillStyle = '#4a2511';
+            ctx.fillRect(hutX - 3, hutY, 6, 10);
+        });
+        
+        // Draw docks
+        lake.docks.forEach(dock => {
+            const dockX = x + dock.offsetX;
+            const dockY = y + dock.offsetY;
+            
+            // Dock planks
+            ctx.fillStyle = '#a0522d';
+            ctx.fillRect(dockX - 15, dockY - 3, 30, 6);
+            
+            // Dock posts
+            ctx.fillStyle = '#8b4513';
+            ctx.fillRect(dockX - 15, dockY - 8, 3, 16);
+            ctx.fillRect(dockX + 12, dockY - 8, 3, 16);
+            
+            // Dock ropes
+            ctx.strokeStyle = '#d2691e';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(dockX - 13, dockY - 5);
+            ctx.lineTo(dockX + 13, dockY - 5);
+            ctx.stroke();
+        });
+        
+        // Lake name
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(lake.name, x, y - lake.radius - 10);
     });
 }
 

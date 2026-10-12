@@ -8,7 +8,7 @@ export const MAP_H = MAP_ROWS * CELL_H; // 2250
 
 export const COLORS = {
     wardens: { p: '#2563eb', s: '#1d4ed8', a: '#60a5fa', bg: '#1e3a5f' },
-    colonials: { p: '#dc2626', s: '#b91c1c', a: '#f87171', bg: '#5f1e1e' },
+    colonials: { p: '#16a34a', s: '#15803d', a: '#4ade80', bg: '#14532d' }, // Зеленый цвет
     neutral: { p: '#6b7280', s: '#4b5563', a: '#9ca3af' },
 };
 
