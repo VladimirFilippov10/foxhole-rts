@@ -55,7 +55,48 @@ export function render(ctx, G, canvas) {
 
     // Units
     const hoveredUnit = getHoveredUnit(G, cam);
-    G.units.forEach(u => drawUnit(ctx, u, cam, G.selected, hoveredUnit === u));
+    G.units.forEach(u => {
+        drawUnit(ctx, u, cam, G.selected, hoveredUnit === u);
+        
+        // Draw AoE target if set
+        if (u.aoe && u.aoeTarget) {
+            const tx = u.aoeTarget.x - cam.x;
+            const ty = u.aoeTarget.y - cam.y;
+            
+            // Draw target circle
+            ctx.beginPath();
+            ctx.arc(tx, ty, u.aoeRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.2)';
+            ctx.fill();
+            
+            // Draw crosshair
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(tx - 15, ty);
+            ctx.lineTo(tx + 15, ty);
+            ctx.moveTo(tx, ty - 15);
+            ctx.lineTo(tx, ty + 15);
+            ctx.stroke();
+            
+            // Draw line from artillery to target
+            const ux = u.x - cam.x;
+            const uy = u.y - cam.y;
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(ux, uy);
+            ctx.lineTo(tx, ty);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+    });
 
     // Particles
     G.particles.forEach(p => {
@@ -676,15 +717,35 @@ function drawUnit(ctx, u, cam, selected, hovered) {
             ctx.strokeRect(x - sz * 0.3, y - sz * 0.2, sz * 0.6, sz * 0.4);
         }
         
-        if (u.type === 'artillery') {
+        if (u.type === 'warden_artillery' || u.type === 'colonial_artillery') {
+            // Artillery barrel
             ctx.strokeStyle = col.a;
-            ctx.lineWidth = 4;
+            ctx.lineWidth = u.type === 'warden_artillery' ? 5 : 4;
             ctx.beginPath();
             ctx.moveTo(x, y);
             ctx.lineTo(x + sz * 0.7, y - sz * 0.3);
             ctx.stroke();
+            // Base
             ctx.fillStyle = col.s;
             ctx.fillRect(x - sz * 0.25, y, sz * 0.5, sz * 0.3);
+            
+            // Faction indicator
+            if (u.type === 'warden_artillery') {
+                // Blue star for Wardens
+                ctx.fillStyle = '#60a5fa';
+                ctx.font = 'bold 10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('★', x, y - sz * 0.5);
+            } else {
+                // Red triangle for Colonials
+                ctx.fillStyle = '#f87171';
+                ctx.beginPath();
+                ctx.moveTo(x, y - sz * 0.6);
+                ctx.lineTo(x - 4, y - sz * 0.45);
+                ctx.lineTo(x + 4, y - sz * 0.45);
+                ctx.closePath();
+                ctx.fill();
+            }
         }
     }
     

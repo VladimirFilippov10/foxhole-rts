@@ -129,20 +129,36 @@ export class Hoplite extends Vehicle {
     }
 }
 
-// ===== ARTILLERY (общая) =====
-export class Artillery extends Vehicle {
+// ===== ARTILLERY (фракционная) =====
+export class WardenArtillery extends Vehicle {
     constructor(faction, x, y) {
-        super('artillery', faction, x, y);
-        this.hp = this.maxHp = 120;
-        this.dmg = 70;
-        this.range = 350;
-        this.spd = 0.5; // Очень медленная
+        super('warden_artillery', faction, x, y);
+        this.hp = this.maxHp = 100; // Хуже живучесть
+        this.dmg = 85; // Больше урона
+        this.range = 500; // Дальность 500
+        this.spd = 0.3; // Очень медленная
         this.cd = 480; // 8 секунд при 60 FPS
-        this.size = 22;
-        this.armor = 1;
-        this.label = 'Артиллерия';
+        this.size = 24;
+        this.armor = 0; // Без брони
+        this.label = 'Warden Artillery';
         this.aoe = true; // Area of Effect attack
-        this.aoeRadius = 60; // Радиус поражения
+        this.aoeRadius = 80; // Большой радиус поражения
+    }
+}
+
+export class ColonialArtillery extends Vehicle {
+    constructor(faction, x, y) {
+        super('colonial_artillery', faction, x, y);
+        this.hp = this.maxHp = 110; // Чуть лучше живучесть
+        this.dmg = 75; // Немного меньше урона
+        this.range = 400; // Дальность 400
+        this.spd = 0.6; // В 2 раза быстрее Wardens
+        this.cd = 420; // 7 секунд при 60 FPS
+        this.size = 22;
+        this.armor = 1; // Немного брони
+        this.label = 'Colonial Artillery';
+        this.aoe = true; // Area of Effect attack
+        this.aoeRadius = 70; // Средний радиус поражения
     }
 }
 
@@ -155,13 +171,14 @@ export function createVehicle(type, faction, x, y) {
         hatchet: Hatchet,
         falchion: Falchion,
         hoplite: Hoplite,
-        artillery: Artillery,
+        warden_artillery: WardenArtillery,
+        colonial_artillery: ColonialArtillery,
     };
     return new (map[type] || Vehicle)(faction, x, y);
 }
 
 // Доступная техника по фракциям
 export const FACTION_VEHICLES = {
-    wardens: ['devitt', 'gallagher', 'niska', 'artillery'],
-    colonials: ['hatchet', 'falchion', 'hoplite', 'artillery'],
+    wardens: ['devitt', 'gallagher', 'niska', 'warden_artillery'],
+    colonials: ['hatchet', 'falchion', 'hoplite', 'colonial_artillery'],
 };

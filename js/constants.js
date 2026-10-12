@@ -20,7 +20,8 @@ export const VEHICLE_COSTS = {
     hatchet: { s: 30, c: 20, m: 10 },
     falchion: { s: 55, c: 40, m: 30 },
     hoplite: { s: 35, c: 25, m: 15 },
-    artillery: { s: 45, c: 35, m: 25 },
+    warden_artillery: { s: 55, c: 40, m: 30 }, // Дороже, мощнее
+    colonial_artillery: { s: 45, c: 30, m: 20 }, // Дешевле, мобильнее
 };
 
 export const BUILDING_COSTS = {

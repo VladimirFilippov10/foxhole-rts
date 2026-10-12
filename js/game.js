@@ -114,7 +114,17 @@ export class Game {
             });
 
             // Attack - simplified logic
-            if (nearest && nearDist <= u.range && u.dmg > 0 && u.cd > 0) {
+            // For artillery, check if aoeTarget is set
+            let attackTarget = nearest;
+            if (u.aoe && u.aoeTarget) {
+                // Use aoeTarget instead of nearest enemy
+                const targetDist = dist(u.x, u.y, u.aoeTarget.x, u.aoeTarget.y);
+                if (targetDist <= u.range) {
+                    attackTarget = { x: u.aoeTarget.x, y: u.aoeTarget.y };
+                }
+            }
+            
+            if (attackTarget && dist(u.x, u.y, attackTarget.x, attackTarget.y) <= u.range && u.dmg > 0 && u.cd > 0) {
                 const timeSinceLastAttack = this.time - u.lastAtk;
                 if (timeSinceLastAttack >= u.cd) {
                     u.lastAtk = this.time;
@@ -124,7 +134,7 @@ export class Game {
                         // Damage all enemies in radius around target
                         this.units.forEach(enemy => {
                             if (enemy.faction !== u.faction && enemy.hp > 0) {
-                                const distToTarget = dist(nearest.x, nearest.y, enemy.x, enemy.y);
+                                const distToTarget = dist(attackTarget.x, attackTarget.y, enemy.x, enemy.y);
                                 if (distToTarget <= u.aoeRadius) {
                                     // Damage decreases with distance from center
                                     const damageMultiplier = 1 - (distToTarget / u.aoeRadius) * 0.5;
@@ -134,13 +144,18 @@ export class Game {
                         });
                         
                         // Big explosion effect
-                        this.addParticles(nearest.x, nearest.y, '#ff6b00', 20);
-                        this.addParticles(nearest.x, nearest.y, '#ffcc00', 15);
-                        this.addParticles(nearest.x, nearest.y, '#ff0000', 10);
+                        this.addParticles(attackTarget.x, attackTarget.y, '#ff6b00', 20);
+                        this.addParticles(attackTarget.x, attackTarget.y, '#ffcc00', 15);
+                        this.addParticles(attackTarget.x, attackTarget.y, '#ff0000', 10);
+                        
+                        // Clear aoeTarget after firing
+                        if (u.aoeTarget) {
+                            u.aoeTarget = null;
+                        }
                     } else {
                         // Normal single target attack
-                        nearest.takeDamage(u.dmg);
-                        this.addParticles(nearest.x, nearest.y, '#ffcc00', 4);
+                        attackTarget.takeDamage(u.dmg);
+                        this.addParticles(attackTarget.x, attackTarget.y, '#ffcc00', 4);
                     }
                 }
             }

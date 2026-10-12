@@ -10,17 +10,19 @@ let game = null;
 let selectedFaction = 'wardens';
 let lastClickTime = 0;
 let factoryMenuOpen = false;
+let aoeMode = false;
 
 // Vehicle info for factory menu
 const VEHICLE_INFO = {
     infantry: { name: 'Пехота', icon: '🔫', stats: 'HP:50 DMG:8 SPD:0.8', cost: VEHICLE_COSTS.infantry },
-    devitt: { name: 'Devitt', icon: '🚗', stats: 'HP:280 DMG:35 SPD:1.2', cost: VEHICLE_COSTS.devitt },
-    gallagher: { name: 'Gallagher 30mm', icon: '💥', stats: 'HP:520 DMG:65 SPD:0.9', cost: VEHICLE_COSTS.gallagher },
-    niska: { name: 'Niska APC', icon: '🚙', stats: 'HP:240 DMG:20 SPD:1.4', cost: VEHICLE_COSTS.niska },
-    hatchet: { name: 'Hatchet', icon: '🪓', stats: 'HP:220 DMG:30 SPD:1.5', cost: VEHICLE_COSTS.hatchet },
-    falchion: { name: 'Falchion', icon: '⚔️', stats: 'HP:480 DMG:70 SPD:1.0', cost: VEHICLE_COSTS.falchion },
-    hoplite: { name: 'Hoplite APC', icon: '🛡️', stats: 'HP:200 DMG:18 SPD:1.6', cost: VEHICLE_COSTS.hoplite },
-    artillery: { name: 'Артиллерия', icon: '🎯', stats: 'HP:120 DMG:70 RNG:350 AoE:60 CD:8s', cost: VEHICLE_COSTS.artillery },
+    devitt: { name: 'Devitt', icon: '🚗', stats: 'HP:280 DMG:35 RNG:160 SPD:1.2', cost: VEHICLE_COSTS.devitt },
+    gallagher: { name: 'Gallagher 30mm', icon: '💥', stats: 'HP:520 DMG:65 RNG:180 SPD:0.9', cost: VEHICLE_COSTS.gallagher },
+    niska: { name: 'Niska APC', icon: '🚙', stats: 'HP:240 DMG:20 RNG:150 SPD:1.4', cost: VEHICLE_COSTS.niska },
+    hatchet: { name: 'Hatchet', icon: '🪓', stats: 'HP:220 DMG:30 RNG:150 SPD:1.5', cost: VEHICLE_COSTS.hatchet },
+    falchion: { name: 'Falchion', icon: '⚔️', stats: 'HP:480 DMG:70 RNG:170 SPD:1.0', cost: VEHICLE_COSTS.falchion },
+    hoplite: { name: 'Hoplite APC', icon: '🛡️', stats: 'HP:200 DMG:18 RNG:140 SPD:1.6', cost: VEHICLE_COSTS.hoplite },
+    warden_artillery: { name: 'Warden Artillery', icon: '🎯', stats: 'HP:100 DMG:85 RNG:500 AoE:80 SPD:0.3 CD:8s', cost: VEHICLE_COSTS.warden_artillery },
+    colonial_artillery: { name: 'Colonial Artillery', icon: '🎯', stats: 'HP:110 DMG:75 RNG:400 AoE:70 SPD:0.6 CD:7s', cost: VEHICLE_COSTS.colonial_artillery },
 };
 
 // Initialize
@@ -212,8 +214,25 @@ function handleMouseDown(e) {
         dist(b.x, b.y, worldX, worldY) < 30
     );
     
-    if (clickedFactory && !isDouble && !game.moveMode) {
+    if (clickedFactory && !isDouble && !game.moveMode && !aoeMode) {
         openFactoryMenu(clickedFactory, e.clientX, e.clientY);
+        return;
+    }
+    
+    // AoE mode - set artillery target
+    if (aoeMode && game.selected.length > 0) {
+        const selUnits = game.units.filter(u => game.selected.includes(u.id));
+        const artilleryUnits = selUnits.filter(u => u.aoe);
+        
+        if (artilleryUnits.length > 0) {
+            artilleryUnits.forEach(u => {
+                u.aoeTarget = { x: worldX, y: worldY };
+            });
+            aoeMode = false;
+            const btn = document.getElementById('aoeBtn');
+            btn.style.borderColor = '#374151';
+            btn.style.background = 'rgba(17,24,39,0.9)';
+        }
         return;
     }
     
@@ -341,6 +360,20 @@ window.toggleMoveMode = function() {
         btn.style.borderColor = '#374151';
         btn.style.background = 'rgba(17,24,39,0.9)';
         indicator.classList.add('hidden');
+    }
+};
+
+window.toggleAoEMode = function() {
+    if (!game) return;
+    aoeMode = !aoeMode;
+    const btn = document.getElementById('aoeBtn');
+    
+    if (aoeMode) {
+        btn.style.borderColor = '#ef4444';
+        btn.style.background = 'rgba(239,68,68,0.15)';
+    } else {
+        btn.style.borderColor = '#374151';
+        btn.style.background = 'rgba(17,24,39,0.9)';
     }
 };
 
