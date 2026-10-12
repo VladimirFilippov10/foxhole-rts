@@ -2,1310 +2,626 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>War of the Continent — Deadlands</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            width: 100%; height: 100vh; overflow: hidden;
-            background: #111827;
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            color: white; user-select: none;
-        }
+        body { width: 100%; height: 100vh; overflow: hidden; background: #111827; font-family: 'Segoe UI', system-ui, sans-serif; color: white; user-select: none; }
         canvas { display: block; cursor: crosshair; }
-
-        /* Screens */
-        .screen {
-            position: fixed; inset: 0;
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            z-index: 1000;
-            background: linear-gradient(135deg, #1f2937, #111827);
-        }
+        .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; background: linear-gradient(135deg, #1f2937, #111827); }
         .screen.hidden { display: none; }
-
         .screen h1 { font-size: 3.5rem; letter-spacing: 0.1em; margin-bottom: 0.5rem; }
         .screen .subtitle { color: #9ca3af; font-size: 1.1rem; margin-bottom: 2rem; }
-
-        /* Faction buttons */
         .faction-row { display: flex; gap: 2rem; margin-bottom: 2rem; }
-        .faction-btn {
-            width: 240px; height: 280px; border: 2px solid;
-            border-radius: 12px; padding: 1.5rem; cursor: pointer;
-            transition: all 0.3s; display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-        }
-        .faction-btn.wardens {
-            background: linear-gradient(135deg, #1e3a5f, #1e40af);
-            border-color: #3b82f6;
-        }
-        .faction-btn.colonials {
-            background: linear-gradient(135deg, #5f1e1e, #b91c1c);
-            border-color: #ef4444;
-        }
+        .faction-btn { width: 240px; height: 280px; border: 2px solid; border-radius: 12px; padding: 1.5rem; cursor: pointer; transition: all 0.3s; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .faction-btn.wardens { background: linear-gradient(135deg, #1e3a5f, #1e40af); border-color: #3b82f6; }
+        .faction-btn.colonials { background: linear-gradient(135deg, #5f1e1e, #b91c1c); border-color: #ef4444; }
         .faction-btn:hover { transform: scale(1.05); box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
         .faction-btn .icon { font-size: 3.5rem; margin-bottom: 0.75rem; }
         .faction-btn h2 { font-size: 1.5rem; margin-bottom: 0.5rem; }
         .faction-btn p { font-size: 0.8rem; color: rgba(255,255,255,0.7); text-align: center; line-height: 1.4; }
-
-        /* Location cards */
-        .location-grid { display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center; max-width: 900px; }
-        .location-card {
-            width: 260px; padding: 1.5rem; border-radius: 12px;
-            border: 2px solid #374151; background: rgba(31,41,55,0.8);
-            cursor: pointer; transition: all 0.3s; text-align: center;
-        }
-        .location-card:hover { border-color: #60a5fa; transform: translateY(-4px); }
-        .location-card.locked { opacity: 0.4; cursor: not-allowed; }
-        .location-card .loc-icon { font-size: 3rem; margin-bottom: 0.5rem; }
-        .location-card h3 { font-size: 1.2rem; margin-bottom: 0.3rem; }
-        .location-card p { font-size: 0.75rem; color: #9ca3af; }
-
-        /* HUD */
-        .hud-top {
-            position: fixed; top: 0; left: 0; right: 0;
-            padding: 0.5rem 1rem;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent);
-            display: flex; justify-content: space-between; align-items: center;
-            z-index: 100;
-        }
+        .hud-top { position: fixed; top: 0; left: 0; right: 0; padding: 0.5rem 1rem; background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent); display: flex; justify-content: space-between; align-items: center; z-index: 100; }
         .res-group { display: flex; gap: 1.2rem; }
         .res { display: flex; align-items: center; gap: 0.4rem; }
         .res-icon { font-size: 1.2rem; }
         .res-val { font-family: monospace; font-size: 0.9rem; }
         .res-lbl { font-size: 0.65rem; color: #9ca3af; }
-        .faction-badge {
-            padding: 0.3rem 0.8rem; border-radius: 4px;
-            font-size: 0.75rem; font-weight: bold;
-        }
+        .faction-badge { padding: 0.3rem 0.8rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
         .faction-badge.wardens { background: rgba(30,58,95,0.8); color: #60a5fa; }
         .faction-badge.colonials { background: rgba(95,30,30,0.8); color: #f87171; }
-        .territory-count { font-family: monospace; font-size: 0.8rem; color: #d1d5db; }
-
-        /* Bottom panel */
-        .hud-bottom {
-            position: fixed; bottom: 0; left: 0; right: 0;
-            padding: 0.5rem 1rem;
-            background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
-            display: flex; justify-content: space-between; align-items: flex-end;
-            z-index: 100;
-        }
-        .sel-info {
-            background: rgba(17,24,39,0.9); border: 1px solid #374151;
-            border-radius: 8px; padding: 0.5rem 0.75rem; min-width: 180px;
-        }
+        .hud-bottom { position: fixed; bottom: 0; left: 0; right: 0; padding: 0.5rem 1rem; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); display: flex; justify-content: space-between; align-items: flex-end; z-index: 100; }
+        .sel-info { background: rgba(17,24,39,0.9); border: 1px solid #374151; border-radius: 8px; padding: 0.5rem 0.75rem; min-width: 180px; }
         .sel-info p { font-size: 0.75rem; color: #d1d5db; }
         .sel-info .sel-type { font-size: 0.65rem; color: #9ca3af; }
-
         .actions { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
-        .act-btn {
-            background: rgba(17,24,39,0.9); border: 1px solid #374151;
-            border-radius: 6px; padding: 0.4rem 0.6rem; color: white;
-            cursor: pointer; font-size: 0.7rem; transition: all 0.2s;
-            display: flex; flex-direction: column; align-items: center; gap: 2px;
-        }
+        .act-btn { background: rgba(17,24,39,0.9); border: 1px solid #374151; border-radius: 6px; padding: 0.4rem 0.6rem; color: white; cursor: pointer; font-size: 0.7rem; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 2px; }
         .act-btn:hover:not(:disabled) { background: rgba(31,41,55,0.9); border-color: #4b5563; }
         .act-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .act-btn.active { border-color: #fbbf24; background: rgba(251,191,36,0.15); }
         .act-btn .act-icon { font-size: 1.2rem; }
         .act-btn .act-cost { font-size: 0.55rem; color: #9ca3af; }
-
-        /* Notification */
-        .notif {
-            position: fixed; top: 4rem; left: 50%; transform: translateX(-50%);
-            background: rgba(17,24,39,0.95); border: 1px solid #4b5563;
-            border-radius: 8px; padding: 0.75rem 1.25rem; z-index: 200;
-            font-size: 0.85rem; animation: fadeIn 0.3s;
-        }
+        .notif { position: fixed; top: 4rem; left: 50%; transform: translateX(-50%); background: rgba(17,24,39,0.95); border: 1px solid #4b5563; border-radius: 8px; padding: 0.75rem 1.25rem; z-index: 200; font-size: 0.85rem; animation: fadeIn 0.3s; }
         .notif.hidden { display: none; }
         @keyframes fadeIn { from { opacity:0; transform:translateX(-50%) translateY(-8px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
-
-        .controls-hint {
-            position: fixed; top: 3.5rem; right: 1rem;
-            font-size: 0.65rem; color: #6b7280; text-align: right;
-            line-height: 1.5; z-index: 100;
-        }
-
-        .mode-indicator {
-            position: fixed; top: 3.5rem; left: 1rem;
-            background: rgba(251,191,36,0.2); border: 1px solid #fbbf24;
-            border-radius: 6px; padding: 0.3rem 0.7rem;
-            font-size: 0.75rem; color: #fbbf24; z-index: 200;
-        }
+        .controls-hint { position: fixed; top: 3.5rem; right: 1rem; font-size: 0.65rem; color: #6b7280; text-align: right; line-height: 1.5; z-index: 100; }
+        .mode-indicator { position: fixed; top: 3.5rem; left: 1rem; background: rgba(251,191,36,0.2); border: 1px solid #fbbf24; border-radius: 6px; padding: 0.3rem 0.7rem; font-size: 0.75rem; color: #fbbf24; z-index: 200; }
         .mode-indicator.hidden { display: none; }
+        .factory-menu { position: fixed; background: rgba(17,24,39,0.95); border: 2px solid #4b5563; border-radius: 12px; padding: 1rem; z-index: 300; min-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .factory-menu.hidden { display: none; }
+        .factory-menu h3 { font-size: 1rem; margin-bottom: 0.75rem; color: #60a5fa; border-bottom: 1px solid #374151; padding-bottom: 0.5rem; }
+        .factory-menu .close-btn { position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none; color: #9ca3af; font-size: 1.5rem; cursor: pointer; }
+        .factory-menu .close-btn:hover { color: white; }
+        .unit-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+        .unit-card { background: rgba(31,41,55,0.8); border: 1px solid #374151; border-radius: 6px; padding: 0.5rem; cursor: pointer; transition: all 0.2s; }
+        .unit-card:hover:not(.disabled) { border-color: #60a5fa; background: rgba(31,41,55,1); transform: translateY(-2px); }
+        .unit-card.disabled { opacity: 0.4; cursor: not-allowed; }
+        .unit-card .unit-name { font-size: 0.75rem; font-weight: bold; margin-bottom: 0.25rem; }
+        .unit-card .unit-stats { font-size: 0.6rem; color: #9ca3af; line-height: 1.3; }
+        .unit-card .unit-cost { font-size: 0.6rem; color: #fbbf24; margin-top: 0.25rem; }
     </style>
 </head>
 <body>
-
-<!-- MENU SCREEN -->
-<div id="menuScreen" class="screen">
-    <h1>⚔️ WAR OF THE CONTINENT</h1>
-    <p class="subtitle">2D RTS в стиле Foxhole</p>
-    <div class="faction-row">
-        <button class="faction-btn wardens" onclick="selectFaction('wardens')">
-            <div class="icon">🛡️</div>
-            <h2>WARDENS</h2>
-            <p>Тяжёлая бронетехника<br>Промышленное превосходство<br>Дальнобойная артиллерия</p>
-        </button>
-        <button class="faction-btn colonials" onclick="selectFaction('colonials')">
-            <div class="icon">⚔️</div>
-            <h2>COLONIALS</h2>
-            <p>Быстрые полугусеничники<br>Партизанская тактика<br>Скоростное производство</p>
-        </button>
-    </div>
-</div>
-
-<!-- LOCATION SELECT SCREEN -->
-<div id="locationScreen" class="screen hidden">
-    <h1>🗺️ ВЫБОР ЛОКАЦИИ</h1>
-    <p class="subtitle">Выберите поле боя</p>
-    <div class="location-grid">
-        <div class="location-card" onclick="selectLocation('deadlands')">
-            <div class="loc-icon">🏔️</div>
-            <h3>Deadlands</h3>
-            <p>Центральный фронт. 10 городов, реки, мосты, шахты. Wardens в Callahan Gate, Colonials в Salt Farm.</p>
-        </div>
-        <div class="location-card locked">
-            <div class="loc-icon">🌊</div>
-            <h3>Howl County</h3>
-            <p>Скоро...</p>
-        </div>
-        <div class="location-card locked">
-            <div class="loc-icon">🏜️</div>
-            <h3>Kingscain</h3>
-            <p>Скоро...</p>
+    <div id="menuScreen" class="screen">
+        <h1>⚔️ WAR OF THE CONTINENT</h1>
+        <p class="subtitle">2D RTS в стиле Foxhole</p>
+        <div class="faction-row">
+            <button class="faction-btn wardens" onclick="selectFaction('wardens')">
+                <div class="icon">🛡️</div><h2>WARDENS</h2>
+                <p>Тяжёлая бронетехника<br>Промышленное превосходство<br>Дальнобойная артиллерия</p>
+            </button>
+            <button class="faction-btn colonials" onclick="selectFaction('colonials')">
+                <div class="icon">⚔️</div><h2>COLONIALS</h2>
+                <p>Быстрые полугусеничники<br>Партизанская тактика<br>Скоростное производство</p>
+            </button>
         </div>
     </div>
-</div>
 
-<!-- GAME -->
-<canvas id="gameCanvas"></canvas>
+    <canvas id="gameCanvas"></canvas>
 
-<div id="hudTop" class="hud-top" style="display:none;">
-    <div class="res-group">
-        <div class="res"><span class="res-icon">📦</span><span class="res-val" id="rSup">200</span><span class="res-lbl">SUP</span></div>
-        <div class="res"><span class="res-icon">⚙️</span><span class="res-val" id="rComp">100</span><span class="res-lbl">COMP</span></div>
-        <div class="res"><span class="res-icon">🪨</span><span class="res-val" id="rMat">80</span><span class="res-lbl">MAT</span></div>
+    <div id="hudTop" class="hud-top" style="display:none;">
+        <div class="res-group">
+            <div class="res"><span class="res-icon">📦</span><span class="res-val" id="rSup">200</span><span class="res-lbl">SUP</span></div>
+            <div class="res"><span class="res-icon">⚙️</span><span class="res-val" id="rComp">100</span><span class="res-lbl">COMP</span></div>
+            <div class="res"><span class="res-icon">🪨</span><span class="res-val" id="rMat">80</span><span class="res-lbl">MAT</span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:1rem;">
+            <span style="font-family:monospace;font-size:0.8rem;color:#d1d5db;">Territories: <span id="tCount">1</span>/10</span>
+            <span id="factionBadge" class="faction-badge wardens">🛡️ WARDENS</span>
+        </div>
     </div>
-    <div style="display:flex;align-items:center;gap:1rem;">
-        <span class="territory-count">Territories: <span id="tCount">1</span>/10</span>
-        <span id="factionBadge" class="faction-badge wardens">🛡️ WARDENS</span>
+
+    <div id="hudBottom" class="hud-bottom" style="display:none;">
+        <div id="selInfo" class="sel-info" style="display:none;"></div>
+        <div class="actions">
+            <button class="act-btn" onclick="trainUnit('infantry')"><span class="act-icon">🔫</span>Infantry<span class="act-cost">S:10</span></button>
+            <button class="act-btn" onclick="trainUnit('hatchet')"><span class="act-icon">🪓</span>Hatchet<span class="act-cost">S:30 C:20 M:10</span></button>
+            <button class="act-btn" onclick="trainUnit('devitt')"><span class="act-icon">🚗</span>Devitt<span class="act-cost">S:35 C:25 M:12</span></button>
+            <button class="act-btn" onclick="trainUnit('gallagher')"><span class="act-icon">💥</span>Gallagher<span class="act-cost">S:50 C:40 M:30</span></button>
+            <button class="act-btn" onclick="trainUnit('falchion')"><span class="act-icon">⚔️</span>Falchion<span class="act-cost">S:55 C:45 M:35</span></button>
+            <button class="act-btn" onclick="trainUnit('apc')"><span class="act-icon">🚙</span>APC<span class="act-cost">S:35 C:25 M:15</span></button>
+            <button class="act-btn" onclick="trainUnit('artillery')"><span class="act-icon">🎯</span>Artillery<span class="act-cost">S:40 C:30 M:20</span></button>
+            <button class="act-btn" id="moveBtn" onclick="toggleMoveMode()"><span class="act-icon">🎯</span>MOVE</button>
+        </div>
     </div>
-</div>
 
-<div id="hudBottom" class="hud-bottom" style="display:none;">
-    <div id="selInfo" class="sel-info" style="display:none;"></div>
-    <div class="actions">
-        <button class="act-btn" onclick="trainUnit('infantry')" title="Пехота">
-            <span class="act-icon">🔫</span>Infantry
-            <span class="act-cost">S:10</span>
-        </button>
-        <button class="act-btn" onclick="trainUnit('light_tank')" title="Лёгкий танк">
-            <span class="act-icon">🚗</span>Light Tank
-            <span class="act-cost">S:30 C:20 M:10</span>
-        </button>
-        <button class="act-btn" onclick="trainUnit('heavy_tank')" title="Тяжёлый танк">
-            <span class="act-icon">🛡️</span>Heavy Tank
-            <span class="act-cost">S:50 C:40 M:30</span>
-        </button>
-        <button class="act-btn" onclick="trainUnit('halftrack')" title="Полугусеничник">
-            <span class="act-icon">🚙</span>Halftrack
-            <span class="act-cost">S:35 C:25 M:15</span>
-        </button>
-        <button class="act-btn" onclick="trainUnit('artillery')" title="Артиллерия">
-            <span class="act-icon">💥</span>Artillery
-            <span class="act-cost">S:40 C:30 M:20</span>
-        </button>
-        <button class="act-btn" onclick="trainUnit('truck')" title="Грузовик">
-            <span class="act-icon">🚚</span>Truck
-            <span class="act-cost">S:20 C:10 M:5</span>
-        </button>
-        <button class="act-btn" id="moveBtn" onclick="toggleMoveMode()" title="Режим перемещения">
-            <span class="act-icon">🎯</span>MOVE
-        </button>
+    <div id="controlsHint" class="controls-hint" style="display:none;">
+        WASD — камера<br>Клик — выбор<br>Двойной клик — перемещение<br>Клик на завод — меню
     </div>
-</div>
 
-<div id="controlsHint" class="controls-hint" style="display:none;">
-    WASD — камера<br>
-    Клик — выбор<br>
-    Двойной клик — перемещение<br>
-    Кнопка MOVE + клик — перемещение
-</div>
-
-<div id="modeIndicator" class="mode-indicator hidden">🎯 MOVE MODE — кликните на карту</div>
-<div id="notif" class="notif hidden"></div>
+    <div id="modeIndicator" class="mode-indicator hidden">🎯 MOVE MODE</div>
+    <div id="notif" class="notif hidden"></div>
+    <div id="factoryMenu" class="factory-menu hidden">
+        <button class="close-btn" onclick="closeFactoryMenu()">×</button>
+        <h3>🏭 Производство</h3>
+        <div id="unitGrid" class="unit-grid"></div>
+    </div>
 
 <script>
+// ===== VEHICLE CLASS HIERARCHY =====
+class Vehicle {
+    constructor(type, faction, x, y) {
+        this.id = 'v' + Math.random().toString(36).substr(2, 9);
+        this.type = type; this.faction = faction; this.x = x; this.y = y;
+        this.tx = undefined; this.ty = undefined; this.lastAtk = 0;
+        this.hp = 100; this.maxHp = 100; this.dmg = 10; this.range = 100;
+        this.spd = 1.5; this.cd = 60; this.size = 20; this.label = 'Vehicle'; this.armor = 0;
+    }
+    takeDamage(dmg) { this.hp -= Math.max(1, dmg - this.armor); }
+}
+
+class Infantry extends Vehicle {
+    constructor(f, x, y) { super('infantry', f, x, y); this.hp = this.maxHp = 50; this.dmg = 8; this.range = 120; this.spd = 1.5; this.cd = 50; this.size = 8; this.label = 'Пехота'; }
+}
+
+class LightTank extends Vehicle {
+    constructor(f, x, y) { super('light_tank', f, x, y); this.hp = this.maxHp = 200; this.dmg = 25; this.range = 150; this.spd = 2.2; this.cd = 60; this.size = 20; this.armor = 2; }
+}
+class Hatchet extends LightTank {
+    constructor(f, x, y) { super(f, x, y); this.type = 'hatchet'; this.label = 'Hatchet'; this.hp = this.maxHp = 220; this.dmg = 28; this.spd = 2.3; this.armor = 3; }
+}
+class Devitt extends LightTank {
+    constructor(f, x, y) { super(f, x, y); this.type = 'devitt'; this.label = 'Devitt'; this.hp = this.maxHp = 190; this.dmg = 22; this.spd = 2.5; this.armor = 2; }
+}
+
+class AssaultTank extends Vehicle {
+    constructor(f, x, y) { super('assault_tank', f, x, y); this.hp = this.maxHp = 400; this.dmg = 45; this.range = 160; this.spd = 1.2; this.cd = 70; this.size = 26; this.armor = 8; }
+}
+class Gallagher extends AssaultTank {
+    constructor(f, x, y) { super(f, x, y); this.type = 'gallagher'; this.label = 'Gallagher 30mm'; this.hp = this.maxHp = 420; this.dmg = 50; this.range = 170; this.spd = 1.1; this.armor = 10; }
+}
+class Falchion extends AssaultTank {
+    constructor(f, x, y) { super(f, x, y); this.type = 'falchion'; this.label = 'Falchion'; this.hp = this.maxHp = 380; this.dmg = 55; this.range = 155; this.spd = 1.3; this.armor = 9; }
+}
+
+class APC extends Vehicle {
+    constructor(f, x, y) { super('apc', f, x, y); this.hp = this.maxHp = 180; this.dmg = 15; this.range = 140; this.spd = 2.0; this.cd = 55; this.size = 20; this.armor = 3; }
+}
+class Niska extends APC {
+    constructor(f, x, y) { super(f, x, y); this.type = 'niska'; this.label = 'Niska APC'; this.hp = this.maxHp = 200; this.dmg = 18; this.spd = 2.1; this.armor = 4; }
+}
+class Halftrack extends APC {
+    constructor(f, x, y) { super(f, x, y); this.type = 'halftrack'; this.label = 'Halftrack'; this.hp = this.maxHp = 170; this.dmg = 14; this.spd = 2.2; this.armor = 3; }
+}
+
+class Artillery extends Vehicle {
+    constructor(f, x, y) { super('artillery', f, x, y); this.hp = this.maxHp = 120; this.dmg = 70; this.range = 350; this.spd = 0.7; this.cd = 120; this.size = 22; this.armor = 1; this.label = 'Артиллерия'; }
+}
+
+function createVehicle(type, faction, x, y) {
+    const m = { infantry: Infantry, hatchet: Hatchet, devitt: Devitt, gallagher: Gallagher, falchion: Falchion, niska: Niska, halftrack: Halftrack, artillery: Artillery };
+    return new (m[type] || Vehicle)(type, faction, x, y);
+}
+
+const VEHICLE_COSTS = {
+    infantry: { s: 10, c: 0, m: 0 }, hatchet: { s: 30, c: 20, m: 10 }, devitt: { s: 35, c: 25, m: 12 },
+    gallagher: { s: 50, c: 40, m: 30 }, falchion: { s: 55, c: 45, m: 35 }, niska: { s: 35, c: 25, m: 15 },
+    halftrack: { s: 35, c: 25, m: 15 }, artillery: { s: 40, c: 30, m: 20 },
+};
+
 // ===== GAME STATE =====
-let G = null; // game state
-let canvas, ctx;
-let keys = {};
-let mousePos = { x: 0, y: 0 };
-let moveMode = false;
-let selectedFaction = 'wardens';
-let particles = [];
-let lastClickTime = 0;
-let isDragging = false;
-let dragStart = { x: 0, y: 0 };
+let G = null, canvas, ctx, keys = {}, mousePos = { x: 0, y: 0 }, moveMode = false;
+let selectedFaction = 'wardens', particles = [], lastClickTime = 0;
+let factoryMenuOpen = false, selectedFactory = null;
 
-// ===== CONSTANTS =====
-const UNIT_DEFS = {
-    infantry:    { hp: 50,  dmg: 8,  range: 120, spd: 1.5, cost: {s:10,c:0,m:0},   size: 8,  cd: 50, label: 'Пехота' },
-    light_tank:  { hp: 200, dmg: 25, range: 150, spd: 2.2, cost: {s:30,c:20,m:10},  size: 20, cd: 60, label: 'Лёгкий танк' },
-    heavy_tank:  { hp: 400, dmg: 45, range: 160, spd: 1.2, cost: {s:50,c:40,m:30},  size: 26, cd: 70, label: 'Тяжёлый танк' },
-    halftrack:   { hp: 180, dmg: 15, range: 140, spd: 2.0, cost: {s:35,c:25,m:15},  size: 20, cd: 55, label: 'Полугусеничник' },
-    artillery:   { hp: 120, dmg: 70, range: 350, spd: 0.7, cost: {s:40,c:30,m:20},  size: 22, cd: 120, label: 'Артиллерия' },
-    truck:       { hp: 80,  dmg: 0,  range: 0,   spd: 2.8, cost: {s:20,c:10,m:5},   size: 18, cd: 0,  label: 'Грузовик' },
-};
+const MAP_W = 3200, MAP_H = 2200;
+const CITIES = [
+    { name: 'Callahan Gate', x: 350, y: 1000, size: 'large' },
+    { name: 'Salt Farm', x: 2850, y: 1000, size: 'large' },
+    { name: "Oar's Rest", x: 900, y: 280, size: 'medium' },
+    { name: 'Godcrofts', x: 1100, y: 600, size: 'medium' },
+    { name: "Fisherman's Row", x: 1700, y: 350, size: 'medium' },
+    { name: 'Merentis', x: 1600, y: 1050, size: 'large' },
+    { name: "Callahan's Passage", x: 2200, y: 650, size: 'medium' },
+    { name: 'Basrash', x: 2700, y: 1400, size: 'medium' },
+    { name: 'Kalokai', x: 1300, y: 1600, size: 'medium' },
+    { name: "Allod's Reach", x: 600, y: 1500, size: 'medium' },
+];
 
-const BLDG_DEFS = {
-    barracks: { hp: 400, cost: {s:40,c:20,m:20}, size: 38, label: 'Казарма', trains: ['infantry'] },
-    factory:  { hp: 500, cost: {s:50,c:30,m:40}, size: 44, label: 'Завод',   trains: ['light_tank','heavy_tank','halftrack','artillery','truck'] },
-    refinery: { hp: 300, cost: {s:30,c:15,m:30}, size: 38, label: 'НПЗ' },
-};
+const ROADS = [[0,2],[2,3],[3,4],[4,6],[6,7],[0,9],[9,8],[8,5],[5,3],[5,7],[2,5],[3,5]];
+const RIVER_POINTS = [{x:1400,y:0},{x:1350,y:200},{x:1450,y:400},{x:1380,y:600},{x:1500,y:800},{x:1420,y:1000},{x:1500,y:1200},{x:1380,y:1400},{x:1450,y:1600},{x:1400,y:1800},{x:1420,y:2000},{x:1400,y:2200}];
+const RIVER2_POINTS = [{x:0,y:1100},{x:200,y:1050},{x:400,y:1100},{x:600,y:1080},{x:800,y:1120},{x:1000,y:1060},{x:1200,y:1100},{x:1420,y:1000}];
+const BRIDGES = [{x:1400,y:280},{x:1430,y:600},{x:1460,y:1050},{x:600,y:1090}];
+const CAPTURE_POINTS = CITIES.map((c,i) => ({id:'cp'+i,name:c.name,x:c.x,y:c.y,radius:c.size==='large'?90:70,owner:'neutral',progress:0,capturing:null}));
+const RESOURCE_POINTS = [
+    {id:'m1',name:'Iron Mine',x:700,y:900,radius:50,owner:'neutral',progress:0,type:'supplies'},
+    {id:'m2',name:'Coal Mine',x:1200,y:1300,radius:50,owner:'neutral',progress:0,type:'materials'},
+    {id:'m3',name:'Copper Mine',x:2000,y:900,radius:50,owner:'neutral',progress:0,type:'components'},
+    {id:'m4',name:'Gold Mine',x:1500,y:700,radius:50,owner:'neutral',progress:0,type:'supplies'},
+    {id:'m5',name:'Salt Mine',x:2400,y:1300,radius:50,owner:'neutral',progress:0,type:'materials'},
+    {id:'m6',name:'Silver Mine',x:800,y:1400,radius:50,owner:'neutral',progress:0,type:'components'},
+];
 
 const COLORS = {
-    wardens:   { p: '#2563eb', s: '#1d4ed8', a: '#60a5fa', bg: '#1e3a5f' },
-    colonials: { p: '#dc2626', s: '#b91c1c', a: '#f87171', bg: '#5f1e1e' },
-    neutral:   { p: '#6b7280', s: '#4b5563', a: '#9ca3af' },
+    wardens: { p:'#2563eb', s:'#1d4ed8', a:'#60a5fa', bg:'#1e3a5f' },
+    colonials: { p:'#dc2626', s:'#b91c1c', a:'#f87171', bg:'#5f1e1e' },
+    neutral: { p:'#6b7280', s:'#4b5563', a:'#9ca3af' },
 };
 
-// ===== DEADLANDS MAP DATA =====
-const MAP_W = 3200, MAP_H = 2200;
+function selectFaction(f) { selectedFaction = f; document.getElementById('menuScreen').classList.add('hidden'); }
 
-// Cities (named locations with buildings)
-const CITIES = [
-    { name: 'Callahan Gate',    x: 350,  y: 1000, size: 'large' },   // Wardens base
-    { name: 'Salt Farm',        x: 2850, y: 1000, size: 'large' },   // Colonials base
-    { name: "Oar's Rest",       x: 900,  y: 280,  size: 'medium' },
-    { name: 'Godcrofts',        x: 1100, y: 600,  size: 'medium' },
-    { name: 'Fisherman\'s Row', x: 1700, y: 350,  size: 'medium' },
-    { name: 'Merentis',         x: 1600, y: 1050, size: 'large' },
-    { name: "Callahan's Passage",x: 2200, y: 650, size: 'medium' },
-    { name: 'Basrash',          x: 2700, y: 1400, size: 'medium' },
-    { name: 'Kalokai',          x: 1300, y: 1600, size: 'medium' },
-    { name: "Allod's Reach",    x: 600,  y: 1500, size: 'medium' },
-];
-
-// Roads connecting cities (pairs of city indices)
-const ROADS = [
-    [0, 2], [2, 3], [3, 4], [4, 6], [6, 7],
-    [0, 9], [9, 8], [8, 5], [5, 3], [5, 7],
-    [2, 5], [3, 5],
-];
-
-// Resource points (mines)
-const RESOURCE_POINTS = [
-    { id: 'mine1', name: 'Iron Mine',      x: 700,  y: 900,  radius: 50, owner: 'neutral', progress: 0, type: 'supplies' },
-    { id: 'mine2', name: 'Coal Mine',      x: 1200, y: 1300, radius: 50, owner: 'neutral', progress: 0, type: 'materials' },
-    { id: 'mine3', name: 'Copper Mine',    x: 2000, y: 900,  radius: 50, owner: 'neutral', progress: 0, type: 'components' },
-    { id: 'mine4', name: 'Gold Mine',      x: 1500, y: 700,  radius: 50, owner: 'neutral', progress: 0, type: 'supplies' },
-    { id: 'mine5', name: 'Salt Mine',      x: 2400, y: 1300, radius: 50, owner: 'neutral', progress: 0, type: 'materials' },
-    { id: 'mine6', name: 'Silver Mine',    x: 800,  y: 1400, radius: 50, owner: 'neutral', progress: 0, type: 'components' },
-];
-
-// River path (series of points for a winding river)
-const RIVER_POINTS = [
-    { x: 1400, y: 0 },
-    { x: 1350, y: 200 },
-    { x: 1450, y: 400 },
-    { x: 1380, y: 600 },
-    { x: 1500, y: 800 },
-    { x: 1420, y: 1000 },
-    { x: 1500, y: 1200 },
-    { x: 1380, y: 1400 },
-    { x: 1450, y: 1600 },
-    { x: 1400, y: 1800 },
-    { x: 1420, y: 2000 },
-    { x: 1400, y: 2200 },
-];
-
-// Second smaller river
-const RIVER2_POINTS = [
-    { x: 0, y: 1100 },
-    { x: 200, y: 1050 },
-    { x: 400, y: 1100 },
-    { x: 600, y: 1080 },
-    { x: 800, y: 1120 },
-    { x: 1000, y: 1060 },
-    { x: 1200, y: 1100 },
-    { x: 1420, y: 1000 },
-];
-
-// Bridges (where roads cross rivers)
-const BRIDGES = [
-    { x: 1400, y: 280,  angle: 0 },   // Road 0-1 crosses main river
-    { x: 1430, y: 600,  angle: 0.2 }, // Road 1-2 crosses main river
-    { x: 1460, y: 1050, angle: 0 },   // Road near Merentis
-    { x: 600,  y: 1090, angle: 0.1 }, // Road 8-7 crosses secondary river
-];
-
-// Capture points (at cities)
-const CAPTURE_POINTS = CITIES.map((c, i) => ({
-    id: 'cp' + i,
-    name: c.name,
-    x: c.x, y: c.y,
-    radius: c.size === 'large' ? 90 : 70,
-    owner: 'neutral',
-    progress: 0,
-    capturing: null,
-}));
-
-// Water collision check
-function isWater(x, y) {
-    // Main river check
-    for (let i = 0; i < RIVER_POINTS.length - 1; i++) {
-        const p1 = RIVER_POINTS[i];
-        const p2 = RIVER_POINTS[i + 1];
-        const dist = distToSegment(x, y, p1.x, p1.y, p2.x, p2.y);
-        if (dist < 20) return true;
-    }
-    // Secondary river check
-    for (let i = 0; i < RIVER2_POINTS.length - 1; i++) {
-        const p1 = RIVER2_POINTS[i];
-        const p2 = RIVER2_POINTS[i + 1];
-        const dist = distToSegment(x, y, p1.x, p1.y, p2.x, p2.y);
-        if (dist < 15) return true;
-    }
-    return false;
-}
-
-// Distance from point to line segment
-function distToSegment(px, py, x1, y1, x2, y2) {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const lenSq = dx * dx + dy * dy;
-    let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
-    t = Math.max(0, Math.min(1, t));
-    const nearX = x1 + t * dx;
-    const nearY = y1 + t * dy;
-    return Math.sqrt((px - nearX) ** 2 + (py - nearY) ** 2);
-}
-
-// ===== SCREEN MANAGEMENT =====
-function selectFaction(f) {
-    selectedFaction = f;
-    document.getElementById('menuScreen').classList.add('hidden');
-    document.getElementById('locationScreen').classList.remove('hidden');
-}
-
-function selectLocation(loc) {
-    if (loc !== 'deadlands') return;
-    document.getElementById('locationScreen').classList.add('hidden');
+function initGame() {
     document.getElementById('hudTop').style.display = 'flex';
     document.getElementById('hudBottom').style.display = 'flex';
     document.getElementById('controlsHint').style.display = 'block';
-
     const badge = document.getElementById('factionBadge');
     badge.className = 'faction-badge ' + selectedFaction;
     badge.innerHTML = selectedFaction === 'wardens' ? '🛡️ WARDENS' : '⚔️ COLONIALS';
 
-    initGame();
-}
-
-// ===== GAME INIT =====
-let nextId = 1;
-function uid() { return 'e' + (nextId++); }
-
-function initGame() {
     const ai = selectedFaction === 'wardens' ? 'colonials' : 'wardens';
-    
-    // Wardens start at Callahan Gate (index 0), Colonials at Salt Farm (index 1)
-    const playerStartIdx = selectedFaction === 'wardens' ? 0 : 1;
-    const aiStartIdx = selectedFaction === 'wardens' ? 1 : 0;
-    const playerStart = CITIES[playerStartIdx];
-    const aiStart = CITIES[aiStartIdx];
-
-    // Set up capture points
-    const cps = CAPTURE_POINTS.map((cp, i) => ({
-        ...cp,
-        owner: i === playerStartIdx ? selectedFaction : (i === aiStartIdx ? ai : 'neutral'),
-        progress: i === playerStartIdx || i === aiStartIdx ? 100 : 0,
-        capturing: null,
-    }));
-
-    // Set up resource points
-    const mines = RESOURCE_POINTS.map(m => ({ ...m }));
+    const pIdx = selectedFaction === 'wardens' ? 0 : 1;
+    const aIdx = selectedFaction === 'wardens' ? 1 : 0;
+    const pStart = CITIES[pIdx], aStart = CITIES[aIdx];
 
     G = {
-        faction: selectedFaction,
-        ai: ai,
+        faction: selectedFaction, ai: ai,
         res: { s: 200, c: 100, m: 80 },
-        units: [],
-        buildings: [],
-        cps: cps,
-        mines: mines,
-        selected: [],
-        selBldg: null,
-        cam: { x: 0, y: 0 },
-        time: 0,
-        over: false,
-        winner: null,
+        units: [], buildings: [],
+        cps: CAPTURE_POINTS.map((cp,i) => ({...cp, owner: i===pIdx?selectedFaction:(i===aIdx?ai:'neutral'), progress: i===pIdx||i===aIdx?100:0, capturing:null})),
+        mines: RESOURCE_POINTS.map(m => ({...m})),
+        selected: [], cam: { x: 0, y: 0 }, time: 0, over: false, winner: null,
+        aiTimer: 0, aiDifficulty: 1,
     };
 
-    // Player buildings at their start city
-    G.buildings.push({ id: uid(), type: 'town_hall', faction: selectedFaction, x: playerStart.x - 50, y: playerStart.y - 50, hp: 1000, maxHp: 1000 });
-    G.buildings.push({ id: uid(), type: 'barracks', faction: selectedFaction, x: playerStart.x + 80, y: playerStart.y - 30, hp: 400, maxHp: 400 });
-    G.buildings.push({ id: uid(), type: 'factory', faction: selectedFaction, x: playerStart.x - 30, y: playerStart.y + 100, hp: 500, maxHp: 500 });
+    // Player buildings
+    G.buildings.push({ id: uid(), type: 'town_hall', faction: selectedFaction, x: pStart.x-50, y: pStart.y-50, hp: 1000, maxHp: 1000 });
+    G.buildings.push({ id: uid(), type: 'barracks', faction: selectedFaction, x: pStart.x+80, y: pStart.y-30, hp: 400, maxHp: 400 });
+    G.buildings.push({ id: uid(), type: 'factory', faction: selectedFaction, x: pStart.x-30, y: pStart.y+100, hp: 500, maxHp: 500 });
 
-    // AI buildings at their start city
-    G.buildings.push({ id: uid(), type: 'town_hall', faction: ai, x: aiStart.x + 50, y: aiStart.y - 50, hp: 1000, maxHp: 1000 });
-    G.buildings.push({ id: uid(), type: 'barracks', faction: ai, x: aiStart.x - 80, y: aiStart.y - 30, hp: 400, maxHp: 400 });
-    G.buildings.push({ id: uid(), type: 'factory', faction: ai, x: aiStart.x + 30, y: aiStart.y + 100, hp: 500, maxHp: 500 });
+    // AI buildings
+    G.buildings.push({ id: uid(), type: 'town_hall', faction: ai, x: aStart.x+50, y: aStart.y-50, hp: 1000, maxHp: 1000 });
+    G.buildings.push({ id: uid(), type: 'barracks', faction: ai, x: aStart.x-80, y: aStart.y-30, hp: 400, maxHp: 400 });
+    G.buildings.push({ id: uid(), type: 'factory', faction: ai, x: aStart.x+30, y: aStart.y+100, hp: 500, maxHp: 500 });
 
     // Starting units
-    spawnSquad(selectedFaction, playerStart.x + 30, playerStart.y + 50, 'infantry', 6);
-    spawnSquad(selectedFaction, playerStart.x, playerStart.y + 120, 'light_tank', 2);
-    spawnSquad(ai, aiStart.x - 30, aiStart.y + 50, 'infantry', 6);
-    spawnSquad(ai, aiStart.x, aiStart.y + 120, 'light_tank', 2);
-    spawnSquad(ai, aiStart.x + 50, aiStart.y - 30, 'heavy_tank', 1);
+    G.units.push(new Infantry(selectedFaction, pStart.x+30, pStart.y+50));
+    G.units.push(new Infantry(selectedFaction, pStart.x+50, pStart.y+50));
+    G.units.push(new Infantry(selectedFaction, pStart.x+70, pStart.y+50));
+    G.units.push(new Hatchet(selectedFaction, pStart.x, pStart.y+120));
+    
+    G.units.push(new Infantry(ai, aStart.x-30, aStart.y+50));
+    G.units.push(new Infantry(ai, aStart.x-50, aStart.y+50));
+    G.units.push(new Infantry(ai, aStart.x-70, aStart.y+50));
+    G.units.push(new Halftrack(ai, aStart.x, aStart.y+120));
+    G.units.push(new Gallagher(ai, aStart.x+50, aStart.y-30));
 
-    // Center camera on player base
-    G.cam.x = Math.max(0, playerStart.x - canvas.width / 2);
-    G.cam.y = Math.max(0, playerStart.y - canvas.height / 2);
-
+    G.cam.x = Math.max(0, pStart.x - canvas.width/2);
+    G.cam.y = Math.max(0, pStart.y - canvas.height/2);
     requestAnimationFrame(loop);
 }
 
-function spawnSquad(faction, bx, by, type, count) {
-    const def = UNIT_DEFS[type];
-    for (let i = 0; i < count; i++) {
-        G.units.push({
-            id: uid(), type, faction,
-            x: bx + (i % 4) * 25 - 35,
-            y: by + Math.floor(i / 4) * 25 - 10,
-            hp: def.hp, maxHp: def.hp,
-            dmg: def.dmg, range: def.range, spd: def.spd,
-            cd: def.cd, lastAtk: 0,
-            tx: undefined, ty: undefined,
-        });
-    }
+let nextId = 1;
+function uid() { return 'e' + (nextId++); }
+function dist(x1,y1,x2,y2) { return Math.sqrt((x1-x2)**2+(y1-y2)**2); }
+
+function isWater(x,y) {
+    for (let i=0; i<RIVER_POINTS.length-1; i++) { if (distToSeg(x,y,RIVER_POINTS[i],RIVER_POINTS[i+1])<20) return true; }
+    for (let i=0; i<RIVER2_POINTS.length-1; i++) { if (distToSeg(x,y,RIVER2_POINTS[i],RIVER2_POINTS[i+1])<15) return true; }
+    return false;
+}
+function distToSeg(p,p1,p2) {
+    const dx=p2.x-p1.x, dy=p2.y-p1.y, lenSq=dx*dx+dy*dy;
+    let t=((p.x-p1.x)*dx+(p.y-p1.y)*dy)/lenSq;
+    t=Math.max(0,Math.min(1,t));
+    return dist(p.x,p.y,p1.x+t*dx,p1.y+t*dy);
+}
+
+function canBuildNearCity(x,y,faction) {
+    return G.cps.some(cp => cp.owner === faction && dist(x,y,cp.x,cp.y) < cp.radius + 100);
 }
 
 // ===== GAME LOOP =====
-function loop() {
-    if (!G) return;
-    update();
-    render();
-    requestAnimationFrame(loop);
-}
+function loop() { if (!G) return; update(); render(); requestAnimationFrame(loop); }
 
 function update() {
     G.time++;
-
-    // Camera
     const spd = 7;
-    if (keys['w'] || keys['arrowup']) G.cam.y -= spd;
-    if (keys['s'] || keys['arrowdown']) G.cam.y += spd;
-    if (keys['a'] || keys['arrowleft']) G.cam.x -= spd;
-    if (keys['d'] || keys['arrowright']) G.cam.x += spd;
-    G.cam.x = Math.max(0, Math.min(MAP_W - canvas.width, G.cam.x));
-    G.cam.y = Math.max(0, Math.min(MAP_H - canvas.height, G.cam.y));
+    if (keys['w']||keys['arrowup']) G.cam.y -= spd;
+    if (keys['s']||keys['arrowdown']) G.cam.y += spd;
+    if (keys['a']||keys['arrowleft']) G.cam.x -= spd;
+    if (keys['d']||keys['arrowright']) G.cam.x += spd;
+    G.cam.x = Math.max(0, Math.min(MAP_W-canvas.width, G.cam.x));
+    G.cam.y = Math.max(0, Math.min(MAP_H-canvas.height, G.cam.y));
 
-    // Resources
-    const pts = G.cps.filter(c => c.owner === G.faction).length;
-    G.res.s += pts * 0.03;
-    G.res.c += pts * 0.015;
-    G.res.m += pts * 0.01;
+    const pts = G.cps.filter(c=>c.owner===G.faction).length;
+    G.res.s += pts*0.03; G.res.c += pts*0.015; G.res.m += pts*0.01;
 
-    // Unit AI & movement
+    // Units
     G.units.forEach(u => {
-        // Find nearest enemy
-        let nearest = null, nearDist = Infinity;
-        G.units.forEach(e => {
-            if (e.faction === u.faction || e.hp <= 0) return;
-            const d = dist(u.x, u.y, e.x, e.y);
-            if (d < nearDist) { nearDist = d; nearest = e; }
-        });
+        let nearest=null, nearDist=Infinity;
+        G.units.forEach(e => { if (e.faction!==u.faction && e.hp>0) { const d=dist(u.x,u.y,e.x,e.y); if (d<nearDist) { nearDist=d; nearest=e; } } });
 
-        // Attack
-        if (nearest && nearDist <= u.range && u.dmg > 0) {
-            if (G.time - u.lastAtk >= u.cd) {
-                u.lastAtk = G.time;
-                nearest.hp -= u.dmg;
-                // Attack visual
-                addParticles(nearest.x, nearest.y, u.type === 'artillery' ? '#ff6b00' : '#ffcc00', u.type === 'artillery' ? 10 : 4);
-            }
-        }
-        // Move to target
-        else if (u.tx !== undefined) {
-            const d = dist(u.x, u.y, u.tx, u.ty);
-            if (d > 5) {
-                const r = u.spd / d;
-                const newX = u.x + (u.tx - u.x) * r;
-                const newY = u.y + (u.ty - u.y) * r;
-                // Check water collision
-                if (!isWater(newX, newY)) {
-                    u.x = newX;
-                    u.y = newY;
-                } else {
-                    // Try to go around - move perpendicular to water
-                    u.tx = undefined; u.ty = undefined;
-                }
-            } else {
-                u.tx = undefined; u.ty = undefined;
-            }
-        }
-        // AI: move toward nearest enemy if AI unit
-        else if (u.faction === G.ai && nearest) {
-            const d = dist(u.x, u.y, nearest.x, nearest.y);
-            if (d > u.range * 0.8) {
-                const r = u.spd / d;
-                const newX = u.x + (nearest.x - u.x) * r;
-                const newY = u.y + (nearest.y - u.y) * r;
-                if (!isWater(newX, newY)) {
-                    u.x = newX;
-                    u.y = newY;
-                }
-            }
+        if (nearest && nearDist<=u.range && u.dmg>0) {
+            if (G.time-u.lastAtk>=u.cd) { u.lastAtk=G.time; nearest.takeDamage(u.dmg); addParticles(nearest.x,nearest.y,u.type==='artillery'?'#ff6b00':'#ffcc00',u.type==='artillery'?10:4); }
+        } else if (u.tx!==undefined) {
+            const d=dist(u.x,u.y,u.tx,u.ty);
+            if (d>5) { const r=u.spd/d, nx=u.x+(u.tx-u.x)*r, ny=u.y+(u.ty-u.y)*r; if (!isWater(nx,ny)) { u.x=nx; u.y=ny; } else { u.tx=undefined; u.ty=undefined; } }
+            else { u.tx=undefined; u.ty=undefined; }
+        } else if (u.faction===G.ai && nearest) {
+            const d=dist(u.x,u.y,nearest.x,nearest.y);
+            if (d>u.range*0.8) { const r=u.spd/d, nx=u.x+(nearest.x-u.x)*r, ny=u.y+(nearest.y-u.y)*r; if (!isWater(nx,ny)) { u.x=nx; u.y=ny; } }
         }
     });
-
-    // Remove dead
-    G.units = G.units.filter(u => u.hp > 0);
+    G.units = G.units.filter(u=>u.hp>0);
+    G.buildings = G.buildings.filter(b=>b.hp>0);
 
     // Capture points
     G.cps.forEach(cp => {
-        const pUnits = G.units.filter(u => u.faction === G.faction && dist(u.x, u.y, cp.x, cp.y) <= cp.radius);
-        const aUnits = G.units.filter(u => u.faction === G.ai && dist(u.x, u.y, cp.x, cp.y) <= cp.radius);
-
-        if (pUnits.length > 0 && aUnits.length === 0 && cp.owner !== G.faction) {
-            cp.progress = Math.min(100, cp.progress + pUnits.length * 0.2);
-            cp.capturing = G.faction;
-            if (cp.progress >= 100) cp.owner = G.faction;
-        } else if (aUnits.length > 0 && pUnits.length === 0 && cp.owner !== G.ai) {
-            cp.progress = Math.min(100, cp.progress + aUnits.length * 0.15);
-            cp.capturing = G.ai;
-            if (cp.progress >= 100) cp.owner = G.ai;
-        } else {
-            cp.capturing = null;
-        }
+        const pU=G.units.filter(u=>u.faction===G.faction&&dist(u.x,u.y,cp.x,cp.y)<=cp.radius);
+        const aU=G.units.filter(u=>u.faction===G.ai&&dist(u.x,u.y,cp.x,cp.y)<=cp.radius);
+        if (pU.length>0&&aU.length===0&&cp.owner!==G.faction) { cp.progress=Math.min(100,cp.progress+pU.length*0.2); cp.capturing=G.faction; if (cp.progress>=100) { cp.owner=G.faction; notify(cp.name+' захвачен!'); } }
+        else if (aU.length>0&&pU.length===0&&cp.owner!==G.ai) { cp.progress=Math.min(100,cp.progress+aU.length*0.15); cp.capturing=G.ai; if (cp.progress>=100) cp.owner=G.ai; }
+        else cp.capturing=null;
     });
 
-    // Resource mines
+    // Mines
     G.mines.forEach(mine => {
-        const pUnits = G.units.filter(u => u.faction === G.faction && dist(u.x, u.y, mine.x, mine.y) <= mine.radius);
-        const aUnits = G.units.filter(u => u.faction === G.ai && dist(u.x, u.y, mine.x, mine.y) <= mine.radius);
-
-        if (pUnits.length > 0 && aUnits.length === 0 && mine.owner !== G.faction) {
-            mine.progress = Math.min(100, mine.progress + pUnits.length * 0.3);
-            mine.capturing = G.faction;
-            if (mine.progress >= 100) {
-                mine.owner = G.faction;
-                notify(`${mine.name} захвачена!`);
-            }
-        } else if (aUnits.length > 0 && pUnits.length === 0 && mine.owner !== G.ai) {
-            mine.progress = Math.min(100, mine.progress + aUnits.length * 0.2);
-            mine.capturing = G.ai;
-            if (mine.progress >= 100) {
-                mine.owner = G.ai;
-            }
-        } else {
-            mine.capturing = null;
-        }
+        const pU=G.units.filter(u=>u.faction===G.faction&&dist(u.x,u.y,mine.x,mine.y)<=mine.radius);
+        const aU=G.units.filter(u=>u.faction===G.ai&&dist(u.x,u.y,mine.x,mine.y)<=mine.radius);
+        if (pU.length>0&&aU.length===0&&mine.owner!==G.faction) { mine.progress=Math.min(100,mine.progress+pU.length*0.3); if (mine.progress>=100) { mine.owner=G.faction; notify(mine.name+' захвачена!'); } }
+        else if (aU.length>0&&pU.length===0&&mine.owner!==G.ai) { mine.progress=Math.min(100,mine.progress+aU.length*0.2); if (mine.progress>=100) mine.owner=G.ai; }
     });
+    G.mines.forEach(mine => { if (mine.owner===G.faction) { if (mine.type==='supplies') G.res.s+=0.05; if (mine.type==='components') G.res.c+=0.03; if (mine.type==='materials') G.res.m+=0.03; } });
 
-    // Bonus resources from owned mines
-    G.mines.forEach(mine => {
-        if (mine.owner === G.faction) {
-            if (mine.type === 'supplies') G.res.s += 0.05;
-            if (mine.type === 'components') G.res.c += 0.03;
-            if (mine.type === 'materials') G.res.m += 0.03;
-        }
-    });
-
-    // AI spawn
-    if (G.time % 400 === 0) {
-        const aiBarracks = G.buildings.find(b => b.faction === G.ai && b.type === 'barracks');
+    // AI
+    G.aiTimer++;
+    if (G.aiTimer % 300 === 0) {
+        const aiBarracks = G.buildings.find(b=>b.faction===G.ai&&b.type==='barracks');
+        const aiFactory = G.buildings.find(b=>b.faction===G.ai&&b.type==='factory');
         if (aiBarracks) {
-            spawnSquad(G.ai, aiBarracks.x + 50, aiBarracks.y + 50, 'infantry', 4);
-            // Send to nearest non-AI capture point
-            const target = G.cps.filter(c => c.owner !== G.ai).sort((a, b) => dist(aiBarracks.x, aiBarracks.y, a.x, a.y) - dist(aiBarracks.x, aiBarracks.y, b.x, b.y))[0];
-            if (target) {
-                G.units.filter(u => u.faction === G.ai && u.tx === undefined).forEach(u => {
-                    u.tx = target.x + (Math.random() - 0.5) * 60;
-                    u.ty = target.y + (Math.random() - 0.5) * 60;
-                });
-            }
+            G.units.push(new Infantry(G.ai, aiBarracks.x+50, aiBarracks.y+50));
+            G.units.push(new Infantry(G.ai, aiBarracks.x+70, aiBarracks.y+50));
+            G.units.push(new Infantry(G.ai, aiBarracks.x+60, aiBarracks.y+70));
+            const target = G.cps.filter(c=>c.owner!==G.ai).sort((a,b)=>dist(aiBarracks.x,aiBarracks.y,a.x,a.y)-dist(aiBarracks.x,aiBarracks.y,b.x,b.y))[0];
+            if (target) G.units.filter(u=>u.faction===G.ai&&u.tx===undefined).forEach(u=>{u.tx=target.x+(Math.random()-0.5)*60;u.ty=target.y+(Math.random()-0.5)*60;});
         }
-    }
-    if (G.time % 700 === 0) {
-        const aiFactory = G.buildings.find(b => b.faction === G.ai && b.type === 'factory');
-        if (aiFactory) {
-            const tType = Math.random() > 0.5 ? 'heavy_tank' : 'light_tank';
-            spawnSquad(G.ai, aiFactory.x + 50, aiFactory.y + 50, tType, 1);
-            const target = G.cps.filter(c => c.owner !== G.ai).sort((a, b) => dist(aiFactory.x, aiFactory.y, a.x, a.y) - dist(aiFactory.x, aiFactory.y, b.x, b.y))[0];
-            if (target) {
-                G.units.filter(u => u.faction === G.ai && u.tx === undefined).slice(-2).forEach(u => {
-                    u.tx = target.x; u.ty = target.y;
-                });
-            }
+        if (aiFactory && G.aiTimer%600===0) {
+            const types = ['hatchet','devitt','halftrack','gallagher','falchion'];
+            const t = types[Math.floor(Math.random()*types.length)];
+            G.units.push(createVehicle(t, G.ai, aiFactory.x+50, aiFactory.y+50));
+            const target = G.cps.filter(c=>c.owner!==G.ai).sort((a,b)=>dist(aiFactory.x,aiFactory.y,a.x,a.y)-dist(aiFactory.x,aiFactory.y,b.x,b.y))[0];
+            if (target) G.units.filter(u=>u.faction===G.ai&&u.tx===undefined).slice(-1).forEach(u=>{u.tx=target.x;u.ty=target.y;});
         }
     }
 
     // Win check
-    const pPts = G.cps.filter(c => c.owner === G.faction).length;
-    const aPts = G.cps.filter(c => c.owner === G.ai).length;
-    if (pPts >= 7) { G.over = true; G.winner = G.faction; showEndScreen(); }
-    if (aPts >= 7) { G.over = true; G.winner = G.ai; showEndScreen(); }
-    if (!G.buildings.find(b => b.faction === G.faction && b.type === 'town_hall')) { G.over = true; G.winner = G.ai; showEndScreen(); }
-    if (!G.buildings.find(b => b.faction === G.ai && b.type === 'town_hall')) { G.over = true; G.winner = G.faction; showEndScreen(); }
+    const pPts=G.cps.filter(c=>c.owner===G.faction).length;
+    const aPts=G.cps.filter(c=>c.owner===G.ai).length;
+    if (pPts>=7) { G.over=true; G.winner=G.faction; showEndScreen(); }
+    if (aPts>=7) { G.over=true; G.winner=G.ai; showEndScreen(); }
+    if (!G.buildings.find(b=>b.faction===G.faction&&b.type==='town_hall')) { G.over=true; G.winner=G.ai; showEndScreen(); }
+    if (!G.buildings.find(b=>b.faction===G.ai&&b.type==='town_hall')) { G.over=true; G.winner=G.faction; showEndScreen(); }
 
-    // Particles
-    particles = particles.filter(p => { p.x += p.vx; p.y += p.vy; p.vx *= 0.94; p.vy *= 0.94; p.life--; return p.life > 0; });
+    particles = particles.filter(p=>{p.x+=p.vx;p.y+=p.vy;p.vx*=0.94;p.vy*=0.94;p.life--;return p.life>0;});
 
-    // HUD
-    document.getElementById('rSup').textContent = Math.floor(G.res.s);
-    document.getElementById('rComp').textContent = Math.floor(G.res.c);
-    document.getElementById('rMat').textContent = Math.floor(G.res.m);
-    document.getElementById('tCount').textContent = pPts;
-
-    // Selection info
+    document.getElementById('rSup').textContent=Math.floor(G.res.s);
+    document.getElementById('rComp').textContent=Math.floor(G.res.c);
+    document.getElementById('rMat').textContent=Math.floor(G.res.m);
+    document.getElementById('tCount').textContent=pPts;
     updateSelInfo();
 }
 
 function updateSelInfo() {
-    const el = document.getElementById('selInfo');
-    if (G.selected.length > 0) {
-        const units = G.units.filter(u => G.selected.includes(u.id));
-        const types = {};
-        units.forEach(u => { types[u.type] = (types[u.type] || 0) + 1; });
-        let html = `<p>Выбрано: ${units.length} юнитов</p>`;
-        Object.entries(types).forEach(([t, c]) => {
-            html += `<p class="sel-type">${UNIT_DEFS[t].label} ×${c}</p>`;
-        });
-        el.innerHTML = html;
-        el.style.display = 'block';
-    } else {
-        el.style.display = 'none';
-    }
+    const el=document.getElementById('selInfo');
+    if (G.selected.length>0) {
+        const units=G.units.filter(u=>G.selected.includes(u.id));
+        const types={};
+        units.forEach(u=>{types[u.label]=(types[u.label]||0)+1;});
+        let html=`<p>Выбрано: ${units.length} юнитов</p>`;
+        Object.entries(types).forEach(([t,c])=>{html+=`<p class="sel-type">${t} ×${c}</p>`;});
+        el.innerHTML=html; el.style.display='block';
+    } else el.style.display='none';
 }
 
 // ===== RENDER =====
 function render() {
-    const cam = G.cam;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Terrain base
-    ctx.fillStyle = '#2a4a2c';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Terrain texture (subtle noise)
-    drawTerrainDetail(cam);
+    const cam=G.cam;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#2a4a2c'; ctx.fillRect(0,0,canvas.width,canvas.height);
 
     // Rivers
-    drawRiver(RIVER_POINTS, cam, 18, '#2a6090');
-    drawRiver(RIVER_POINTS, cam, 12, '#3a7ab0');
-    drawRiver(RIVER2_POINTS, cam, 14, '#2a6090');
-    drawRiver(RIVER2_POINTS, cam, 8, '#3a7ab0');
+    drawRiver(RIVER_POINTS,cam,18,'#2a6090'); drawRiver(RIVER_POINTS,cam,12,'#3a7ab0');
+    drawRiver(RIVER2_POINTS,cam,14,'#2a6090'); drawRiver(RIVER2_POINTS,cam,8,'#3a7ab0');
 
     // Roads
-    ROADS.forEach(([a, b]) => {
-        const ca = CITIES[a], cb = CITIES[b];
-        // Road bed
-        ctx.strokeStyle = '#5a5040';
-        ctx.lineWidth = 14;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(ca.x - cam.x, ca.y - cam.y);
-        ctx.lineTo(cb.x - cam.x, cb.y - cam.y);
-        ctx.stroke();
-        // Road surface
-        ctx.strokeStyle = '#7a7060';
-        ctx.lineWidth = 10;
-        ctx.beginPath();
-        ctx.moveTo(ca.x - cam.x, ca.y - cam.y);
-        ctx.lineTo(cb.x - cam.x, cb.y - cam.y);
-        ctx.stroke();
-        // Center line
-        ctx.strokeStyle = '#8a8070';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([8, 8]);
-        ctx.beginPath();
-        ctx.moveTo(ca.x - cam.x, ca.y - cam.y);
-        ctx.lineTo(cb.x - cam.x, cb.y - cam.y);
-        ctx.stroke();
-        ctx.setLineDash([]);
+    ROADS.forEach(([a,b])=>{
+        const ca=CITIES[a],cb=CITIES[b];
+        ctx.strokeStyle='#5a5040'; ctx.lineWidth=14; ctx.lineCap='round';
+        ctx.beginPath(); ctx.moveTo(ca.x-cam.x,ca.y-cam.y); ctx.lineTo(cb.x-cam.x,cb.y-cam.y); ctx.stroke();
+        ctx.strokeStyle='#7a7060'; ctx.lineWidth=10;
+        ctx.beginPath(); ctx.moveTo(ca.x-cam.x,ca.y-cam.y); ctx.lineTo(cb.x-cam.x,cb.y-cam.y); ctx.stroke();
     });
 
     // Bridges
-    BRIDGES.forEach(br => {
-        const bx = br.x - cam.x, by = br.y - cam.y;
-        ctx.fillStyle = '#8a7a60';
-        ctx.fillRect(bx - 20, by - 8, 40, 16);
-        ctx.strokeStyle = '#6a5a40';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(bx - 20, by - 8, 40, 16);
-        // Railings
-        ctx.fillStyle = '#5a4a30';
-        ctx.fillRect(bx - 20, by - 10, 40, 3);
-        ctx.fillRect(bx - 20, by + 7, 40, 3);
+    BRIDGES.forEach(br=>{
+        const bx=br.x-cam.x,by=br.y-cam.y;
+        ctx.fillStyle='#8a7a60'; ctx.fillRect(bx-20,by-8,40,16);
+        ctx.strokeStyle='#6a5a40'; ctx.lineWidth=2; ctx.strokeRect(bx-20,by-8,40,16);
     });
 
-    // Cities (buildings cluster)
-    CITIES.forEach(city => {
-        drawCity(city, cam);
+    // Cities
+    CITIES.forEach(city=>{
+        const x=city.x-cam.x,y=city.y-cam.y;
+        const count=city.size==='large'?8:5, spread=city.size==='large'?60:40;
+        for (let i=0;i<count;i++) {
+            const angle=(Math.PI*2*i)/count, r=spread*(0.5+((i*7)%10)/20);
+            const bx=x+Math.cos(angle)*r, by=y+Math.sin(angle)*r;
+            ctx.fillStyle='#4a4035'; ctx.fillRect(bx-5,by-5,10,10);
+            ctx.strokeStyle='#5a5045'; ctx.lineWidth=1; ctx.strokeRect(bx-5,by-5,10,10);
+        }
     });
 
     // Capture points
-    G.cps.forEach(cp => {
-        const x = cp.x - cam.x, y = cp.y - cam.y;
-        const col = cp.owner === 'neutral' ? COLORS.neutral : COLORS[cp.owner];
-
-        // Zone circle
-        ctx.beginPath();
-        ctx.arc(x, y, cp.radius, 0, Math.PI * 2);
-        ctx.fillStyle = col.p + '15';
-        ctx.fill();
-        ctx.strokeStyle = col.p + '80';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 4]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Capture progress ring
-        if (cp.capturing) {
-            const cCol = COLORS[cp.capturing];
-            ctx.beginPath();
-            ctx.arc(x, y, cp.radius * 0.6, -Math.PI / 2, -Math.PI / 2 + (cp.progress / 100) * Math.PI * 2);
-            ctx.strokeStyle = cCol.a;
-            ctx.lineWidth = 4;
-            ctx.stroke();
-        }
-
-        // Flag
-        ctx.fillStyle = col.p;
-        ctx.fillRect(x - 2, y - 18, 4, 24);
-        ctx.fillStyle = col.a;
-        ctx.fillRect(x + 2, y - 18, 14, 9);
-
-        // Name
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 10px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(cp.name, x, y - cp.radius - 10);
+    G.cps.forEach(cp=>{
+        const x=cp.x-cam.x,y=cp.y-cam.y;
+        const col=cp.owner==='neutral'?COLORS.neutral:COLORS[cp.owner];
+        ctx.beginPath(); ctx.arc(x,y,cp.radius,0,Math.PI*2);
+        ctx.fillStyle=col.p+'15'; ctx.fill();
+        ctx.strokeStyle=col.p+'80'; ctx.lineWidth=2; ctx.setLineDash([6,4]); ctx.stroke(); ctx.setLineDash([]);
+        if (cp.capturing) { const cCol=COLORS[cp.capturing]; ctx.beginPath(); ctx.arc(x,y,cp.radius*0.6,-Math.PI/2,-Math.PI/2+(cp.progress/100)*Math.PI*2); ctx.strokeStyle=cCol.a; ctx.lineWidth=4; ctx.stroke(); }
+        ctx.fillStyle=col.p; ctx.fillRect(x-2,y-18,4,24); ctx.fillStyle=col.a; ctx.fillRect(x+2,y-18,14,9);
+        ctx.fillStyle='#fff'; ctx.font='bold 10px monospace'; ctx.textAlign='center'; ctx.fillText(cp.name,x,y-cp.radius-10);
     });
 
-    // Resource mines
-    G.mines.forEach(mine => {
-        const x = mine.x - cam.x, y = mine.y - cam.y;
-        const col = mine.owner === 'neutral' ? COLORS.neutral : COLORS[mine.owner];
-        
-        // Mine zone
-        ctx.beginPath();
-        ctx.arc(x, y, mine.radius, 0, Math.PI * 2);
-        ctx.fillStyle = col.p + '10';
-        ctx.fill();
-        ctx.strokeStyle = col.p + '60';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 3]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        
-        // Capture progress
-        if (mine.capturing) {
-            const cCol = COLORS[mine.capturing];
-            ctx.beginPath();
-            ctx.arc(x, y, mine.radius * 0.5, -Math.PI / 2, -Math.PI / 2 + (mine.progress / 100) * Math.PI * 2);
-            ctx.strokeStyle = cCol.a;
-            ctx.lineWidth = 3;
-            ctx.stroke();
-        }
-        
-        // Mine icon (pickaxe)
-        ctx.fillStyle = '#8a7a60';
-        ctx.fillRect(x - 8, y - 8, 16, 16);
-        ctx.strokeStyle = '#6a5a40';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(x - 8, y - 8, 16, 16);
-        
-        // Resource type indicator
-        const typeColors = { supplies: '#fbbf24', components: '#60a5fa', materials: '#a78bfa' };
-        ctx.fillStyle = typeColors[mine.type] || '#fff';
-        ctx.beginPath();
-        ctx.arc(x, y, 4, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Mine name
-        ctx.fillStyle = '#d1d5db';
-        ctx.font = '9px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(mine.name, x, y - mine.radius - 6);
+    // Mines
+    G.mines.forEach(mine=>{
+        const x=mine.x-cam.x,y=mine.y-cam.y;
+        const col=mine.owner==='neutral'?COLORS.neutral:COLORS[mine.owner];
+        ctx.beginPath(); ctx.arc(x,y,mine.radius,0,Math.PI*2); ctx.fillStyle=col.p+'10'; ctx.fill();
+        ctx.strokeStyle=col.p+'60'; ctx.lineWidth=1.5; ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle='#8a7a60'; ctx.fillRect(x-8,y-8,16,16);
+        ctx.strokeStyle='#6a5a40'; ctx.lineWidth=1.5; ctx.strokeRect(x-8,y-8,16,16);
+        const typeColors={supplies:'#fbbf24',components:'#60a5fa',materials:'#a78bfa'};
+        ctx.fillStyle=typeColors[mine.type]||'#fff'; ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#d1d5db'; ctx.font='9px monospace'; ctx.textAlign='center'; ctx.fillText(mine.name,x,y-mine.radius-6);
     });
 
     // Buildings
-    G.buildings.forEach(b => {
-        const x = b.x - cam.x, y = b.y - cam.y;
-        const col = COLORS[b.faction];
-        const sz = b.type === 'town_hall' ? 48 : 38;
-
-        // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.fillRect(x - sz/2 + 3, y - sz/2 + 3, sz, sz);
-
-        // Body
-        ctx.fillStyle = col.bg;
-        ctx.fillRect(x - sz/2, y - sz/2, sz, sz);
-        ctx.strokeStyle = col.p;
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x - sz/2, y - sz/2, sz, sz);
-
-        // Icon
-        ctx.fillStyle = col.a;
-        ctx.font = 'bold 9px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const icons = { town_hall: 'HQ', barracks: 'BAR', factory: 'FAC', refinery: 'REF' };
-        ctx.fillText(icons[b.type] || 'BLD', x, y);
-
-        // HP bar
-        const hpPct = b.hp / b.maxHp;
-        ctx.fillStyle = '#333';
-        ctx.fillRect(x - sz/2, y + sz/2 + 3, sz, 4);
-        ctx.fillStyle = hpPct > 0.5 ? '#22c55e' : hpPct > 0.25 ? '#eab308' : '#ef4444';
-        ctx.fillRect(x - sz/2, y + sz/2 + 3, sz * hpPct, 4);
+    G.buildings.forEach(b=>{
+        const x=b.x-cam.x,y=b.y-cam.y,col=COLORS[b.faction],sz=b.type==='town_hall'?48:38;
+        ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(x-sz/2+3,y-sz/2+3,sz,sz);
+        ctx.fillStyle=col.bg; ctx.fillRect(x-sz/2,y-sz/2,sz,sz);
+        ctx.strokeStyle=col.p; ctx.lineWidth=2; ctx.strokeRect(x-sz/2,y-sz/2,sz,sz);
+        ctx.fillStyle=col.a; ctx.font='bold 9px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        const icons={town_hall:'HQ',barracks:'BAR',factory:'FAC',refinery:'REF'};
+        ctx.fillText(icons[b.type]||'BLD',x,y);
+        const hpPct=b.hp/b.maxHp;
+        ctx.fillStyle='#333'; ctx.fillRect(x-sz/2,y+sz/2+3,sz,4);
+        ctx.fillStyle=hpPct>0.5?'#22c55e':hpPct>0.25?'#eab308':'#ef4444';
+        ctx.fillRect(x-sz/2,y+sz/2+3,sz*hpPct,4);
     });
 
     // Units
-    G.units.forEach(u => {
-        const x = u.x - cam.x, y = u.y - cam.y;
-        if (x < -40 || x > canvas.width + 40 || y < -40 || y > canvas.height + 40) return;
-
-        const col = COLORS[u.faction];
-        const sz = UNIT_DEFS[u.type].size;
-
-        // Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.25)';
-        ctx.beginPath();
-        ctx.ellipse(x + 2, y + 3, sz * 0.5, sz * 0.25, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (u.type === 'infantry') {
-            // Soldier
-            ctx.fillStyle = col.p;
-            ctx.beginPath();
-            ctx.arc(x, y, sz / 2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-            // Helmet
-            ctx.fillStyle = col.s;
-            ctx.beginPath();
-            ctx.arc(x, y - 1, sz / 3, Math.PI, 0);
-            ctx.fill();
-        } else {
-            // Vehicle body
-            ctx.fillStyle = col.p;
-            const vw = sz, vh = sz * 0.6;
-            ctx.fillRect(x - vw/2, y - vh/2, vw, vh);
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 1.5;
-            ctx.strokeRect(x - vw/2, y - vh/2, vw, vh);
-
-            if (u.type === 'light_tank' || u.type === 'heavy_tank') {
-                // Turret
-                ctx.fillStyle = col.s;
-                ctx.beginPath();
-                ctx.arc(x, y, sz * 0.25, 0, Math.PI * 2);
-                ctx.fill();
-                // Barrel
-                ctx.strokeStyle = col.a;
-                ctx.lineWidth = u.type === 'heavy_tank' ? 3 : 2;
-                ctx.beginPath();
-                ctx.moveTo(x, y);
-                ctx.lineTo(x + sz * 0.55, y);
-                ctx.stroke();
-                // Tracks
-                ctx.fillStyle = '#333';
-                ctx.fillRect(x - vw/2, y - vh/2 - 2, vw, 3);
-                ctx.fillRect(x - vw/2, y + vh/2 - 1, vw, 3);
-            }
-
-            if (u.type === 'halftrack') {
-                // Open top
-                ctx.fillStyle = col.s;
-                ctx.fillRect(x - sz * 0.3, y - vh * 0.3, sz * 0.6, vh * 0.6);
-                // Wheels
-                ctx.fillStyle = '#333';
-                ctx.beginPath(); ctx.arc(x - sz * 0.35, y + vh/2, 3, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(x + sz * 0.35, y + vh/2, 3, 0, Math.PI * 2); ctx.fill();
-            }
-
-            if (u.type === 'artillery') {
-                // Long barrel
-                ctx.strokeStyle = col.a;
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.moveTo(x, y);
-                ctx.lineTo(x + sz * 0.7, y - sz * 0.2);
-                ctx.stroke();
-                // Base
-                ctx.fillStyle = col.s;
-                ctx.fillRect(x - sz * 0.2, y, sz * 0.4, sz * 0.25);
-            }
-
-            if (u.type === 'truck') {
-                // Cab
-                ctx.fillStyle = col.s;
-                ctx.fillRect(x - sz/2, y - vh/2, sz * 0.35, vh);
-                // Bed
-                ctx.strokeStyle = col.a;
-                ctx.lineWidth = 1;
-                ctx.strokeRect(x - sz/2 + sz * 0.35, y - vh/2 + 2, sz * 0.65, vh - 4);
-            }
+    G.units.forEach(u=>{
+        const x=u.x-cam.x,y=u.y-cam.y;
+        if (x<-40||x>canvas.width+40||y<-40||y>canvas.height+40) return;
+        const col=COLORS[u.faction],sz=u.size;
+        ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(x+2,y+3,sz*0.5,sz*0.25,0,0,Math.PI*2); ctx.fill();
+        if (u.type==='infantry') { ctx.fillStyle=col.p; ctx.beginPath(); ctx.arc(x,y,sz/2,0,Math.PI*2); ctx.fill(); ctx.strokeStyle=col.a; ctx.lineWidth=1.5; ctx.stroke(); }
+        else {
+            ctx.fillStyle=col.p; ctx.fillRect(x-sz/2,y-sz/3,sz,sz*0.65);
+            ctx.strokeStyle=col.a; ctx.lineWidth=1.5; ctx.strokeRect(x-sz/2,y-sz/3,sz,sz*0.65);
+            if (['hatchet','devitt','gallagher','falchion'].includes(u.type)) { ctx.fillStyle=col.s; ctx.beginPath(); ctx.arc(x,y,sz*0.25,0,Math.PI*2); ctx.fill(); ctx.strokeStyle=col.a; ctx.lineWidth=u.type==='gallagher'||u.type==='falchion'?3:2; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+sz*0.55,y); ctx.stroke(); }
+            if (['niska','halftrack'].includes(u.type)) { ctx.fillStyle=col.s; ctx.fillRect(x-sz*0.3,y-sz*0.2,sz*0.6,sz*0.4); }
+            if (u.type==='artillery') { ctx.strokeStyle=col.a; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+sz*0.7,y-sz*0.2); ctx.stroke(); }
         }
-
-        // Selection ring
-        if (G.selected.includes(u.id)) {
-            ctx.strokeStyle = '#fbbf24';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(x, y, sz / 2 + 6, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-
-        // HP bar
-        if (u.hp < u.maxHp) {
-            const pct = u.hp / u.maxHp;
-            ctx.fillStyle = '#333';
-            ctx.fillRect(x - sz/2, y - sz/2 - 8, sz, 3);
-            ctx.fillStyle = pct > 0.5 ? '#22c55e' : pct > 0.25 ? '#eab308' : '#ef4444';
-            ctx.fillRect(x - sz/2, y - sz/2 - 8, sz * pct, 3);
-        }
+        if (G.selected.includes(u.id)) { ctx.strokeStyle='#fbbf24'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,sz/2+6,0,Math.PI*2); ctx.stroke(); }
+        if (u.hp<u.maxHp) { const pct=u.hp/u.maxHp; ctx.fillStyle='#333'; ctx.fillRect(x-sz/2,y-sz/2-8,sz,3); ctx.fillStyle=pct>0.5?'#22c55e':pct>0.25?'#eab308':'#ef4444'; ctx.fillRect(x-sz/2,y-sz/2-8,sz*pct,3); }
     });
 
     // Particles
-    particles.forEach(p => {
-        const alpha = p.life / p.maxLife;
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x - cam.x, p.y - cam.y, p.size * alpha, 0, Math.PI * 2);
-        ctx.fill();
-    });
-    ctx.globalAlpha = 1;
+    particles.forEach(p=>{ const alpha=p.life/p.maxLife; ctx.globalAlpha=alpha; ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x-cam.x,p.y-cam.y,p.size*alpha,0,Math.PI*2); ctx.fill(); });
+    ctx.globalAlpha=1;
 
-    // Move mode cursor indicator
-    if (moveMode) {
-        ctx.strokeStyle = '#fbbf2480';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.arc(mousePos.x, mousePos.y, 15, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-    }
+    if (moveMode) { ctx.strokeStyle='#fbbf2480'; ctx.lineWidth=2; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.arc(mousePos.x,mousePos.y,15,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]); }
 
     // Minimap
-    drawMinimap();
+    const mw=180,mh=120,mx=canvas.width-mw-10,my=canvas.height-mh-50,sx=mw/MAP_W,sy=mh/MAP_H;
+    ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.fillRect(mx-2,my-2,mw+4,mh+4);
+    ctx.fillStyle='#1a2e1a'; ctx.fillRect(mx,my,mw,mh);
+    G.cps.forEach(cp=>{ const col=cp.owner==='neutral'?'#6b7280':cp.owner==='wardens'?'#2563eb':'#dc2626'; ctx.fillStyle=col; ctx.beginPath(); ctx.arc(mx+cp.x*sx,my+cp.y*sy,3,0,Math.PI*2); ctx.fill(); });
+    G.mines.forEach(mine=>{ const col=mine.owner==='neutral'?'#fbbf24':mine.owner==='wardens'?'#2563eb':'#dc2626'; ctx.fillStyle=col; ctx.fillRect(mx+mine.x*sx-2,my+mine.y*sy-2,4,4); });
+    G.buildings.forEach(b=>{ ctx.fillStyle=b.faction==='wardens'?'#2563eb':'#dc2626'; ctx.fillRect(mx+b.x*sx-2,my+b.y*sy-2,4,4); });
+    G.units.forEach(u=>{ ctx.fillStyle=u.faction===G.faction?'#60a5fa':'#f87171'; ctx.fillRect(mx+u.x*sx-1,my+u.y*sy-1,2,2); });
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.strokeRect(mx+G.cam.x*sx,my+G.cam.y*sy,canvas.width*sx,canvas.height*sy);
+    ctx.strokeStyle='#4b5563'; ctx.lineWidth=2; ctx.strokeRect(mx-2,my-2,mw+4,mh+4);
 }
 
-function drawTerrainDetail(cam) {
-    // Scattered trees
-    const trees = [
-        [150,700],[180,750],[200,680],[250,720],
-        [700,150],[750,180],[680,200],[800,160],
-        [1200,250],[1250,300],[1180,280],[1300,270],
-        [1900,500],[1950,550],[1880,480],[2000,520],
-        [2300,400],[2350,350],[2400,420],[2280,380],
-        [850,1200],[900,1250],[830,1180],[950,1220],
-        [1400,1650],[1450,1700],[1380,1620],[1500,1680],
-        [2500,1400],[2550,1450],[2480,1380],[2600,1420],
-        [400,1650],[450,1700],[380,1620],[500,1680],
-        [2800,600],[2850,550],[2900,620],[2780,580],
-        [100,1200],[150,1250],[80,1180],[200,1230],
-        [2100,1600],[2150,1650],[2080,1580],[2200,1620],
-        [1800,1800],[1850,1750],[1780,1820],[1900,1780],
-        [500,900],[550,850],[480,920],[600,880],
-        [2000,200],[2050,250],[1980,180],[2100,220],
-    ];
-    trees.forEach(([tx, ty]) => {
-        const sx = tx - cam.x, sy = ty - cam.y;
-        if (sx < -20 || sx > canvas.width + 20 || sy < -20 || sy > canvas.height + 20) return;
-        ctx.fillStyle = 'rgba(0,0,0,0.15)';
-        ctx.beginPath(); ctx.ellipse(sx+2, sy+10, 8, 4, 0, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#3a2a18';
-        ctx.fillRect(sx-1.5, sy+2, 3, 10);
-        ctx.fillStyle = '#1a5a1a';
-        ctx.beginPath(); ctx.arc(sx, sy-2, 10, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#228b22';
-        ctx.beginPath(); ctx.arc(sx-2, sy-4, 7, 0, Math.PI*2); ctx.fill();
-    });
-
-    // Rocks
-    const rocks = [[500,700],[1200,800],[1700,1200],[2300,900],[900,1500],[1600,300],[2500,1600],[300,1100]];
-    rocks.forEach(([rx, ry]) => {
-        const sx = rx - cam.x, sy = ry - cam.y;
-        if (sx < -20 || sx > canvas.width + 20 || sy < -20 || sy > canvas.height + 20) return;
-        ctx.fillStyle = '#4a4a4a';
-        ctx.beginPath(); ctx.ellipse(sx, sy, 12, 8, 0.3, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#5a5a5a';
-        ctx.beginPath(); ctx.ellipse(sx-2, sy-2, 8, 5, 0.3, 0, Math.PI*2); ctx.fill();
-    });
-}
-
-function drawRiver(points, cam, width, color) {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(points[0].x - cam.x, points[0].y - cam.y);
-    for (let i = 1; i < points.length; i++) {
-        const prev = points[i-1], curr = points[i];
-        const cpx = (prev.x + curr.x) / 2 - cam.x;
-        const cpy = (prev.y + curr.y) / 2 - cam.y;
-        ctx.quadraticCurveTo(prev.x - cam.x, prev.y - cam.y, cpx, cpy);
-    }
+function drawRiver(points,cam,width,color) {
+    ctx.strokeStyle=color; ctx.lineWidth=width; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.beginPath(); ctx.moveTo(points[0].x-cam.x,points[0].y-cam.y);
+    for (let i=1;i<points.length;i++) { const prev=points[i-1],curr=points[i]; ctx.quadraticCurveTo(prev.x-cam.x,prev.y-cam.y,(prev.x+curr.x)/2-cam.x,(prev.y+curr.y)/2-cam.y); }
     ctx.stroke();
-}
-
-function drawCity(city, cam) {
-    const x = city.x - cam.x, y = city.y - cam.y;
-    const count = city.size === 'large' ? 8 : 5;
-    const spread = city.size === 'large' ? 60 : 40;
-
-    // Draw small buildings around the city
-    for (let i = 0; i < count; i++) {
-        const angle = (Math.PI * 2 * i) / count;
-        const r = spread * (0.5 + Math.random() * 0.3);
-        const bx = x + Math.cos(angle) * r;
-        const by = y + Math.sin(angle) * r;
-        const bw = 8 + Math.random() * 8;
-        const bh = 8 + Math.random() * 8;
-
-        ctx.fillStyle = '#4a4035';
-        ctx.fillRect(bx - bw/2, by - bh/2, bw, bh);
-        ctx.strokeStyle = '#5a5045';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(bx - bw/2, by - bh/2, bw, bh);
-
-        // Roof
-        ctx.fillStyle = '#6a5a4a';
-        ctx.fillRect(bx - bw/2 - 1, by - bh/2 - 2, bw + 2, 3);
-    }
-}
-
-function drawMinimap() {
-    const mw = 180, mh = 120;
-    const mx = canvas.width - mw - 10, my = canvas.height - mh - 50;
-    const sx = mw / MAP_W, sy = mh / MAP_H;
-
-    ctx.fillStyle = 'rgba(0,0,0,0.85)';
-    ctx.fillRect(mx - 2, my - 2, mw + 4, mh + 4);
-    ctx.fillStyle = '#1a2e1a';
-    ctx.fillRect(mx, my, mw, mh);
-
-    // Rivers on minimap
-    ctx.strokeStyle = '#2a6090';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(mx + RIVER_POINTS[0].x * sx, my + RIVER_POINTS[0].y * sy);
-    RIVER_POINTS.forEach(p => ctx.lineTo(mx + p.x * sx, my + p.y * sy));
-    ctx.stroke();
-
-    // Roads on minimap
-    ctx.strokeStyle = '#5a5040';
-    ctx.lineWidth = 1;
-    ROADS.forEach(([a, b]) => {
-        ctx.beginPath();
-        ctx.moveTo(mx + CITIES[a].x * sx, my + CITIES[a].y * sy);
-        ctx.lineTo(mx + CITIES[b].x * sx, my + CITIES[b].y * sy);
-        ctx.stroke();
-    });
-
-    // Capture points
-    G.cps.forEach(cp => {
-        const col = cp.owner === 'neutral' ? '#6b7280' : cp.owner === 'wardens' ? '#2563eb' : '#dc2626';
-        ctx.fillStyle = col;
-        ctx.beginPath();
-        ctx.arc(mx + cp.x * sx, my + cp.y * sy, 3, 0, Math.PI * 2);
-        ctx.fill();
-    });
-
-    // Mines on minimap
-    G.mines.forEach(mine => {
-        const col = mine.owner === 'neutral' ? '#fbbf24' : mine.owner === 'wardens' ? '#2563eb' : '#dc2626';
-        ctx.fillStyle = col;
-        ctx.fillRect(mx + mine.x * sx - 2, my + mine.y * sy - 2, 4, 4);
-    });
-
-    // Buildings
-    G.buildings.forEach(b => {
-        ctx.fillStyle = b.faction === 'wardens' ? '#2563eb' : '#dc2626';
-        ctx.fillRect(mx + b.x * sx - 2, my + b.y * sy - 2, 4, 4);
-    });
-
-    // Units
-    G.units.forEach(u => {
-        ctx.fillStyle = u.faction === G.faction ? '#60a5fa' : '#f87171';
-        ctx.fillRect(mx + u.x * sx - 1, my + u.y * sy - 1, 2, 2);
-    });
-
-    // Camera viewport
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(mx + G.cam.x * sx, my + G.cam.y * sy, canvas.width * sx, canvas.height * sy);
-
-    ctx.strokeStyle = '#4b5563';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(mx - 2, my - 2, mw + 4, mh + 4);
 }
 
 // ===== INPUT =====
 function handleMouseDown(e) {
     e.preventDefault();
-    const now = Date.now();
-    const isDouble = (now - lastClickTime) < 350;
-    lastClickTime = now;
+    const now=Date.now(), isDouble=(now-lastClickTime)<350; lastClickTime=now;
+    const worldX=e.clientX+G.cam.x, worldY=e.clientY+G.cam.y;
 
-    const worldX = e.clientX + G.cam.x;
-    const worldY = e.clientY + G.cam.y;
+    // Check factory click
+    const clickedFactory = G.buildings.find(b=>b.type==='factory'&&b.faction===G.faction&&dist(b.x,b.y,worldX,worldY)<30);
+    if (clickedFactory && !isDouble && !moveMode) {
+        openFactoryMenu(clickedFactory, e.clientX, e.clientY);
+        return;
+    }
 
-    // Double click or move mode → move units
-    if (isDouble || moveMode) {
-        if (G.selected.length > 0) {
-            // Formation move
-            const selUnits = G.units.filter(u => G.selected.includes(u.id));
-            const cols = Math.ceil(Math.sqrt(selUnits.length));
-            selUnits.forEach((u, i) => {
-                const row = Math.floor(i / cols);
-                const col = i % cols;
-                u.tx = worldX + (col - cols/2) * 25;
-                u.ty = worldY + (row - cols/2) * 25;
-            });
-            if (moveMode) {
-                moveMode = false;
-                document.getElementById('moveBtn').classList.remove('active');
-                document.getElementById('modeIndicator').classList.add('hidden');
-            }
+    if (isDouble||moveMode) {
+        if (G.selected.length>0) {
+            const selUnits=G.units.filter(u=>G.selected.includes(u.id));
+            const cols=Math.ceil(Math.sqrt(selUnits.length));
+            selUnits.forEach((u,i)=>{ const row=Math.floor(i/cols),col=i%cols; u.tx=worldX+(col-cols/2)*25; u.ty=worldY+(row-cols/2)*25; });
+            if (moveMode) { moveMode=false; document.getElementById('moveBtn').classList.remove('active'); document.getElementById('modeIndicator').classList.add('hidden'); }
         }
         return;
     }
 
-    // Check minimap click
-    const mw = 180, mh = 120;
-    const mmx = canvas.width - mw - 10, mmy = canvas.height - mh - 50;
-    if (e.clientX >= mmx && e.clientX <= mmx + mw && e.clientY >= mmy && e.clientY <= mmy + mh) {
-        G.cam.x = ((e.clientX - mmx) / mw) * MAP_W - canvas.width / 2;
-        G.cam.y = ((e.clientY - mmy) / mh) * MAP_H - canvas.height / 2;
-        G.cam.x = Math.max(0, Math.min(MAP_W - canvas.width, G.cam.x));
-        G.cam.y = Math.max(0, Math.min(MAP_H - canvas.height, G.cam.y));
-        return;
-    }
-
-    // Select units
-    const clickedUnit = G.units.find(u => {
-        return dist(u.x, u.y, worldX, worldY) < 18 && u.faction === G.faction;
-    });
-
-    if (clickedUnit) {
-        G.selected = [clickedUnit.id];
-    } else {
-        // Area select
-        const nearby = G.units.filter(u => dist(u.x, u.y, worldX, worldY) < 50 && u.faction === G.faction);
-        G.selected = nearby.map(u => u.id);
-    }
+    const clickedUnit=G.units.find(u=>dist(u.x,u.y,worldX,worldY)<18&&u.faction===G.faction);
+    if (clickedUnit) G.selected=[clickedUnit.id];
+    else G.selected=G.units.filter(u=>dist(u.x,u.y,worldX,worldY)<50&&u.faction===G.faction).map(u=>u.id);
 }
 
 function handleMouseMove(e) {
-    mousePos = { x: e.clientX, y: e.clientY };
-
-    // Edge scrolling
-    const edge = 30;
-    if (e.clientX < edge) G.cam.x -= 5;
-    if (e.clientX > canvas.width - edge) G.cam.x += 5;
-    if (e.clientY < edge) G.cam.y -= 5;
-    if (e.clientY > canvas.height - edge) G.cam.y += 5;
+    mousePos={x:e.clientX,y:e.clientY};
+    const edge=30;
+    if (e.clientX<edge) G.cam.x-=5;
+    if (e.clientX>canvas.width-edge) G.cam.x+=5;
+    if (e.clientY<edge) G.cam.y-=5;
+    if (e.clientY>canvas.height-edge) G.cam.y+=5;
 }
 
 function toggleMoveMode() {
-    moveMode = !moveMode;
-    document.getElementById('moveBtn').classList.toggle('active', moveMode);
-    document.getElementById('modeIndicator').classList.toggle('hidden', !moveMode);
+    moveMode=!moveMode;
+    document.getElementById('moveBtn').classList.toggle('active',moveMode);
+    document.getElementById('modeIndicator').classList.toggle('hidden',!moveMode);
 }
 
 function trainUnit(type) {
-    const def = UNIT_DEFS[type];
-    const cost = def.cost;
-    if (G.res.s < cost.s || G.res.c < cost.c || G.res.m < cost.m) {
-        notify('Недостаточно ресурсов!');
-        return;
-    }
+    const cost=VEHICLE_COSTS[type];
+    if (G.res.s<cost.s||G.res.c<cost.c||G.res.m<cost.m) { notify('Недостаточно ресурсов!'); return; }
+    const isInfantry=type==='infantry';
+    const bldgType=isInfantry?'barracks':'factory';
+    const bldg=G.buildings.find(b=>b.faction===G.faction&&b.type===bldgType);
+    if (!bldg) { notify(`Нужно построить ${isInfantry?'казарму':'завод'}!`); return; }
+    G.res.s-=cost.s; G.res.c-=cost.c; G.res.m-=cost.m;
+    G.units.push(createVehicle(type,G.faction,bldg.x+50,bldg.y+50));
+    notify(createVehicle(type,G.faction,0,0).label+' создан!');
+}
 
-    // Find appropriate building
-    const isInfantry = type === 'infantry';
-    const bldgType = isInfantry ? 'barracks' : 'factory';
-    const bldg = G.buildings.find(b => b.faction === G.faction && b.type === bldgType);
-    if (!bldg) {
-        notify(`Нужно построить ${isInfantry ? 'казарму' : 'завод'}!`);
-        return;
-    }
-
-    G.res.s -= cost.s;
-    G.res.c -= cost.c;
-    G.res.m -= cost.m;
-
-    G.units.push({
-        id: uid(), type, faction: G.faction,
-        x: bldg.x + 50, y: bldg.y + 50,
-        hp: def.hp, maxHp: def.hp,
-        dmg: def.dmg, range: def.range, spd: def.spd,
-        cd: def.cd, lastAtk: 0,
-        tx: undefined, ty: undefined,
+function openFactoryMenu(factory, mx, my) {
+    selectedFactory = factory;
+    factoryMenuOpen = true;
+    const menu = document.getElementById('factoryMenu');
+    menu.classList.remove('hidden');
+    menu.style.left = Math.min(mx, window.innerWidth - 340) + 'px';
+    menu.style.top = Math.min(my, window.innerHeight - 300) + 'px';
+    
+    const grid = document.getElementById('unitGrid');
+    grid.innerHTML = '';
+    
+    const units = [
+        { type: 'hatchet', name: 'Hatchet', icon: '🪓', cost: VEHICLE_COSTS.hatchet, stats: 'HP:220 DMG:28 SPD:2.3' },
+        { type: 'devitt', name: 'Devitt', icon: '🚗', cost: VEHICLE_COSTS.devitt, stats: 'HP:190 DMG:22 SPD:2.5' },
+        { type: 'gallagher', name: 'Gallagher 30mm', icon: '💥', cost: VEHICLE_COSTS.gallagher, stats: 'HP:420 DMG:50 SPD:1.1' },
+        { type: 'falchion', name: 'Falchion', icon: '⚔️', cost: VEHICLE_COSTS.falchion, stats: 'HP:380 DMG:55 SPD:1.3' },
+        { type: 'niska', name: 'Niska APC', icon: '🚙', cost: VEHICLE_COSTS.niska, stats: 'HP:200 DMG:18 SPD:2.1' },
+        { type: 'artillery', name: 'Artillery', icon: '🎯', cost: VEHICLE_COSTS.artillery, stats: 'HP:120 DMG:70 RNG:350' },
+    ];
+    
+    units.forEach(u => {
+        const canAfford = G.res.s >= u.cost.s && G.res.c >= u.cost.c && G.res.m >= u.cost.m;
+        const card = document.createElement('div');
+        card.className = 'unit-card' + (canAfford ? '' : ' disabled');
+        card.innerHTML = `<div class="unit-name">${u.icon} ${u.name}</div><div class="unit-stats">${u.stats}</div><div class="unit-cost">S:${u.cost.s} C:${u.cost.c} M:${u.cost.m}</div>`;
+        if (canAfford) card.onclick = () => { trainUnit(u.type); closeFactoryMenu(); };
+        grid.appendChild(card);
     });
-
-    notify(`${def.label} создан!`);
 }
 
-// ===== HELPERS =====
-function dist(x1, y1, x2, y2) {
-    return Math.sqrt((x1-x2)**2 + (y1-y2)**2);
+function closeFactoryMenu() {
+    document.getElementById('factoryMenu').classList.add('hidden');
+    factoryMenuOpen = false;
+    selectedFactory = null;
 }
 
-function addParticles(x, y, color, count) {
-    for (let i = 0; i < count; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const speed = 1 + Math.random() * 2;
-        particles.push({
-            x, y,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            life: 15 + Math.random() * 10,
-            maxLife: 25,
-            color,
-            size: 2 + Math.random() * 3,
-        });
-    }
+function addParticles(x,y,color,count) {
+    for (let i=0;i<count;i++) { const angle=Math.random()*Math.PI*2, speed=1+Math.random()*2; particles.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,life:15+Math.random()*10,maxLife:25,color,size:2+Math.random()*3}); }
 }
 
 function notify(msg) {
-    const el = document.getElementById('notif');
-    el.textContent = msg;
-    el.classList.remove('hidden');
-    clearTimeout(el._timer);
-    el._timer = setTimeout(() => el.classList.add('hidden'), 2500);
+    const el=document.getElementById('notif');
+    el.textContent=msg; el.classList.remove('hidden');
+    clearTimeout(el._timer); el._timer=setTimeout(()=>el.classList.add('hidden'),2500);
 }
 
 function showEndScreen() {
     cancelAnimationFrame(animationId);
-    const won = G.winner === G.faction;
-    document.getElementById('hudTop').style.display = 'none';
-    document.getElementById('hudBottom').style.display = 'none';
-    document.getElementById('controlsHint').style.display = 'none';
-
-    const div = document.createElement('div');
-    div.className = 'screen';
-    div.innerHTML = `
-        <div style="font-size:5rem;margin-bottom:1rem;">${won ? '🏆' : '💀'}</div>
-        <h1 style="color:${won ? '#fbbf24' : '#ef4444'}">${won ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ'}</h1>
-        <p class="subtitle">${won ? 'Вы захватили континент!' : 'Противник оказался сильнее.'}</p>
-        <div style="display:flex;gap:1rem;margin-top:1rem;">
-            <button onclick="location.reload()" style="padding:0.75rem 2rem;background:#2563eb;color:white;border:none;border-radius:8px;cursor:pointer;font-size:1rem;">Заново</button>
-        </div>
-    `;
+    const won=G.winner===G.faction;
+    document.getElementById('hudTop').style.display='none';
+    document.getElementById('hudBottom').style.display='none';
+    document.getElementById('controlsHint').style.display='none';
+    const div=document.createElement('div');
+    div.className='screen';
+    div.innerHTML=`<div style="font-size:5rem;margin-bottom:1rem;">${won?'🏆':'💀'}</div><h1 style="color:${won?'#fbbf24':'#ef4444'}">${won?'ПОБЕДА!':'ПОРАЖЕНИЕ'}</h1><p class="subtitle">${won?'Вы захватили континент!':'Противник оказался сильнее.'}</p><button onclick="location.reload()" style="padding:0.75rem 2rem;background:#2563eb;color:white;border:none;border-radius:8px;cursor:pointer;font-size:1rem;margin-top:1rem;">Заново</button>`;
     document.body.appendChild(div);
 }
 
@@ -1315,16 +631,17 @@ window.onload = () => {
     ctx = canvas.getContext('2d');
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-
-    window.addEventListener('resize', () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    });
+    window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
     window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
     window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
     canvas.addEventListener('mousedown', e => { if (G) handleMouseDown(e); });
     canvas.addEventListener('mousemove', e => { if (G) handleMouseMove(e); });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
+    
+    // Start game after faction selection
+    document.querySelectorAll('.faction-btn').forEach(btn => {
+        btn.addEventListener('click', () => setTimeout(initGame, 100));
+    });
 };
 </script>
 </body>
