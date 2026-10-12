@@ -98,6 +98,9 @@ export class Game {
 
     updateUnits() {
         this.units.forEach(u => {
+            // Update game time for reload calculation
+            u.gameTime = this.time;
+            
             // Find nearest enemy
             let nearest = null, nearDist = Infinity;
             this.units.forEach(e => {
@@ -114,10 +117,30 @@ export class Game {
             if (nearest && nearDist <= u.range && u.dmg > 0) {
                 if (this.time - u.lastAtk >= u.cd) {
                     u.lastAtk = this.time;
-                    nearest.takeDamage(u.dmg);
-                    this.addParticles(nearest.x, nearest.y, 
-                        u.type === 'artillery' ? '#ff6b00' : '#ffcc00',
-                        u.type === 'artillery' ? 10 : 4);
+                    
+                    // Artillery AoE attack
+                    if (u.aoe && u.aoeRadius) {
+                        // Damage all enemies in radius
+                        this.units.forEach(enemy => {
+                            if (enemy.faction !== u.faction && enemy.hp > 0) {
+                                const distToTarget = dist(nearest.x, nearest.y, enemy.x, enemy.y);
+                                if (distToTarget <= u.aoeRadius) {
+                                    // Damage decreases with distance from center
+                                    const damageMultiplier = 1 - (distToTarget / u.aoeRadius) * 0.5;
+                                    enemy.takeDamage(Math.floor(u.dmg * damageMultiplier));
+                                }
+                            }
+                        });
+                        
+                        // Big explosion effect
+                        this.addParticles(nearest.x, nearest.y, '#ff6b00', 20);
+                        this.addParticles(nearest.x, nearest.y, '#ffcc00', 15);
+                        this.addParticles(nearest.x, nearest.y, '#ff0000', 10);
+                    } else {
+                        // Normal single target attack
+                        nearest.takeDamage(u.dmg);
+                        this.addParticles(nearest.x, nearest.y, '#ffcc00', 4);
+                    }
                 }
             }
             // Move to target

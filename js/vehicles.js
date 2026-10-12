@@ -12,6 +12,7 @@ export class Vehicle {
         this.tx = undefined;
         this.ty = undefined;
         this.lastAtk = 0;
+        this.gameTime = 0; // Для расчёта перезарядки
         
         this.hp = 100;
         this.maxHp = 100;
@@ -136,10 +137,12 @@ export class Artillery extends Vehicle {
         this.dmg = 70;
         this.range = 350;
         this.spd = 0.5; // Очень медленная
-        this.cd = 120;
+        this.cd = 480; // 8 секунд при 60 FPS
         this.size = 22;
         this.armor = 1;
         this.label = 'Артиллерия';
+        this.aoe = true; // Area of Effect attack
+        this.aoeRadius = 60; // Радиус поражения
     }
 }
 

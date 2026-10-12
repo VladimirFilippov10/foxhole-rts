@@ -48,7 +48,8 @@ export function render(ctx, G, canvas) {
     G.buildings.forEach(b => drawBuilding(ctx, b, cam));
 
     // Units
-    G.units.forEach(u => drawUnit(ctx, u, cam, G.selected));
+    const hoveredUnit = getHoveredUnit(G, cam);
+    G.units.forEach(u => drawUnit(ctx, u, cam, G.selected, hoveredUnit === u));
 
     // Particles
     G.particles.forEach(p => {
@@ -74,6 +75,21 @@ export function render(ctx, G, canvas) {
 
     // Minimap
     drawMinimap(ctx, G, canvas);
+}
+
+function getHoveredUnit(G, cam) {
+    const mx = G.mousePos.x + cam.x;
+    const my = G.mousePos.y + cam.y;
+    
+    for (const u of G.units) {
+        const dx = u.x - mx;
+        const dy = u.y - my;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < u.size) {
+            return u;
+        }
+    }
+    return null;
 }
 
 function drawGrassPatches(ctx, cam, canvas) {
@@ -397,13 +413,26 @@ function drawBuilding(ctx, b, cam) {
     ctx.fillRect(x - sz / 2, y + sz / 2 + 3, sz * hpPct, 4);
 }
 
-function drawUnit(ctx, u, cam, selected) {
+function drawUnit(ctx, u, cam, selected, hovered) {
     const x = u.x - cam.x;
     const y = u.y - cam.y;
     if (x < -40 || x > ctx.canvas.width + 40 || y < -40 || y > ctx.canvas.height + 40) return;
     
     const col = COLORS[u.faction];
     const sz = u.size;
+    
+    // Attack range circle (only when hovered or selected)
+    if ((hovered || selected.includes(u.id)) && u.range > 0) {
+        ctx.beginPath();
+        ctx.arc(x, y, u.range, 0, Math.PI * 2);
+        ctx.strokeStyle = col.a + '40';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = col.a + '10';
+        ctx.fill();
+    }
     
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
     ctx.beginPath();
@@ -445,6 +474,40 @@ function drawUnit(ctx, u, cam, selected) {
             ctx.lineWidth = 1;
             ctx.strokeRect(x - sz * 0.3, y - sz * 0.2, sz * 0.6, sz * 0.4);
         }
+        
+        if (u.type === 'artillery') {
+            // Artillery barrel
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + sz * 0.7, y - sz * 0.3);
+            ctx.stroke();
+            // Base
+            ctx.fillStyle = col.s;
+            ctx.fillRect(x - sz * 0.25, y, sz * 0.5, sz * 0.3);
+        }
+    }
+    
+    // Reload bar (under unit)
+    if (u.cd > 0) {
+        const reloadProgress = Math.min(1, (u.gameTime - u.lastAtk) / u.cd);
+        const barWidth = sz;
+        const barY = y + sz / 2 + 8;
+        
+        // Background
+        ctx.fillStyle = '#1f2937';
+        ctx.fillRect(x - barWidth / 2, barY, barWidth, 4);
+        
+        // Progress
+        const reloadColor = reloadProgress >= 1 ? '#22c55e' : '#fbbf24';
+        ctx.fillStyle = reloadColor;
+        ctx.fillRect(x - barWidth / 2, barY, barWidth * reloadProgress, 4);
+        
+        // Border
+        ctx.strokeStyle = '#374151';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - barWidth / 2, barY, barWidth, 4);
     }
     
     if (selected.includes(u.id)) {

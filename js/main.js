@@ -20,7 +20,7 @@ const VEHICLE_INFO = {
     hatchet: { name: 'Hatchet', icon: '🪓', stats: 'HP:220 DMG:30 SPD:1.5', cost: VEHICLE_COSTS.hatchet },
     falchion: { name: 'Falchion', icon: '⚔️', stats: 'HP:480 DMG:70 SPD:1.0', cost: VEHICLE_COSTS.falchion },
     hoplite: { name: 'Hoplite APC', icon: '🛡️', stats: 'HP:200 DMG:18 SPD:1.6', cost: VEHICLE_COSTS.hoplite },
-    artillery: { name: 'Артиллерия', icon: '🎯', stats: 'HP:120 DMG:70 RNG:350', cost: VEHICLE_COSTS.artillery },
+    artillery: { name: 'Артиллерия', icon: '🎯', stats: 'HP:120 DMG:70 RNG:350 AoE:60 CD:8s', cost: VEHICLE_COSTS.artillery },
 };
 
 // Initialize
