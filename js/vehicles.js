@@ -1,4 +1,6 @@
 // ===== VEHICLE CLASS HIERARCHY =====
+// Wardens: Gallagher, Devitt, Niska
+// Colonials: Falchion, Hatchet, Hoplite
 
 export class Vehicle {
     constructor(type, faction, x, y) {
@@ -15,7 +17,7 @@ export class Vehicle {
         this.maxHp = 100;
         this.dmg = 10;
         this.range = 100;
-        this.spd = 1.5;
+        this.spd = 1.0; // Замедлено
         this.cd = 60;
         this.size = 20;
         this.label = 'Vehicle';
@@ -33,133 +35,107 @@ export class Infantry extends Vehicle {
         this.hp = this.maxHp = 50;
         this.dmg = 8;
         this.range = 120;
-        this.spd = 1.5;
+        this.spd = 0.8; // Очень медленно
         this.cd = 50;
         this.size = 8;
         this.label = 'Пехота';
     }
 }
 
-export class LightTank extends Vehicle {
+// ===== WARDENS VEHICLES =====
+export class Devitt extends Vehicle {
     constructor(faction, x, y) {
-        super('light_tank', faction, x, y);
-        this.hp = this.maxHp = 200;
-        this.dmg = 25;
-        this.range = 150;
-        this.spd = 2.2;
-        this.cd = 60;
-        this.size = 20;
-        this.armor = 2;
-    }
-}
-
-export class Hatchet extends LightTank {
-    constructor(faction, x, y) {
-        super(faction, x, y);
-        this.type = 'hatchet';
-        this.label = 'Hatchet';
-        this.hp = this.maxHp = 220;
-        this.dmg = 28;
-        this.spd = 2.3;
-        this.armor = 3;
-    }
-}
-
-export class Devitt extends LightTank {
-    constructor(faction, x, y) {
-        super(faction, x, y);
-        this.type = 'devitt';
-        this.label = 'Devitt';
-        this.hp = this.maxHp = 190;
-        this.dmg = 22;
-        this.spd = 2.5;
-        this.armor = 2;
-    }
-}
-
-export class AssaultTank extends Vehicle {
-    constructor(faction, x, y) {
-        super('assault_tank', faction, x, y);
-        this.hp = this.maxHp = 400;
-        this.dmg = 45;
+        super('devitt', faction, x, y);
+        this.hp = this.maxHp = 280;
+        this.dmg = 35;
         this.range = 160;
-        this.spd = 1.2;
+        this.spd = 1.2; // Медленный
         this.cd = 70;
-        this.size = 26;
-        this.armor = 8;
+        this.size = 22;
+        this.armor = 5;
+        this.label = 'Devitt';
     }
 }
 
-export class Gallagher extends AssaultTank {
+export class Gallagher extends Vehicle {
     constructor(faction, x, y) {
-        super(faction, x, y);
-        this.type = 'gallagher';
+        super('gallagher', faction, x, y);
+        this.hp = this.maxHp = 520;
+        this.dmg = 65;
+        this.range = 180;
+        this.spd = 0.9; // Очень медленный
+        this.cd = 80;
+        this.size = 28;
+        this.armor = 12;
         this.label = 'Gallagher 30mm';
-        this.hp = this.maxHp = 420;
-        this.dmg = 50;
+    }
+}
+
+export class Niska extends Vehicle {
+    constructor(faction, x, y) {
+        super('niska', faction, x, y);
+        this.hp = this.maxHp = 240;
+        this.dmg = 20;
+        this.range = 150;
+        this.spd = 1.4;
+        this.cd = 60;
+        this.size = 22;
+        this.armor = 4;
+        this.label = 'Niska APC';
+    }
+}
+
+// ===== COLONIALS VEHICLES =====
+export class Hatchet extends Vehicle {
+    constructor(faction, x, y) {
+        super('hatchet', faction, x, y);
+        this.hp = this.maxHp = 220;
+        this.dmg = 30;
+        this.range = 150;
+        this.spd = 1.5; // Быстрее Wardens
+        this.cd = 65;
+        this.size = 20;
+        this.armor = 3;
+        this.label = 'Hatchet';
+    }
+}
+
+export class Falchion extends Vehicle {
+    constructor(faction, x, y) {
+        super('falchion', faction, x, y);
+        this.hp = this.maxHp = 480;
+        this.dmg = 70;
         this.range = 170;
-        this.spd = 1.1;
+        this.spd = 1.0;
+        this.cd = 75;
+        this.size = 26;
         this.armor = 10;
-    }
-}
-
-export class Falchion extends AssaultTank {
-    constructor(faction, x, y) {
-        super(faction, x, y);
-        this.type = 'falchion';
         this.label = 'Falchion';
-        this.hp = this.maxHp = 380;
-        this.dmg = 55;
-        this.range = 155;
-        this.spd = 1.3;
-        this.armor = 9;
     }
 }
 
-export class APC extends Vehicle {
+export class Hoplite extends Vehicle {
     constructor(faction, x, y) {
-        super('apc', faction, x, y);
-        this.hp = this.maxHp = 180;
-        this.dmg = 15;
+        super('hoplite', faction, x, y);
+        this.hp = this.maxHp = 200;
+        this.dmg = 18;
         this.range = 140;
-        this.spd = 2.0;
+        this.spd = 1.6; // Самый быстрый
         this.cd = 55;
         this.size = 20;
         this.armor = 3;
+        this.label = 'Hoplite APC';
     }
 }
 
-export class Niska extends APC {
-    constructor(faction, x, y) {
-        super(faction, x, y);
-        this.type = 'niska';
-        this.label = 'Niska APC';
-        this.hp = this.maxHp = 200;
-        this.dmg = 18;
-        this.spd = 2.1;
-        this.armor = 4;
-    }
-}
-
-export class Halftrack extends APC {
-    constructor(faction, x, y) {
-        super(faction, x, y);
-        this.type = 'halftrack';
-        this.label = 'Halftrack';
-        this.hp = this.maxHp = 170;
-        this.dmg = 14;
-        this.spd = 2.2;
-        this.armor = 3;
-    }
-}
-
+// ===== ARTILLERY (общая) =====
 export class Artillery extends Vehicle {
     constructor(faction, x, y) {
         super('artillery', faction, x, y);
         this.hp = this.maxHp = 120;
         this.dmg = 70;
         this.range = 350;
-        this.spd = 0.7;
+        this.spd = 0.5; // Очень медленная
         this.cd = 120;
         this.size = 22;
         this.armor = 1;
@@ -170,13 +146,19 @@ export class Artillery extends Vehicle {
 export function createVehicle(type, faction, x, y) {
     const map = {
         infantry: Infantry,
-        hatchet: Hatchet,
         devitt: Devitt,
         gallagher: Gallagher,
-        falchion: Falchion,
         niska: Niska,
-        halftrack: Halftrack,
+        hatchet: Hatchet,
+        falchion: Falchion,
+        hoplite: Hoplite,
         artillery: Artillery,
     };
     return new (map[type] || Vehicle)(faction, x, y);
 }
+
+// Доступная техника по фракциям
+export const FACTION_VEHICLES = {
+    wardens: ['devitt', 'gallagher', 'niska', 'artillery'],
+    colonials: ['hatchet', 'falchion', 'hoplite', 'artillery'],
+};

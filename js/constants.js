@@ -14,13 +14,13 @@ export const COLORS = {
 
 export const VEHICLE_COSTS = {
     infantry: { s: 10, c: 0, m: 0 },
+    devitt: { s: 35, c: 25, m: 15 },
+    gallagher: { s: 60, c: 45, m: 35 },
+    niska: { s: 40, c: 30, m: 20 },
     hatchet: { s: 30, c: 20, m: 10 },
-    devitt: { s: 35, c: 25, m: 12 },
-    gallagher: { s: 50, c: 40, m: 30 },
-    falchion: { s: 55, c: 45, m: 35 },
-    niska: { s: 35, c: 25, m: 15 },
-    halftrack: { s: 35, c: 25, m: 15 },
-    artillery: { s: 40, c: 30, m: 20 },
+    falchion: { s: 55, c: 40, m: 30 },
+    hoplite: { s: 35, c: 25, m: 15 },
+    artillery: { s: 45, c: 35, m: 25 },
 };
 
 export const BUILDING_COSTS = {

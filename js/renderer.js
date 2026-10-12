@@ -327,6 +327,7 @@ function drawUnit(ctx, u, cam, selected) {
         ctx.lineWidth = 1.5;
         ctx.strokeRect(x - sz / 2, y - sz / 3, sz, sz * 0.65);
         
+        // Tanks with turrets
         if (['hatchet', 'devitt', 'gallagher', 'falchion'].includes(u.type)) {
             ctx.fillStyle = col.s;
             ctx.beginPath();
@@ -340,9 +341,14 @@ function drawUnit(ctx, u, cam, selected) {
             ctx.stroke();
         }
         
-        if (['niska', 'halftrack'].includes(u.type)) {
+        // APCs
+        if (['niska', 'hoplite'].includes(u.type)) {
             ctx.fillStyle = col.s;
             ctx.fillRect(x - sz * 0.3, y - sz * 0.2, sz * 0.6, sz * 0.4);
+            // APC details
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x - sz * 0.3, y - sz * 0.2, sz * 0.6, sz * 0.4);
         }
         
         if (u.type === 'artillery') {

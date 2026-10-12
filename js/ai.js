@@ -52,8 +52,15 @@ export class AI {
         const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory');
         if (!factory) return;
 
-        const types = ['hatchet', 'devitt', 'halftrack'];
-        if (this.difficulty >= 2) types.push('gallagher', 'falchion');
+        // Use faction-specific vehicles
+        const types = this.G.ai === 'wardens' 
+            ? ['devitt', 'niska'] 
+            : ['hatchet', 'hoplite'];
+        
+        if (this.difficulty >= 2) {
+            if (this.G.ai === 'wardens') types.push('gallagher');
+            else types.push('falchion');
+        }
         
         const type = types[Math.floor(Math.random() * types.length)];
         const unit = createVehicle(type, this.G.ai, factory.x + 60, factory.y + 60);

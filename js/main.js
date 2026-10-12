@@ -1,7 +1,7 @@
 // ===== MAIN ENTRY POINT =====
-import { VEHICLE_COSTS, BUILDING_COSTS, dist } from './constants.js';
-import { createVehicle } from './vehicles.js';
-import { getCapturePointsInWorld, getResourcePointsInWorld, CAPTURE_POINTS } from './map.js';
+import { VEHICLE_COSTS, dist } from './constants.js';
+import { createVehicle, FACTION_VEHICLES } from './vehicles.js';
+import { getCapturePointsInWorld, getResourcePointsInWorld } from './map.js';
 import { Game } from './game.js';
 import { render } from './renderer.js';
 
@@ -10,6 +10,18 @@ let game = null;
 let selectedFaction = 'wardens';
 let lastClickTime = 0;
 let factoryMenuOpen = false;
+
+// Vehicle info for factory menu
+const VEHICLE_INFO = {
+    infantry: { name: 'Пехота', icon: '🔫', stats: 'HP:50 DMG:8 SPD:0.8', cost: VEHICLE_COSTS.infantry },
+    devitt: { name: 'Devitt', icon: '🚗', stats: 'HP:280 DMG:35 SPD:1.2', cost: VEHICLE_COSTS.devitt },
+    gallagher: { name: 'Gallagher 30mm', icon: '💥', stats: 'HP:520 DMG:65 SPD:0.9', cost: VEHICLE_COSTS.gallagher },
+    niska: { name: 'Niska APC', icon: '🚙', stats: 'HP:240 DMG:20 SPD:1.4', cost: VEHICLE_COSTS.niska },
+    hatchet: { name: 'Hatchet', icon: '🪓', stats: 'HP:220 DMG:30 SPD:1.5', cost: VEHICLE_COSTS.hatchet },
+    falchion: { name: 'Falchion', icon: '⚔️', stats: 'HP:480 DMG:70 SPD:1.0', cost: VEHICLE_COSTS.falchion },
+    hoplite: { name: 'Hoplite APC', icon: '🛡️', stats: 'HP:200 DMG:18 SPD:1.6', cost: VEHICLE_COSTS.hoplite },
+    artillery: { name: 'Артиллерия', icon: '🎯', stats: 'HP:120 DMG:70 RNG:350', cost: VEHICLE_COSTS.artillery },
+};
 
 // Initialize
 window.addEventListener('load', () => {
@@ -40,7 +52,6 @@ window.selectFaction = function(faction) {
 
 function startGame() {
     document.getElementById('hudTop').style.display = 'flex';
-    document.getElementById('hudBottom').style.display = 'flex';
     document.getElementById('controlsHint').style.display = 'block';
     
     const badge = document.getElementById('factionBadge');
@@ -55,7 +66,7 @@ function startGame() {
     const mines = getResourcePointsInWorld();
     
     // Find player and AI bases
-    const playerBaseIdx = selectedFaction === 'wardens' ? 0 : 9; // Sun's Hollow or Salt March
+    const playerBaseIdx = selectedFaction === 'wardens' ? 0 : 9;
     const aiBaseIdx = selectedFaction === 'wardens' ? 9 : 0;
     
     // Set ownership
@@ -85,18 +96,25 @@ function startGame() {
     // Create starting units
     const units = [];
     
-    // Player units
+    // Player units - use faction-specific vehicles
     units.push(createVehicle('infantry', selectedFaction, playerBase.x + 30, playerBase.y + 50));
     units.push(createVehicle('infantry', selectedFaction, playerBase.x + 50, playerBase.y + 50));
     units.push(createVehicle('infantry', selectedFaction, playerBase.x + 70, playerBase.y + 50));
-    units.push(createVehicle('hatchet', selectedFaction, playerBase.x, playerBase.y + 120));
+    
+    // Wardens start with Devitt, Colonials with Hatchet
+    const playerLightTank = selectedFaction === 'wardens' ? 'devitt' : 'hatchet';
+    units.push(createVehicle(playerLightTank, selectedFaction, playerBase.x, playerBase.y + 120));
     
     // AI units
     units.push(createVehicle('infantry', game.ai, aiBase.x - 30, aiBase.y + 50));
     units.push(createVehicle('infantry', game.ai, aiBase.x - 50, aiBase.y + 50));
     units.push(createVehicle('infantry', game.ai, aiBase.x - 70, aiBase.y + 50));
-    units.push(createVehicle('halftrack', game.ai, aiBase.x, aiBase.y + 120));
-    units.push(createVehicle('gallagher', game.ai, aiBase.x + 50, aiBase.y - 30));
+    
+    const aiAPC = game.ai === 'wardens' ? 'niska' : 'hoplite';
+    units.push(createVehicle(aiAPC, game.ai, aiBase.x, aiBase.y + 120));
+    
+    const aiAssaultTank = game.ai === 'wardens' ? 'gallagher' : 'falchion';
+    units.push(createVehicle(aiAssaultTank, game.ai, aiBase.x + 50, aiBase.y - 30));
     
     // Initialize game
     game.init(cps, mines, buildings, units);
@@ -155,6 +173,18 @@ function handleMouseDown(e) {
     const worldX = e.clientX + game.cam.x;
     const worldY = e.clientY + game.cam.y;
     
+    // Check minimap click
+    const mw = 180, mh = 120;
+    const mx = canvas.width - mw - 10, my = canvas.height - mh - 50;
+    if (e.clientX >= mx && e.clientX <= mx + mw && e.clientY >= my && e.clientY <= my + mh) {
+        const mapW = 3000, mapH = 2250;
+        const clickX = (e.clientX - mx) / mw;
+        const clickY = (e.clientY - my) / mh;
+        game.cam.x = Math.max(0, Math.min(mapW - canvas.width, clickX * mapW - canvas.width / 2));
+        game.cam.y = Math.max(0, Math.min(mapH - canvas.height, clickY * mapH - canvas.height / 2));
+        return;
+    }
+    
     // Check factory click
     const clickedFactory = game.buildings.find(b => 
         b.type === 'factory' && b.faction === game.faction && 
@@ -179,7 +209,6 @@ function handleMouseDown(e) {
             });
             if (game.moveMode) {
                 game.moveMode = false;
-                document.getElementById('moveBtn').classList.remove('active');
                 document.getElementById('modeIndicator').classList.add('hidden');
             }
         }
@@ -216,35 +245,7 @@ function handleMouseMove(e) {
 window.toggleMoveMode = function() {
     if (!game) return;
     game.moveMode = !game.moveMode;
-    document.getElementById('moveBtn').classList.toggle('active', game.moveMode);
     document.getElementById('modeIndicator').classList.toggle('hidden', !game.moveMode);
-};
-
-window.trainUnit = function(type) {
-    if (!game) return;
-    
-    const cost = VEHICLE_COSTS[type];
-    if (game.res.s < cost.s || game.res.c < cost.c || game.res.m < cost.m) {
-        notify('Недостаточно ресурсов!');
-        return;
-    }
-    
-    const isInfantry = type === 'infantry';
-    const bldgType = isInfantry ? 'barracks' : 'factory';
-    const bldg = game.buildings.find(b => b.faction === game.faction && b.type === bldgType);
-    
-    if (!bldg) {
-        notify(`Нужно построить ${isInfantry ? 'казарму' : 'завод'}!`);
-        return;
-    }
-    
-    game.res.s -= cost.s;
-    game.res.c -= cost.c;
-    game.res.m -= cost.m;
-    
-    const unit = createVehicle(type, game.faction, bldg.x + 50, bldg.y + 50);
-    game.units.push(unit);
-    notify(unit.label + ' создан!');
 };
 
 function openFactoryMenu(factory, mx, my) {
@@ -252,37 +253,52 @@ function openFactoryMenu(factory, mx, my) {
     const menu = document.getElementById('factoryMenu');
     menu.classList.remove('hidden');
     menu.style.left = Math.min(mx, window.innerWidth - 340) + 'px';
-    menu.style.top = Math.min(my, window.innerHeight - 300) + 'px';
+    menu.style.top = Math.min(my, window.innerHeight - 400) + 'px';
     
     const grid = document.getElementById('unitGrid');
     grid.innerHTML = '';
     
-    const units = [
-        { type: 'hatchet', name: 'Hatchet', icon: '🪓', cost: VEHICLE_COSTS.hatchet, stats: 'HP:220 DMG:28 SPD:2.3' },
-        { type: 'devitt', name: 'Devitt', icon: '🚗', cost: VEHICLE_COSTS.devitt, stats: 'HP:190 DMG:22 SPD:2.5' },
-        { type: 'gallagher', name: 'Gallagher 30mm', icon: '💥', cost: VEHICLE_COSTS.gallagher, stats: 'HP:420 DMG:50 SPD:1.1' },
-        { type: 'falchion', name: 'Falchion', icon: '⚔️', cost: VEHICLE_COSTS.falchion, stats: 'HP:380 DMG:55 SPD:1.3' },
-        { type: 'niska', name: 'Niska APC', icon: '🚙', cost: VEHICLE_COSTS.niska, stats: 'HP:200 DMG:18 SPD:2.1' },
-        { type: 'artillery', name: 'Artillery', icon: '🎯', cost: VEHICLE_COSTS.artillery, stats: 'HP:120 DMG:70 RNG:350' },
-    ];
+    // Add infantry first
+    const allUnits = ['infantry', ...FACTION_VEHICLES[game.faction]];
     
-    units.forEach(u => {
-        const canAfford = game.res.s >= u.cost.s && game.res.c >= u.cost.c && game.res.m >= u.cost.m;
+    allUnits.forEach(type => {
+        const info = VEHICLE_INFO[type];
+        const canAfford = game.res.s >= info.cost.s && game.res.c >= info.cost.c && game.res.m >= info.cost.m;
         const card = document.createElement('div');
         card.className = 'unit-card' + (canAfford ? '' : ' disabled');
         card.innerHTML = `
-            <div class="unit-name">${u.icon} ${u.name}</div>
-            <div class="unit-stats">${u.stats}</div>
-            <div class="unit-cost">S:${u.cost.s} C:${u.cost.c} M:${u.cost.m}</div>
+            <div class="unit-name">${info.icon} ${info.name}</div>
+            <div class="unit-stats">${info.stats}</div>
+            <div class="unit-cost">S:${info.cost.s} C:${info.cost.c} M:${info.cost.m}</div>
         `;
         if (canAfford) {
             card.onclick = () => {
-                trainUnit(u.type);
+                trainUnit(type, factory);
                 closeFactoryMenu();
             };
         }
         grid.appendChild(card);
     });
+}
+
+function trainUnit(type, factory) {
+    if (!game || !factory) return;
+    
+    const info = VEHICLE_INFO[type];
+    const cost = info.cost;
+    
+    if (game.res.s < cost.s || game.res.c < cost.c || game.res.m < cost.m) {
+        notify('Недостаточно ресурсов!');
+        return;
+    }
+    
+    game.res.s -= cost.s;
+    game.res.c -= cost.c;
+    game.res.m -= cost.m;
+    
+    const unit = createVehicle(type, game.faction, factory.x + 50, factory.y + 50);
+    game.units.push(unit);
+    notify(unit.label + ' создан!');
 }
 
 window.closeFactoryMenu = function() {
@@ -301,7 +317,6 @@ function notify(msg) {
 function showEndScreen() {
     const won = game.winner === game.faction;
     document.getElementById('hudTop').style.display = 'none';
-    document.getElementById('hudBottom').style.display = 'none';
     document.getElementById('controlsHint').style.display = 'none';
     
     const div = document.createElement('div');

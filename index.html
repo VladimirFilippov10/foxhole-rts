@@ -29,17 +29,9 @@
         .faction-badge { padding: 0.3rem 0.8rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
         .faction-badge.wardens { background: rgba(30,58,95,0.8); color: #60a5fa; }
         .faction-badge.colonials { background: rgba(95,30,30,0.8); color: #f87171; }
-        .hud-bottom { position: fixed; bottom: 0; left: 0; right: 0; padding: 0.5rem 1rem; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); display: flex; justify-content: space-between; align-items: flex-end; z-index: 100; }
-        .sel-info { background: rgba(17,24,39,0.9); border: 1px solid #374151; border-radius: 8px; padding: 0.5rem 0.75rem; min-width: 180px; }
+        .sel-info { position: fixed; bottom: 1rem; left: 1rem; background: rgba(17,24,39,0.9); border: 1px solid #374151; border-radius: 8px; padding: 0.5rem 0.75rem; min-width: 180px; z-index: 100; }
         .sel-info p { font-size: 0.75rem; color: #d1d5db; }
         .sel-info .sel-type { font-size: 0.65rem; color: #9ca3af; }
-        .actions { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
-        .act-btn { background: rgba(17,24,39,0.9); border: 1px solid #374151; border-radius: 6px; padding: 0.4rem 0.6rem; color: white; cursor: pointer; font-size: 0.7rem; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-        .act-btn:hover:not(:disabled) { background: rgba(31,41,55,0.9); border-color: #4b5563; }
-        .act-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .act-btn.active { border-color: #fbbf24; background: rgba(251,191,36,0.15); }
-        .act-btn .act-icon { font-size: 1.2rem; }
-        .act-btn .act-cost { font-size: 0.55rem; color: #9ca3af; }
         .notif { position: fixed; top: 4rem; left: 50%; transform: translateX(-50%); background: rgba(17,24,39,0.95); border: 1px solid #4b5563; border-radius: 8px; padding: 0.75rem 1.25rem; z-index: 200; font-size: 0.85rem; animation: fadeIn 0.3s; }
         .notif.hidden { display: none; }
         @keyframes fadeIn { from { opacity:0; transform:translateX(-50%) translateY(-8px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
@@ -67,11 +59,11 @@
         <div class="faction-row">
             <button class="faction-btn wardens" onclick="selectFaction('wardens')">
                 <div class="icon">🛡️</div><h2>WARDENS</h2>
-                <p>Тяжёлая бронетехника<br>Промышленное превосходство<br>Дальнобойная артиллерия</p>
+                <p>Devitt • Gallagher 30mm • Niska APC<br>Тяжёлая бронетехника<br>Промышленное превосходство</p>
             </button>
             <button class="faction-btn colonials" onclick="selectFaction('colonials')">
                 <div class="icon">⚔️</div><h2>COLONIALS</h2>
-                <p>Быстрые полугусеничники<br>Партизанская тактика<br>Скоростное производство</p>
+                <p>Hatchet • Falchion • Hoplite APC<br>Быстрые полугусеничники<br>Партизанская тактика</p>
             </button>
         </div>
     </div>
@@ -90,22 +82,10 @@
         </div>
     </div>
 
-    <div id="hudBottom" class="hud-bottom" style="display:none;">
-        <div id="selInfo" class="sel-info" style="display:none;"></div>
-        <div class="actions">
-            <button class="act-btn" onclick="trainUnit('infantry')"><span class="act-icon">🔫</span>Infantry<span class="act-cost">S:10</span></button>
-            <button class="act-btn" onclick="trainUnit('hatchet')"><span class="act-icon">🪓</span>Hatchet<span class="act-cost">S:30 C:20 M:10</span></button>
-            <button class="act-btn" onclick="trainUnit('devitt')"><span class="act-icon">🚗</span>Devitt<span class="act-cost">S:35 C:25 M:12</span></button>
-            <button class="act-btn" onclick="trainUnit('gallagher')"><span class="act-icon">💥</span>Gallagher<span class="act-cost">S:50 C:40 M:30</span></button>
-            <button class="act-btn" onclick="trainUnit('falchion')"><span class="act-icon">⚔️</span>Falchion<span class="act-cost">S:55 C:45 M:35</span></button>
-            <button class="act-btn" onclick="trainUnit('niska')"><span class="act-icon">🚙</span>Niska<span class="act-cost">S:35 C:25 M:15</span></button>
-            <button class="act-btn" onclick="trainUnit('artillery')"><span class="act-icon">🎯</span>Artillery<span class="act-cost">S:40 C:30 M:20</span></button>
-            <button class="act-btn" id="moveBtn" onclick="toggleMoveMode()"><span class="act-icon">🎯</span>MOVE</button>
-        </div>
-    </div>
+    <div id="selInfo" class="sel-info" style="display:none;"></div>
 
     <div id="controlsHint" class="controls-hint" style="display:none;">
-        WASD — камера<br>Клик — выбор<br>Двойной клик — перемещение<br>Клик на завод — меню
+        WASD — камера<br>Клик — выбор<br>Двойной клик — перемещение<br>Клик на завод — меню производства<br>Клик по миникарте — перемещение камеры
     </div>
 
     <div id="modeIndicator" class="mode-indicator hidden">🎯 MOVE MODE</div>
