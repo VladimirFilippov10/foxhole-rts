@@ -14,6 +14,44 @@ let lastClickTime = 0;
 let factoryMenuOpen = false;
 let aoeMode = false;
 let selectedCapturePoint = null;
+let factoryMenuFactory = null;
+
+// ===== Перемещаемые окна (drag за заголовок) =====
+function initDraggableWindow(el, handleSelector) {
+    if (el._draggableInit) return;
+    el._draggableInit = true;
+    const handle = handleSelector ? el.querySelector(handleSelector) : el.querySelector('h3');
+    if (!handle) return;
+    handle.style.cursor = 'move';
+    handle.style.userSelect = 'none';
+    let startX = 0, startY = 0, origLeft = 0, origTop = 0, dragging = false;
+
+    handle.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        dragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        origLeft = el.offsetLeft;
+        origTop = el.offsetTop;
+
+        const onMove = ev => {
+            if (!dragging) return;
+            const maxLeft = window.innerWidth - el.offsetWidth;
+            const maxTop = window.innerHeight - el.offsetHeight;
+            el.style.left = Math.max(0, Math.min(maxLeft, origLeft + ev.clientX - startX)) + 'px';
+            el.style.top = Math.max(0, Math.min(maxTop, origTop + ev.clientY - startY)) + 'px';
+        };
+        const onUp = () => {
+            dragging = false;
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+}
 
 // Vehicle info for factory menu
 const VEHICLE_INFO = {
@@ -63,6 +101,9 @@ window.addEventListener('load', () => {
         canvas.addEventListener('mousedown', handleMouseDown);
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Окно очереди производства юнитов — перемещаемое (drag за заголовок)
+        initDraggableWindow(document.getElementById('productionQueue'), '#productionQueueHeader');
         
         console.log('✅ Игра инициализирована успешно');
     } catch (error) {
@@ -450,6 +491,10 @@ function openFactoryMenu(factory, mx, my) {
     menu.classList.remove('hidden');
     menu.style.left = Math.min(mx, window.innerWidth - 340) + 'px';
     menu.style.top = Math.min(my, window.innerHeight - 400) + 'px';
+
+    // Запоминаем текущий завод и делаем заголовок окна перетаскиваемым
+    factoryMenuFactory = factory;
+    initDraggableWindow(menu);
     
     const grid = document.getElementById('unitGrid');
     grid.innerHTML = '';
@@ -608,11 +653,38 @@ function openDefensePanel(cp, mx, my) {
     panel.classList.remove('hidden');
     panel.style.left = Math.min(mx, window.innerWidth - 380) + 'px';
     panel.style.top = Math.min(my, window.innerHeight - 400) + 'px';
-    
+
+    // Окно улучшения обороны тоже можно перемещать за заголовок
+    initDraggableWindow(panel);
+
     const info = document.getElementById('defenseInfo');
+    let extra = '';
+    // Прочность обороны города (очки прочности)
+    if (typeof game.getCityDefenseDisplayInfo === 'function') {
+        const dinfo = game.getCityDefenseDisplayInfo(cp);
+        if (dinfo) {
+            extra += `<div>Прочность обороны: <strong style="color:${dinfo.broken ? '#ef4444' : '#22c55e'};">${dinfo.integrity}</strong>${dinfo.broken ? ' <span style="color:#ef4444;font-size:0.7rem;">(оборона сломлена — город можно захватить)</span>' : ' <span style="color:#9ca3af;font-size:0.7rem;">(вражеская техника не может въехать в город)</span>'}</div>`;
+        }
+    }
+    // Время улучшения обороны (прогресс)
+    const upg = typeof game.getDefenseUpgradeProgress === 'function' ? game.getDefenseUpgradeProgress(cp) : null;
+    if (upg) {
+        extra += `
+            <div style="margin-top:0.5rem;">
+                <div style="font-size:0.75rem;color:#fbbf24;">Улучшение до уровня ${upg.targetLevel}: ${Math.floor(upg.percent)}% (${upg.remaining}с)</div>
+                <div style="background:#1f2937;height:6px;border-radius:3px;overflow:hidden;margin-top:3px;border:1px solid #374151;">
+                    <div style="background:linear-gradient(90deg,#fbbf24,#f59e0b);height:100%;width:${upg.percent}%;"></div>
+                </div>
+            </div>`;
+    } else {
+        const nextTime = cp.defenseLevel < 3 ? game.getDefenseUpgradeTime(cp.defenseLevel + 1) : null;
+        if (nextTime) extra += `<div style="font-size:0.7rem;color:#9ca3af;margin-top:0.25rem;">Следующее улучшение займёт ${nextTime}с</div>`;
+    }
+
     info.innerHTML = `
         <div style="font-weight:bold;color:#60a5fa;margin-bottom:0.5rem;">${cp.name}</div>
         <div>Текущий уровень обороны: <strong style="color:#fbbf24;">${cp.defenseLevel}/3</strong></div>
+        ${extra}
     `;
     
     const levels = document.getElementById('defenseLevels');
@@ -628,11 +700,15 @@ function openDefensePanel(cp, mx, my) {
         const isCurrent = currentLevel === d.level;
         const isPast = currentLevel > d.level;
         const canAfford = game.res.s >= d.cost.s && game.res.c >= d.cost.c && game.res.m >= d.cost.m;
-        
+        const upgTime = game.getDefenseUpgradeTime ? game.getDefenseUpgradeTime(d.level) : null;
+
         let status = '';
         let cardClass = 'unit-card';
-        
-        if (isCurrent) {
+
+        if (cp.upgrading) {
+            cardClass += ' disabled';
+            status = '<div style="color:#fbbf24;font-size:0.6rem;margin-top:0.25rem;">Улучшение уже идёт...</div>';
+        } else if (isCurrent) {
             status = '<div style="color:#22c55e;font-weight:bold;margin-top:0.25rem;">✓ Текущий уровень</div>';
         } else if (isPast) {
             status = '<div style="color:#6b7280;font-size:0.6rem;margin-top:0.25rem;">✓ Улучшено</div>';
@@ -645,16 +721,27 @@ function openDefensePanel(cp, mx, my) {
         }
         
         return `
-            <div class="${cardClass}" style="margin-bottom:0.5rem;${canUpgrade && canAfford ? 'cursor:pointer;' : ''}" 
-                 ${canUpgrade && canAfford ? `onclick="upgradeDefense(${d.level})"` : ''}>
+            <div class="${cardClass}" style="margin-bottom:0.5rem;${canUpgrade && canAfford && !cp.upgrading ? 'cursor:pointer;' : ''}" 
+                 ${canUpgrade && canAfford && !cp.upgrading ? `onclick="upgradeDefense(${d.level})"` : ''}>
                 <div class="unit-name">${d.icon} ${d.name}</div>
                 <div class="unit-stats">${d.stats}</div>
-                <div class="unit-cost">S:${d.cost.s} C:${d.cost.c} M:${d.cost.m}</div>
+                <div class="unit-cost">S:${d.cost.s} C:${d.cost.c} M:${d.cost.m}${upgTime ? ` | Время: ${upgTime}с` : ''}</div>
                 ${status}
             </div>
         `;
     }).join('');
 }
+
+// Периодическое обновление панели обороны (прогресс улучшения занимает время)
+setInterval(() => {
+    if (!game || game.over) return;
+    const panel = document.getElementById('defensePanel');
+    if (panel && !panel.classList.contains('hidden') && selectedCapturePoint) {
+        openDefensePanel(selectedCapturePoint,
+            parseInt(panel.style.left) || 0,
+            parseInt(panel.style.top) || 0);
+    }
+}, 1000);
 
 window.closeDefensePanel = function() {
     document.getElementById('defensePanel').classList.add('hidden');
@@ -668,7 +755,8 @@ window.upgradeDefense = function(level) {
     const result = game.upgradeTerritoryDefense(cpIndex);
     
     if (result) {
-        notify(`${selectedCapturePoint.name}: оборона улучшена до уровня ${selectedCapturePoint.defenseLevel}!`);
+        const time = game.getDefenseUpgradeTime ? game.getDefenseUpgradeTime(level) : 0;
+        notify(`${selectedCapturePoint.name}: улучшение обороны до уровня ${level} — ${time}с`);
         // Обновляем панель
         openDefensePanel(selectedCapturePoint, 
             parseInt(document.getElementById('defensePanel').style.left),

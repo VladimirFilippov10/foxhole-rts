@@ -130,10 +130,54 @@ export class Game {
         this.checkWinCondition();
     }
 
+    // ===== Оборона территории: прочность и правила захвата/въезда =====
+    // Возвращает суммарную прочность обороны города (бункеры + уровень обороны точки)
+    getCityDefenseIntegrity(cp) {
+        if (!cp || cp.owner === 'neutral') return 0;
+        let integrity = 0;
+        // Бункеры в радиусе города дают очки прочности
+        this.buildings.forEach(b => {
+            if (b.faction === cp.owner && b.type && b.type.startsWith('bunker_') && b.hp > 0) {
+                if (dist(b.x, b.y, cp.x, cp.y) <= cp.radius + 80) integrity += Math.max(0, b.hp);
+            }
+        });
+        // Уровень обороны территории тоже даёт очки прочности
+        const stats = this.getTerritoryDefenseStats(cp.defenseLevel || 0);
+        integrity += stats.hp;
+        return integrity;
+    }
+
+    // Вражеская техника не может заехать на территорию города, пока цела оборона
+    isCityZoneBlockedFor(x, y, unit) {
+        if (unit.type === 'infantry') return false; // Пехота может проходить
+        for (const cp of this.cps) {
+            if (cp.owner === 'neutral' || cp.owner === unit.faction) continue;
+            const d = dist(x, y, cp.x, cp.y);
+            if (d <= cp.radius && this.getCityDefenseIntegrity(cp) > 0) return true;
+        }
+        return false;
+    }
+
+    // Захват возможен только если уничтожена вся оборона города
+    isCityDefenseBroken(cp) {
+        return this.getCityDefenseIntegrity(cp) <= 0;
+    }
+
     updateUnits() {
         this.units.forEach(u => {
             // Update game time for reload calculation
             u.gameTime = this.time;
+            
+            // Артиллерия сама не ездит кругами: без приказа она стоит на месте
+            // (стрельба обрабатывается ниже по aoeTarget / автоатаке)
+            if (u.aoe && u.tx !== undefined && !u.retreatOrder) {
+                const dToOrder = dist(u.x, u.y, u.tx, u.ty);
+                if (dToOrder < 15) {
+                    u.tx = undefined;
+                    u.ty = undefined;
+                    u.stuckCounter = 0;
+                }
+            }
             
             // Пополнение БК/топлива в базе (постепенное, с большим радиусом)
             const isInBase = this.buildings.some(b => 
@@ -210,10 +254,14 @@ export class Game {
                         u.shotsFired = 0;
                     }
                 } else if (targetDist < minRange) {
-                    // Target too close - retreat instead of spinning
-                    const retreatAngle = Math.atan2(u.y - u.aoeTarget.y, u.x - u.aoeTarget.x);
-                    u.tx = u.x + Math.cos(retreatAngle) * 100;
-                    u.ty = u.y + Math.sin(retreatAngle) * 100;
+                    // Target too close - артиллерия не ездит кругами:
+                    // отъезжаем ровно один раз и останавливаемся (без бесконечного кружения)
+                    if (!u.retreatOrder || dist(u.x, u.y, u.retreatOrder.x, u.retreatOrder.y) > 20) {
+                        const retreatAngle = Math.atan2(u.y - u.aoeTarget.y, u.x - u.aoeTarget.x);
+                        u.retreatOrder = { x: u.x + Math.cos(retreatAngle) * 150, y: u.y + Math.sin(retreatAngle) * 150 };
+                        u.tx = u.retreatOrder.x;
+                        u.ty = u.retreatOrder.y;
+                    }
                     u.aoeTarget = null; // Clear target
                     u.shotsFired = 0;
                 }
@@ -226,10 +274,13 @@ export class Game {
                     attackTarget = nearest;
                     canAttack = true;
                 } else if (targetDist < minRange && u.aoe) {
-                    // Artillery: target too close - retreat
-                    const retreatAngle = Math.atan2(u.y - nearest.y, u.x - nearest.x);
-                    u.tx = u.x + Math.cos(retreatAngle) * 100;
-                    u.ty = u.y + Math.sin(retreatAngle) * 100;
+                    // Artillery: target too close - отъезд один раз, без кругов
+                    if (!u.retreatOrder || dist(u.x, u.y, u.retreatOrder.x, u.retreatOrder.y) > 20) {
+                        const retreatAngle = Math.atan2(u.y - nearest.y, u.x - nearest.x);
+                        u.retreatOrder = { x: u.x + Math.cos(retreatAngle) * 150, y: u.y + Math.sin(retreatAngle) * 150 };
+                        u.tx = u.retreatOrder.x;
+                        u.ty = u.retreatOrder.y;
+                    }
                 }
             }
             
@@ -356,13 +407,22 @@ export class Game {
                         
                         // Если застряли слишком долго - пробуем обход
                         if (u.stuckCounter > 30) {
-                            // Пытаемся обойти препятствие
-                            const angle = Math.atan2(u.ty - u.y, u.tx - u.x);
-                            const detourAngle = angle + (Math.random() > 0.5 ? Math.PI / 2 : -Math.PI / 2);
-                            const detourDist = 50;
-                            u.tx = u.x + Math.cos(detourAngle) * detourDist;
-                            u.ty = u.y + Math.sin(detourAngle) * detourDist;
-                            u.stuckCounter = 0;
+                            if (u.aoe) {
+                                // Артиллерия не ездит кругами — при застревании она
+                                // просто останавливается и продолжает стрелять с места
+                                u.tx = undefined;
+                                u.ty = undefined;
+                                u.retreatOrder = null;
+                                u.stuckCounter = 0;
+                            } else {
+                                // Пытаемся обойти препятствие
+                                const angle = Math.atan2(u.ty - u.y, u.tx - u.x);
+                                const detourAngle = angle + (Math.random() > 0.5 ? Math.PI / 2 : -Math.PI / 2);
+                                const detourDist = 50;
+                                u.tx = u.x + Math.cos(detourAngle) * detourDist;
+                                u.ty = u.y + Math.sin(detourAngle) * detourDist;
+                                u.stuckCounter = 0;
+                            }
                         }
                         
                         u.lastX = u.x;
@@ -391,8 +451,10 @@ export class Game {
                         const ny = u.y + (u.ty - u.y) * r;
                         // Check buildings (vehicles only)
                         const blockedByBuilding = this.isBlockedForVehicle(nx, ny, u);
+                        // Вражеская техника не может заехать на территорию города, пока цела оборона
+                        const blockedByDefense = this.isCityZoneBlockedFor(nx, ny, u);
                         
-                        if (!blockedByBuilding) {
+                        if (!blockedByBuilding && !blockedByDefense) {
                             // Update direction based on movement
                             u.direction = Math.atan2(ny - u.y, nx - u.x);
                             u.x = nx;
@@ -405,6 +467,13 @@ export class Game {
                         } else {
                             // Если заблокировано - увеличиваем счётчик застревания
                             u.stuckCounter = (u.stuckCounter || 0) + 5;
+                            // Артиллерия не кружит у стены обороны — встаёт на место
+                            if (blockedByDefense && u.aoe) {
+                                u.tx = undefined;
+                                u.ty = undefined;
+                                u.retreatOrder = null;
+                                u.stuckCounter = 0;
+                            }
                         }
                     }
                 } else {
@@ -421,17 +490,24 @@ export class Game {
             const pU = this.units.filter(u => u.faction === this.faction && dist(u.x, u.y, cp.x, cp.y) <= cp.radius);
             const aU = this.units.filter(u => u.faction === this.ai && dist(u.x, u.y, cp.x, cp.y) <= cp.radius);
             
-            if (pU.length > 0 && aU.length === 0 && cp.owner !== this.faction) {
+            // Захват чужого города возможен только если уничтожена вся его оборона
+            const defenseBroken = cp.owner === 'neutral' || this.isCityDefenseBroken(cp);
+            
+            if (pU.length > 0 && aU.length === 0 && cp.owner !== this.faction && defenseBroken) {
                 cp.progress = Math.min(100, cp.progress + pU.length * 0.2);
                 cp.capturing = this.faction;
                 if (cp.progress >= 100) {
                     cp.owner = this.faction;
+                    cp.defenseLevel = 0; // Новая оборона строится с нуля
                     this.notify?.(cp.name + ' захвачен!');
                 }
-            } else if (aU.length > 0 && pU.length === 0 && cp.owner !== this.ai) {
+            } else if (aU.length > 0 && pU.length === 0 && cp.owner !== this.ai && defenseBroken) {
                 cp.progress = Math.min(100, cp.progress + aU.length * 0.15);
                 cp.capturing = this.ai;
-                if (cp.progress >= 100) cp.owner = this.ai;
+                if (cp.progress >= 100) {
+                    cp.owner = this.ai;
+                    cp.defenseLevel = 0;
+                }
             } else {
                 cp.capturing = null;
             }
@@ -648,11 +724,17 @@ export class Game {
         }
     }
     
-    // Система обороны территорий
+    // Система обороны территорий (улучшение занимает время)
+    getDefenseUpgradeTime(targetLevel) {
+        // Время улучшения в секундах для 1-2-3 уровней
+        return [0, 15, 25, 40][targetLevel] || 30;
+    }
+
     upgradeTerritoryDefense(cpIndex) {
         const cp = this.cps[cpIndex];
         if (!cp || cp.owner !== this.faction) return false;
         if (cp.defenseLevel >= 3) return false; // Максимум 3 уровня
+        if (cp.upgrading) return false; // Уже идёт улучшение
         
         const upgradeCosts = [
             { s: 50, c: 30, m: 40 },   // Уровень 1
@@ -668,19 +750,62 @@ export class Game {
         this.res.s -= cost.s;
         this.res.c -= cost.c;
         this.res.m -= cost.m;
-        cp.defenseLevel++;
+        
+        // Ставим улучшение в очередь - оно завершится через buildTime секунд
+        const targetLevel = cp.defenseLevel + 1;
+        cp.upgrading = {
+            targetLevel,
+            startTime: this.time,
+            buildTime: this.getDefenseUpgradeTime(targetLevel) * 60, // тики
+        };
         
         return true;
+    }
+    
+    updateDefenseUpgrades() {
+        this.cps.forEach(cp => {
+            if (cp.upgrading) {
+                const elapsed = this.time - cp.upgrading.startTime;
+                if (elapsed >= cp.upgrading.buildTime) {
+                    cp.defenseLevel = cp.upgrading.targetLevel;
+                    cp.upgrading = null;
+                    this.notify?.(`${cp.name}: оборона улучшена до уровня ${cp.defenseLevel}!`);
+                }
+            }
+        });
+    }
+    
+    getDefenseUpgradeProgress(cp) {
+        if (!cp || !cp.upgrading) return null;
+        const elapsed = this.time - cp.upgrading.startTime;
+        return {
+            percent: Math.min(100, (elapsed / cp.upgrading.buildTime) * 100),
+            remaining: Math.max(0, Math.ceil((cp.upgrading.buildTime - elapsed) / 60)),
+            targetLevel: cp.upgrading.targetLevel,
+        };
     }
     
     getTerritoryDefenseStats(defenseLevel) {
         const stats = [
             { damage: 0, range: 0, hp: 0 },      // Уровень 0 - нет обороны
-            { damage: 15, range: 250, hp: 300 },  // Уровень 1 - увеличен радиус
-            { damage: 25, range: 350, hp: 600 },  // Уровень 2 - увеличен радиус
-            { damage: 40, range: 450, hp: 1000 }, // Уровень 3 - увеличен радиус
+            { damage: 15, range: 120, hp: 300 },  // Уровень 1
+            { damage: 25, range: 150, hp: 600 },  // Уровень 2
+            { damage: 40, range: 180, hp: 1000 }, // Уровень 3 + защита от артиллерии
         ];
         return stats[defenseLevel] || stats[0];
+    }
+    
+    // Прочность обороны города для отображения (очки прочности)
+    getCityDefenseDisplayInfo(cp) {
+        if (!cp || cp.owner === 'neutral') return null;
+        const integrity = this.getCityDefenseIntegrity(cp);
+        const stats = this.getTerritoryDefenseStats(cp.defenseLevel || 0);
+        return {
+            integrity: Math.floor(integrity),
+            defenseRange: stats.range,
+            level: cp.defenseLevel || 0,
+            broken: integrity <= 0,
+        };
     }
     
     // Система укреплений (старая - можно удалить)
@@ -790,14 +915,18 @@ export class Game {
                     nearestEnemy.takeDamage(damage);
                     
                     // Визуальный эффект выстрела
+                    this.addTracer(b.x, b.y, nearestEnemy.x, nearestEnemy.y, 'defense');
                     this.addParticles(nearestEnemy.x, nearestEnemy.y, '#ffcc00', 3);
                 }
             }
         });
         
+        // Очередь улучшения обороны территорий (с временем улучшения)
+        this.updateDefenseUpgrades();
+        
         // Оборона территорий атакует врагов
         this.cps.forEach(cp => {
-            if (cp.owner !== 'neutral' && cp.defenseLevel > 0) {
+            if (cp.owner !== 'neutral' && cp.defenseLevel > 0 && !cp.upgrading) {
                 const stats = this.getTerritoryDefenseStats(cp.defenseLevel);
                 
                 // Инициализация таймера атаки
