@@ -191,14 +191,33 @@ export class AI {
         const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory');
         if (!factory) return;
 
-        // Используем технику своей фракции
-        const types = this.G.ai === 'wardens' 
-            ? ['devitt', 'niska'] 
-            : ['hatchet', 'hoplite'];
+        // Используем технику своей фракции (включая новые танки)
+        let types = [];
         
-        if (this.difficulty >= 2) {
-            if (this.G.ai === 'wardens') types.push('gallagher');
-            else types.push('falchion');
+        if (this.G.ai === 'wardens') {
+            // Базовая техника
+            types = ['devitt', 'niska'];
+            
+            // Добавляем новые танки в зависимости от сложности
+            if (this.difficulty >= 1) {
+                types.push('king_spire'); // Разведывательный танк
+            }
+            if (this.difficulty >= 2) {
+                types.push('silverhand'); // Штурмовой танк
+                types.push('gallagher_highwayman'); // Крейсерский танк
+            }
+        } else {
+            // Colonial
+            types = ['hatchet', 'hoplite'];
+            
+            // Добавляем новые танки в зависимости от сложности
+            if (this.difficulty >= 1) {
+                types.push('scorpion'); // Пехотный танк
+            }
+            if (this.difficulty >= 2) {
+                types.push('nemesis'); // Штурмовой танк
+                types.push('falchion'); // Средний танк
+            }
         }
         
         // Добавляем артиллерию для дальнего обстрела (реже - 20% шанс)
@@ -232,6 +251,12 @@ export class AI {
         
         const unit = createVehicle(type, this.G.ai, factory.x + 60, factory.y + 60);
         this.G.units.push(unit);
+        
+        // Специальное поведение для разведывательных танков
+        if (unit.revealRadius) {
+            this.assignScoutPatrol(unit);
+            return;
+        }
 
         // В оборонительном режиме - патрулируем свои территории
         if (this.defenseMode) {
@@ -242,6 +267,27 @@ export class AI {
                 this.assignSquadToTarget([unit], target);
             }
         }
+    }
+    
+    assignScoutPatrol(unit) {
+        // Разведывательные танки патрулируют периметр своих территорий
+        const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
+        if (aiPoints.length === 0) return;
+        
+        // Выбираем случайную точку для патрулирования
+        const point = aiPoints[Math.floor(Math.random() * aiPoints.length)];
+        
+        // Патрулируем на расстоянии от точки
+        const angle = Math.random() * Math.PI * 2;
+        const radius = point.radius * 1.5; // Дальше чем обычные патрульные
+        
+        unit.tx = point.x + Math.cos(angle) * radius;
+        unit.ty = point.y + Math.sin(angle) * radius;
+        
+        // Сохраняем точку для дальнейшего патрулирования
+        unit.patrolCenter = point;
+        unit.patrolAngle = angle;
+        unit.isScout = true;
     }
     
     assignArtilleryPosition(unit) {

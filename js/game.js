@@ -34,6 +34,9 @@ export class Game {
         
         // Система трассеров
         this.tracers = []; // Массив трассеров
+        
+        // Система разведки
+        this.revealedAreas = []; // Области, раскрытые разведкой
     }
 
     init(cps, mines, buildings, units) {
@@ -82,6 +85,12 @@ export class Game {
         
         // Update construction
         this.updateConstruction();
+        
+        // Update reveal (scout tanks)
+        this.updateReveal();
+        
+        // Update boost (Gallagher Highwayman)
+        this.updateBoost();
         
         // Update units
         this.updateUnits();
@@ -268,10 +277,52 @@ export class Game {
                         } else {
                             // Normal single target attack
                             // Add tracer based on unit type
-                            const tracerType = (u.type === 'warden_artillery' || u.type === 'colonial_artillery') ? 'shell' : 'bullet';
+                            let tracerType = 'bullet';
+                            if (u.type === 'warden_artillery' || u.type === 'colonial_artillery') {
+                                tracerType = 'shell';
+                            } else if (u.type === 'silverhand') {
+                                tracerType = 'shell';
+                            } else if (u.type === 'nemesis' && u.grenadeLauncher) {
+                                tracerType = 'grenade';
+                            }
+                            
                             this.addTracer(u.x, u.y, attackTarget.x, attackTarget.y, tracerType);
                             
-                            attackTarget.takeDamage(u.dmg);
+                            // Special attack handling
+                            let damage = u.dmg;
+                            
+                            // Scorpion: increased damage to infantry
+                            if (u.antiInfantry && attackTarget.type === 'infantry') {
+                                damage *= u.infantryMultiplier || 2.5;
+                            }
+                            
+                            // Silverhand: dual gun attack (two shots)
+                            if (u.dualGun) {
+                                attackTarget.takeDamage(damage);
+                                // Second shot with slight delay effect
+                                setTimeout(() => {
+                                    if (attackTarget.hp > 0) {
+                                        attackTarget.takeDamage(Math.floor(damage * 0.7)); // Second gun does 70% damage
+                                    }
+                                }, 100);
+                            }
+                            
+                            // Nemesis: grenade launcher AoE
+                            if (u.grenadeLauncher && attackTarget.type === 'infantry') {
+                                // Grenade affects nearby infantry
+                                this.units.forEach(enemy => {
+                                    if (enemy.faction !== u.faction && enemy.hp > 0 && enemy.type === 'infantry') {
+                                        const distToTarget = dist(attackTarget.x, attackTarget.y, enemy.x, enemy.y);
+                                        if (distToTarget <= (u.grenadeRadius || 40)) {
+                                            enemy.takeDamage(Math.floor(damage * 0.6));
+                                        }
+                                    }
+                                });
+                                // Grenade explosion effect
+                                this.addParticles(attackTarget.x, attackTarget.y, '#9c27b0', 8);
+                            }
+                            
+                            attackTarget.takeDamage(damage);
                             this.addParticles(attackTarget.x, attackTarget.y, '#ffcc00', 4);
                         }
                     }
@@ -933,7 +984,8 @@ export class Game {
             bullet: { color: '#ffeb3b', width: 2, speed: 15, life: 10 },
             shell: { color: '#ff9800', width: 3, speed: 12, life: 15 },
             artillery: { color: '#f44336', width: 4, speed: 8, life: 20 },
-            defense: { color: '#4caf50', width: 2, speed: 14, life: 12 }
+            defense: { color: '#4caf50', width: 2, speed: 14, life: 12 },
+            grenade: { color: '#9c27b0', width: 3, speed: 10, life: 18 }
         };
         
         const config = tracers[type] || tracers.bullet;
@@ -969,6 +1021,68 @@ export class Game {
             }
             
             return tracer.life > 0;
+        });
+    }
+    
+    // Обновление разведки от танков с revealRadius
+    updateReveal() {
+        // Очищаем старые разведданные (старше 180 тиков = 3 секунды)
+        this.revealedAreas = this.revealedAreas.filter(area => this.time - area.time < 180);
+        
+        // Добавляем новые разведданные от разведывательных танков
+        this.units.forEach(u => {
+            if (u.revealRadius && u.hp > 0) {
+                // Проверяем, есть ли уже разведданные в этой области
+                const existingArea = this.revealedAreas.find(area => 
+                    dist(area.x, area.y, u.x, u.y) < area.radius * 0.5
+                );
+                
+                if (!existingArea) {
+                    this.revealedAreas.push({
+                        x: u.x,
+                        y: u.y,
+                        radius: u.revealRadius,
+                        time: this.time,
+                        faction: u.faction
+                    });
+                }
+            }
+        });
+    }
+    
+    // Обновление буста для Gallagher Highwayman
+    updateBoost() {
+        this.units.forEach(u => {
+            if (u.canBoost) {
+                // Автоматически активируем буст если враг близко и есть топливо
+                if (!u.boosting) {
+                    const nearbyEnemy = this.units.find(enemy => 
+                        enemy.faction !== u.faction && 
+                        enemy.hp > 0 && 
+                        dist(u.x, u.y, enemy.x, enemy.y) < 150
+                    );
+                    
+                    if (nearbyEnemy && u.fuel > 30) {
+                        u.activateBoost();
+                    }
+                }
+                
+                // Деактивируем буст если нет топлива или врагов поблизости
+                if (u.boosting) {
+                    const nearbyEnemy = this.units.find(enemy => 
+                        enemy.faction !== u.faction && 
+                        enemy.hp > 0 && 
+                        dist(u.x, u.y, enemy.x, enemy.y) < 200
+                    );
+                    
+                    if (!nearbyEnemy || u.fuel < 10) {
+                        u.deactivateBoost();
+                    } else {
+                        // Дополнительный расход топлива при бусте
+                        u.fuel = Math.max(0, u.fuel - u.boostFuelCost);
+                    }
+                }
+            }
         });
     }
 }

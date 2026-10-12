@@ -39,19 +39,27 @@ export const GAME_MODES = {
 
 export const VEHICLE_COSTS = {
     infantry: { s: 10, c: 0, m: 0, buildTime: 5 },
-    devitt: { s: 35, c: 25, m: 15, buildTime: 15 },
-    gallagher: { s: 60, c: 45, m: 35, buildTime: 25 },
-    niska: { s: 40, c: 30, m: 20, buildTime: 18 },
-    hatchet: { s: 30, c: 20, m: 10, buildTime: 12 },
-    falchion: { s: 55, c: 40, m: 30, buildTime: 22 },
-    hoplite: { s: 35, c: 25, m: 15, buildTime: 16 },
-    warden_artillery: { s: 55, c: 40, m: 30, buildTime: 30 },
-    colonial_artillery: { s: 45, c: 30, m: 20, buildTime: 28 },
+    
+    // Wardens tanks
+    king_spire: { s: 40, c: 30, m: 20, buildTime: 18 }, // Разведывательный танк
+    devitt: { s: 45, c: 35, m: 25, buildTime: 20 }, // Легкий танк (обновлен)
+    silverhand: { s: 80, c: 60, m: 45, buildTime: 30 }, // Штурмовой танк
+    gallagher_highwayman: { s: 70, c: 50, m: 35, buildTime: 25 }, // Крейсерский танк
+    niska: { s: 40, c: 30, m: 20, buildTime: 18 }, // БТР
+    warden_artillery: { s: 55, c: 40, m: 30, buildTime: 30 }, // Артиллерия
+    
+    // Colonials tanks
+    hatchet: { s: 45, c: 35, m: 25, buildTime: 20 }, // Легкий танк (обновлен)
+    scorpion: { s: 55, c: 40, m: 30, buildTime: 22 }, // Пехотный танк
+    nemesis: { s: 85, c: 65, m: 50, buildTime: 32 }, // Штурмовой танк
+    falchion: { s: 55, c: 40, m: 30, buildTime: 22 }, // Средний танк
+    hoplite: { s: 35, c: 25, m: 15, buildTime: 16 }, // БТР
+    colonial_artillery: { s: 45, c: 30, m: 20, buildTime: 28 }, // Артиллерия
+    
     // Логистика
     truck: { s: 25, c: 15, m: 10, buildTime: 10 }, // Грузовик - перевозит БК
     fuel_truck: { s: 30, c: 20, m: 15, buildTime: 12 }, // Бензовоз - перевозит топливо
     engineer: { s: 40, c: 30, m: 25, buildTime: 20 }, // Инженерная машина - ремонтирует
-    // Flatbed для артиллерии (общий для обеих фракций)
     flatbed: { s: 35, c: 25, m: 20, buildTime: 15 }, // Flatbed truck
 };
 

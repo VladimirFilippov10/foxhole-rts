@@ -81,33 +81,94 @@ export class Infantry extends Vehicle {
 }
 
 // ===== WARDENS VEHICLES =====
-export class Devitt extends Vehicle {
+
+// King Spire Mk. I - Разведывательный танк
+export class KingSpire extends Vehicle {
     constructor(faction, x, y) {
-        super('devitt', faction, x, y);
-        this.hp = this.maxHp = 280;
-        this.dmg = 50;
-        this.range = 160;
-        this.spd = 1.0; // Медленный
-        this.cd = 380;
-        this.size = 22;
-        this.armor = 5;
-        this.label = 'Devitt';
-        this.tracked = true; // Гусеничный танк
+        super('king_spire', faction, x, y);
+        this.hp = this.maxHp = 135; // Нормализовано из 1350
+        this.dmg = 15; // 12.7мм пулемет
+        this.range = 140;
+        this.spd = 1.4; // 7.22 м/с нормализовано
+        this.offRoadSpd = 1.0; // 5.05 м/с
+        this.cd = 30; // Быстрая скорострельность пулемета
+        this.size = 20;
+        this.armor = 3;
+        this.label = 'King Spire';
+        this.tracked = true;
+        this.revealRadius = 120; // Разведка (60м * 2 для масштаба)
+        this.crew = 2;
     }
 }
 
-export class Gallagher extends Vehicle {
+// Devitt Mk. III - Легкий танк (обновленный)
+export class Devitt extends Vehicle {
     constructor(faction, x, y) {
-        super('gallagher', faction, x, y);
-        this.hp = this.maxHp = 520;
-        this.dmg = 30;
-        this.range = 180;
-        this.spd = 1.7; // Очень медленный
-        this.cd = 250;
+        super('devitt', faction, x, y);
+        this.hp = this.maxHp = 195; // Нормализовано из 1950
+        this.dmg = 45; // 40мм пушка
+        this.range = 160;
+        this.spd = 1.6; // 8.27 м/с нормализовано
+        this.offRoadSpd = 1.1; // 5.79 м/с
+        this.cd = 90; // 40мм пушка
+        this.size = 22;
+        this.armor = 5;
+        this.label = 'Devitt Mk.III';
+        this.tracked = true;
+        this.crew = 3;
+    }
+}
+
+// Silverhand Mk. IV - Штурмовой танк
+export class Silverhand extends Vehicle {
+    constructor(faction, x, y) {
+        super('silverhand', faction, x, y);
+        this.hp = this.maxHp = 310; // Нормализовано из 3100
+        this.dmg = 65; // 40мм + 68мм пушки
+        this.range = 170;
+        this.spd = 1.5; // 7.75 м/с нормализовано
+        this.offRoadSpd = 1.1; // 5.42 м/с
+        this.cd = 110; // Тяжелые пушки
         this.size = 28;
-        this.armor = 25;
-        this.label = 'Gallagher 30mm';
-        this.tracked = true; // Гусеничный танк
+        this.armor = 12;
+        this.label = 'Silverhand Mk.IV';
+        this.tracked = true;
+        this.crew = 4;
+        this.dualGun = true; // Два орудия
+    }
+}
+
+// Gallagher Highwayman Mk. III - Крейсерский танк
+export class GallagherHighwayman extends Vehicle {
+    constructor(faction, x, y) {
+        super('gallagher_highwayman', faction, x, y);
+        this.hp = this.maxHp = 295; // Нормализовано из 2950
+        this.dmg = 35; // Спаренные 14.5мм пушки
+        this.range = 165;
+        this.spd = 1.7; // Высокая базовая скорость
+        this.offRoadSpd = 1.2;
+        this.boostSpd = 2.8; // Ускорение с бустом
+        this.cd = 40; // Быстрая скорострельность
+        this.size = 24;
+        this.armor = 8;
+        this.label = 'Gallagher Highwayman';
+        this.tracked = true;
+        this.crew = 3;
+        this.canBoost = true; // Может использовать буст
+        this.boosting = false;
+        this.boostFuelCost = 0.5; // Дополнительный расход топлива при бусте
+    }
+    
+    activateBoost() {
+        if (this.fuel > 20 && !this.boosting) {
+            this.boosting = true;
+            this.spd = this.boostSpd;
+        }
+    }
+    
+    deactivateBoost() {
+        this.boosting = false;
+        this.spd = 1.7; // Возврат к базовой скорости
     }
 }
 
@@ -127,18 +188,64 @@ export class Niska extends Vehicle {
 }
 
 // ===== COLONIALS VEHICLES =====
+
+// H-5 "Hatchet" - Легкий танк (обновленный)
 export class Hatchet extends Vehicle {
     constructor(faction, x, y) {
         super('hatchet', faction, x, y);
-        this.hp = this.maxHp = 220;
-        this.dmg = 50;
-        this.range = 150;
-        this.spd = 1.2; // Быстрее Wardens
-        this.cd = 430;
-        this.size = 20;
-        this.armor = 3;
-        this.label = 'Hatchet';
-        this.tracked = true; // Гусеничный танк
+        this.hp = this.maxHp = 195; // Нормализовано из 1950
+        this.dmg = 45; // 40мм пушка
+        this.range = 160;
+        this.spd = 1.6; // 8.27 м/с нормализовано
+        this.offRoadSpd = 1.1; // 5.79 м/с
+        this.cd = 90; // 40мм пушка
+        this.size = 22;
+        this.armor = 5;
+        this.label = 'H-5 Hatchet';
+        this.tracked = true;
+        this.crew = 3;
+        this.extraFuel = 25; // Увеличенный топливный бак (325л vs 300л)
+    }
+}
+
+// HC-2 "Scorpion" - Легкий пехотный танк
+export class Scorpion extends Vehicle {
+    constructor(faction, x, y) {
+        super('scorpion', faction, x, y);
+        this.hp = this.maxHp = 330; // Нормализовано из 3300
+        this.dmg = 20; // Два 12.7мм пулемета
+        this.range = 130;
+        this.spd = 1.3; // Средняя скорость
+        this.offRoadSpd = 0.9;
+        this.cd = 25; // Очень быстрая скорострельность пулеметов
+        this.size = 22;
+        this.armor = 8;
+        this.label = 'HC-2 Scorpion';
+        this.tracked = true;
+        this.crew = 3;
+        this.revealRadius = 120; // Разведка
+        this.antiInfantry = true; // Эффективен против пехоты
+        this.infantryMultiplier = 2.5; // Урон по пехоте x2.5
+    }
+}
+
+// 90T-v "Nemesis" - Штурмовой танк
+export class Nemesis extends Vehicle {
+    constructor(faction, x, y) {
+        super('nemesis', faction, x, y);
+        this.hp = this.maxHp = 365; // Нормализовано из 3650
+        this.dmg = 70; // 68мм пушка + гранатомет
+        this.range = 175;
+        this.spd = 1.7; // 8.45 м/с нормализовано - самый быстрый штурмовой
+        this.offRoadSpd = 1.2; // 5.92 м/с
+        this.cd = 100; // Тяжелая пушка
+        this.size = 28;
+        this.armor = 12;
+        this.label = '90T-v Nemesis';
+        this.tracked = true;
+        this.crew = 4;
+        this.grenadeLauncher = true; // Гранатомет для подавления пехоты
+        this.grenadeRadius = 40; // Радиус поражения гранат
     }
 }
 
@@ -383,14 +490,21 @@ export class Flatbed extends Vehicle {
 export function createVehicle(type, faction, x, y) {
     const map = {
         infantry: Infantry,
+        // Wardens
+        king_spire: KingSpire,
         devitt: Devitt,
-        gallagher: Gallagher,
+        silverhand: Silverhand,
+        gallagher_highwayman: GallagherHighwayman,
         niska: Niska,
+        warden_artillery: WardenArtillery,
+        // Colonials
         hatchet: Hatchet,
+        scorpion: Scorpion,
+        nemesis: Nemesis,
         falchion: Falchion,
         hoplite: Hoplite,
-        warden_artillery: WardenArtillery,
         colonial_artillery: ColonialArtillery,
+        // Logistics
         truck: Truck,
         fuel_truck: FuelTruck,
         engineer: Engineer,
@@ -403,6 +517,6 @@ export function createVehicle(type, faction, x, y) {
 
 // Доступная техника по фракциям
 export const FACTION_VEHICLES = {
-    wardens: ['devitt', 'gallagher', 'niska', 'warden_artillery', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
-    colonials: ['hatchet', 'falchion', 'hoplite', 'colonial_artillery', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
+    wardens: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska', 'warden_artillery', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
+    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'hoplite', 'colonial_artillery', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
 };

@@ -139,6 +139,27 @@ export function render(ctx, G, canvas) {
         ctx.fill();
     });
     ctx.globalAlpha = 1;
+    
+    // Revealed areas (from scout tanks)
+    if (G.revealedAreas && G.revealedAreas.length > 0) {
+        G.revealedAreas.forEach(area => {
+            if (area.faction === G.faction) {
+                const alpha = Math.max(0, 1 - (G.time - area.time) / 180);
+                ctx.globalAlpha = alpha * 0.15;
+                ctx.fillStyle = '#60a5fa';
+                ctx.beginPath();
+                ctx.arc(area.x - cam.x, area.y - cam.y, area.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = alpha * 0.4;
+                ctx.strokeStyle = '#60a5fa';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        });
+        ctx.globalAlpha = 1;
+    }
 
     // Move mode indicator
     if (G.moveMode) {
@@ -1492,18 +1513,214 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
         ctx.lineWidth = 1.5;
         ctx.strokeRect(-sz / 2, -sz / 3, sz, sz * 0.65);
         
-        if (['hatchet', 'devitt', 'gallagher', 'falchion'].includes(u.type)) {
+        // Light tanks (Devitt, Hatchet)
+        if (['hatchet', 'devitt'].includes(u.type)) {
             // Turret
             ctx.fillStyle = col.s;
             ctx.beginPath();
-            ctx.arc(0, 0, sz * 0.25, 0, Math.PI * 2);
+            ctx.arc(0, 0, sz * 0.28, 0, Math.PI * 2);
             ctx.fill();
-            // Barrel (points in direction of movement)
             ctx.strokeStyle = col.a;
-            ctx.lineWidth = u.type === 'gallagher' || u.type === 'falchion' ? 3 : 2;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            // 40mm barrel
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.moveTo(0, 0);
-            ctx.lineTo(sz * 0.55, 0);
+            ctx.lineTo(sz * 0.6, 0);
+            ctx.stroke();
+            // Barrel tip
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(sz * 0.6, 0, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // King Spire - Scout tank with antenna
+        if (u.type === 'king_spire') {
+            // Small turret
+            ctx.fillStyle = col.s;
+            ctx.beginPath();
+            ctx.arc(0, 0, sz * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            // Machine gun
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(sz * 0.4, 0);
+            ctx.stroke();
+            // Antenna
+            ctx.strokeStyle = '#9ca3af';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(-sz * 0.15, -sz * 0.15);
+            ctx.lineTo(-sz * 0.15, -sz * 0.5);
+            ctx.stroke();
+            // Antenna tip
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(-sz * 0.15, -sz * 0.5, 2, 0, Math.PI * 2);
+            ctx.fill();
+            // Reveal radius indicator (if selected)
+            if (selected.includes(u.id) && u.revealRadius) {
+                ctx.restore();
+                ctx.save();
+                ctx.strokeStyle = '#60a5fa40';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.arc(x, y, u.revealRadius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.translate(x, y);
+                ctx.rotate(u.direction || 0);
+            }
+        }
+        
+        // Silverhand - Assault tank with dual guns
+        if (u.type === 'silverhand') {
+            // Large turret
+            ctx.fillStyle = col.s;
+            ctx.beginPath();
+            ctx.arc(0, 0, sz * 0.32, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            // 40mm turret gun
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(sz * 0.1, -sz * 0.08);
+            ctx.lineTo(sz * 0.65, -sz * 0.08);
+            ctx.stroke();
+            // 68mm hull gun (offset)
+            ctx.strokeStyle = '#4b5563';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(sz * 0.3, sz * 0.15);
+            ctx.lineTo(sz * 0.6, sz * 0.15);
+            ctx.stroke();
+        }
+        
+        // Gallagher Highwayman - Cruiser tank with boost
+        if (u.type === 'gallagher_highwayman') {
+            // Turret
+            ctx.fillStyle = col.s;
+            ctx.beginPath();
+            ctx.arc(0, 0, sz * 0.26, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            // Twin 14.5mm guns
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, -sz * 0.05);
+            ctx.lineTo(sz * 0.55, -sz * 0.05);
+            ctx.moveTo(0, sz * 0.05);
+            ctx.lineTo(sz * 0.55, sz * 0.05);
+            ctx.stroke();
+            // Boost indicator
+            if (u.boosting) {
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath();
+                ctx.arc(-sz * 0.4, 0, 3, 0, Math.PI * 2);
+                ctx.fill();
+                // Boost flames
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.moveTo(-sz * 0.5, -sz * 0.1);
+                ctx.lineTo(-sz * 0.7, 0);
+                ctx.lineTo(-sz * 0.5, sz * 0.1);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+        
+        // Scorpion - Light infantry tank with twin MGs
+        if (u.type === 'scorpion') {
+            // Turret
+            ctx.fillStyle = col.s;
+            ctx.beginPath();
+            ctx.arc(0, 0, sz * 0.28, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            // Twin 12.7mm machine guns
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, -sz * 0.08);
+            ctx.lineTo(sz * 0.5, -sz * 0.08);
+            ctx.moveTo(0, sz * 0.08);
+            ctx.lineTo(sz * 0.5, sz * 0.08);
+            ctx.stroke();
+            // Reveal radius indicator (if selected)
+            if (selected.includes(u.id) && u.revealRadius) {
+                ctx.restore();
+                ctx.save();
+                ctx.strokeStyle = '#60a5fa40';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.arc(x, y, u.revealRadius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.translate(x, y);
+                ctx.rotate(u.direction || 0);
+            }
+        }
+        
+        // Nemesis - Assault tank with grenade launcher
+        if (u.type === 'nemesis') {
+            // Large turret
+            ctx.fillStyle = col.s;
+            ctx.beginPath();
+            ctx.arc(0, 0, sz * 0.32, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            // 68mm main gun
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(sz * 0.65, 0);
+            ctx.stroke();
+            // 4-tube grenade launcher (on top)
+            ctx.fillStyle = '#4b5563';
+            ctx.fillRect(-sz * 0.1, -sz * 0.35, sz * 0.2, sz * 0.15);
+            // Grenade tubes
+            ctx.fillStyle = '#1a1a1a';
+            for (let i = 0; i < 4; i++) {
+                ctx.beginPath();
+                ctx.arc(-sz * 0.05 + i * sz * 0.05, -sz * 0.28, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        // Falchion - Medium tank
+        if (u.type === 'falchion') {
+            // Turret
+            ctx.fillStyle = col.s;
+            ctx.beginPath();
+            ctx.arc(0, 0, sz * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            // Main gun
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(sz * 0.6, 0);
             ctx.stroke();
         }
         

@@ -18,18 +18,28 @@ let selectedCapturePoint = null;
 // Vehicle info for factory menu
 const VEHICLE_INFO = {
     infantry: { name: 'Пехота', icon: '🔫', stats: 'HP:50 DMG:8 SPD:0.8', cost: VEHICLE_COSTS.infantry },
-    devitt: { name: 'Devitt', icon: '🚗', stats: 'HP:280 DMG:35 RNG:160 SPD:1.2', cost: VEHICLE_COSTS.devitt },
-    gallagher: { name: 'Gallagher 30mm', icon: '💥', stats: 'HP:520 DMG:65 RNG:180 SPD:0.9', cost: VEHICLE_COSTS.gallagher },
-    niska: { name: 'Niska APC', icon: '🚙', stats: 'HP:240 DMG:20 RNG:150 SPD:1.4', cost: VEHICLE_COSTS.niska },
-    hatchet: { name: 'Hatchet', icon: '🪓', stats: 'HP:220 DMG:30 RNG:150 SPD:1.5', cost: VEHICLE_COSTS.hatchet },
-    falchion: { name: 'Falchion', icon: '⚔️', stats: 'HP:480 DMG:70 RNG:170 SPD:1.0', cost: VEHICLE_COSTS.falchion },
-    hoplite: { name: 'Hoplite APC', icon: '🛡️', stats: 'HP:200 DMG:18 RNG:140 SPD:1.6', cost: VEHICLE_COSTS.hoplite },
-    warden_artillery: { name: 'Warden Artillery', icon: '🎯', stats: 'HP:100 DMG:85 RNG:150-500 AoE:80 SPD:0.3 CD:8s', cost: VEHICLE_COSTS.warden_artillery },
-    colonial_artillery: { name: 'Colonial Artillery', icon: '🎯', stats: 'HP:110 DMG:75 RNG:120-400 AoE:70 SPD:0.6 CD:7s', cost: VEHICLE_COSTS.colonial_artillery },
+    
+    // Wardens tanks
+    king_spire: { name: 'King Spire Mk.I', icon: '🔍', stats: 'HP:135 DMG:15 RNG:140 SPD:1.4 Разведка', cost: VEHICLE_COSTS.king_spire },
+    devitt: { name: 'Devitt Mk.III', icon: '🚗', stats: 'HP:195 DMG:45 RNG:160 SPD:1.6 40мм пушка', cost: VEHICLE_COSTS.devitt },
+    silverhand: { name: 'Silverhand Mk.IV', icon: '💪', stats: 'HP:310 DMG:65 RNG:170 SPD:1.5 40мм+68мм', cost: VEHICLE_COSTS.silverhand },
+    gallagher_highwayman: { name: 'Gallagher Highwayman', icon: '⚡', stats: 'HP:295 DMG:35 RNG:165 SPD:1.7 Буст', cost: VEHICLE_COSTS.gallagher_highwayman },
+    niska: { name: 'Niska APC', icon: '🚙', stats: 'HP:260 DMG:10 RNG:150 SPD:1.8 БТР', cost: VEHICLE_COSTS.niska },
+    warden_artillery: { name: 'Warden Artillery', icon: '🎯', stats: 'HP:100 DMG:85 RNG:150-500 AoE:80 SPD:0.3', cost: VEHICLE_COSTS.warden_artillery },
+    
+    // Colonials tanks
+    hatchet: { name: 'H-5 Hatchet', icon: '🪓', stats: 'HP:195 DMG:45 RNG:160 SPD:1.6 40мм пушка', cost: VEHICLE_COSTS.hatchet },
+    scorpion: { name: 'HC-2 Scorpion', icon: '🦂', stats: 'HP:330 DMG:20 RNG:130 SPD:1.3 Пулеметы x2', cost: VEHICLE_COSTS.scorpion },
+    nemesis: { name: '90T-v Nemesis', icon: '🔥', stats: 'HP:365 DMG:70 RNG:175 SPD:1.7 68мм+гранатомет', cost: VEHICLE_COSTS.nemesis },
+    falchion: { name: 'Falchion', icon: '⚔️', stats: 'HP:480 DMG:60 RNG:170 SPD:1.0', cost: VEHICLE_COSTS.falchion },
+    hoplite: { name: 'Hoplite APC', icon: '🛡️', stats: 'HP:200 DMG:5 RNG:140 SPD:1.6 БТР', cost: VEHICLE_COSTS.hoplite },
+    colonial_artillery: { name: 'Colonial Artillery', icon: '🎯', stats: 'HP:110 DMG:75 RNG:120-400 AoE:70 SPD:0.6', cost: VEHICLE_COSTS.colonial_artillery },
+    
+    // Logistics
     truck: { name: 'Грузовик', icon: '🚚', stats: 'HP:120 SPD:1.8 Пополняет БК', cost: VEHICLE_COSTS.truck },
     fuel_truck: { name: 'Бензовоз', icon: '⛽', stats: 'HP:140 SPD:1.6 Пополняет топливо', cost: VEHICLE_COSTS.fuel_truck },
     engineer: { name: 'Инженер', icon: '🔧', stats: 'HP:160 SPD:1.2 Ремонтирует технику', cost: VEHICLE_COSTS.engineer },
-    flatbed: { name: 'Flatbed', icon: '🚛', stats: 'HP:150 SPD:1.5 Перевозит снаряды для артиллерии', cost: VEHICLE_COSTS.flatbed },
+    flatbed: { name: 'Flatbed', icon: '🚛', stats: 'HP:150 SPD:1.5 Перевозит снаряды', cost: VEHICLE_COSTS.flatbed },
 };
 
 // Defense upgrade info
