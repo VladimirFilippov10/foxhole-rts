@@ -229,6 +229,16 @@ export class Truck extends Vehicle {
         }
         return 0;
     }
+    
+    // Пополнение груза на базе
+    replenishAtBase() {
+        if (this.currentCargo < this.cargoCapacity) {
+            this.currentCargo = Math.min(
+                this.cargoCapacity,
+                this.currentCargo + SUPPLY_SYSTEM.logisticsReplenishRate
+            );
+        }
+    }
 }
 
 export class FuelTruck extends Vehicle {
@@ -261,6 +271,16 @@ export class FuelTruck extends Vehicle {
         }
         return 0;
     }
+    
+    // Пополнение топлива на базе
+    replenishAtBase() {
+        if (this.currentCargo < this.cargoCapacity) {
+            this.currentCargo = Math.min(
+                this.cargoCapacity,
+                this.currentCargo + SUPPLY_SYSTEM.logisticsReplenishRate
+            );
+        }
+    }
 }
 
 export class Engineer extends Vehicle {
@@ -275,19 +295,77 @@ export class Engineer extends Vehicle {
         this.armor = 3;
         this.label = 'Инженерная машина';
         this.repairRange = 80; // Радиус ремонта
+        this.cargoType = 'repair';
+        this.cargoCapacity = SUPPLY_SYSTEM.engineerCapacity;
+        this.currentCargo = SUPPLY_SYSTEM.engineerCapacity;
     }
     
     // Ремонт другой техники
     repairUnit(targetUnit) {
-        if (targetUnit.hp < targetUnit.maxHp) {
+        if (this.currentCargo > 0 && targetUnit.hp < targetUnit.maxHp) {
             const amount = Math.min(
                 SUPPLY_SYSTEM.engineerRepairRate,
-                targetUnit.maxHp - targetUnit.hp
+                targetUnit.maxHp - targetUnit.hp,
+                this.currentCargo
             );
             targetUnit.hp += amount;
+            this.currentCargo -= amount;
             return amount;
         }
         return 0;
+    }
+    
+    // Пополнение материалов на базе
+    replenishAtBase() {
+        if (this.currentCargo < this.cargoCapacity) {
+            this.currentCargo = Math.min(
+                this.cargoCapacity,
+                this.currentCargo + SUPPLY_SYSTEM.logisticsReplenishRate
+            );
+        }
+    }
+}
+
+// ===== FLATBED TRUCKS FOR ARTILLERY =====
+export class Flatbed extends Vehicle {
+    constructor(type, faction, x, y) {
+        super(type, faction, x, y);
+        this.hp = this.maxHp = 150;
+        this.dmg = 0;
+        this.range = 0;
+        this.spd = 1.5;
+        this.cd = 0;
+        this.size = 26;
+        this.armor = 2;
+        this.label = type === 'duna' ? 'Duna' : 'Hauler';
+        this.cargoType = 'artillery_ammo';
+        this.cargoCapacity = SUPPLY_SYSTEM.flatbedCapacity;
+        this.currentCargo = SUPPLY_SYSTEM.flatbedCapacity;
+    }
+    
+    // Пополнение БК артиллерии
+    supplyArtillery(targetUnit) {
+        if (this.currentCargo > 0 && targetUnit.ammo < targetUnit.maxAmmo) {
+            const amount = Math.min(
+                this.currentCargo,
+                targetUnit.maxAmmo - targetUnit.ammo,
+                30 // Большая скорость пополнения для артиллерии
+            );
+            targetUnit.ammo += amount;
+            this.currentCargo -= amount;
+            return amount;
+        }
+        return 0;
+    }
+    
+    // Пополнение снарядов на базе
+    replenishAtBase() {
+        if (this.currentCargo < this.cargoCapacity) {
+            this.currentCargo = Math.min(
+                this.cargoCapacity,
+                this.currentCargo + SUPPLY_SYSTEM.logisticsReplenishRate * 1.5
+            );
+        }
     }
 }
 
@@ -305,12 +383,18 @@ export function createVehicle(type, faction, x, y) {
         truck: Truck,
         fuel_truck: FuelTruck,
         engineer: Engineer,
+        duna: (f, x, y) => new Flatbed('duna', f, x, y),
+        hauler: (f, x, y) => new Flatbed('hauler', f, x, y),
     };
-    return new (map[type] || Vehicle)(faction, x, y);
+    const creator = map[type];
+    if (!creator) return new Vehicle(type, faction, x, y);
+    return typeof creator === 'function' && creator.length === 3 
+        ? creator(faction, x, y) 
+        : new creator(faction, x, y);
 }
 
 // Доступная техника по фракциям
 export const FACTION_VEHICLES = {
-    wardens: ['devitt', 'gallagher', 'niska', 'warden_artillery', 'truck', 'fuel_truck', 'engineer'],
-    colonials: ['hatchet', 'falchion', 'hoplite', 'colonial_artillery', 'truck', 'fuel_truck', 'engineer'],
+    wardens: ['devitt', 'gallagher', 'niska', 'warden_artillery', 'truck', 'fuel_truck', 'engineer', 'duna'],
+    colonials: ['hatchet', 'falchion', 'hoplite', 'colonial_artillery', 'truck', 'fuel_truck', 'engineer', 'hauler'],
 };

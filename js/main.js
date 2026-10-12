@@ -30,6 +30,8 @@ const VEHICLE_INFO = {
     truck: { name: 'Грузовик', icon: '🚚', stats: 'HP:120 SPD:1.8 Пополняет БК', cost: VEHICLE_COSTS.truck },
     fuel_truck: { name: 'Бензовоз', icon: '⛽', stats: 'HP:140 SPD:1.6 Пополняет топливо', cost: VEHICLE_COSTS.fuel_truck },
     engineer: { name: 'Инженер', icon: '🔧', stats: 'HP:160 SPD:1.2 Ремонтирует технику', cost: VEHICLE_COSTS.engineer },
+    duna: { name: 'Duna', icon: '🚛', stats: 'HP:150 SPD:1.5 Перевозит снаряды для артиллерии', cost: VEHICLE_COSTS.duna },
+    hauler: { name: 'Hauler', icon: '🚛', stats: 'HP:150 SPD:1.5 Перевозит снаряды для артиллерии', cost: VEHICLE_COSTS.hauler },
 };
 
 // Fortification info
@@ -405,9 +407,10 @@ function trainUnit(type, factory) {
     game.res.c -= cost.c;
     game.res.m -= cost.m;
     
-    const unit = createVehicle(type, game.faction, factory.x + 50, factory.y + 50);
-    game.units.push(unit);
-    notify(unit.label + ' создан!');
+    // Добавляем в очередь производства
+    const buildTime = cost.buildTime || 10; // По умолчанию 10 секунд
+    game.addToProductionQueue(type, game.faction, factory.id, buildTime);
+    notify(`${info.name} поставлен в очередь производства (${buildTime}с)`);
 }
 
 window.closeFactoryMenu = function() {

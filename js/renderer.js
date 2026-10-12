@@ -767,6 +767,28 @@ function drawUnit(ctx, u, cam, selected, hovered) {
             ctx.arc(sz * 0.3, sz * 0.25, sz * 0.1, 0, Math.PI * 2);
             ctx.fill();
         }
+        
+        // Flatbed truck (Duna/Hauler)
+        if (u.type === 'duna' || u.type === 'hauler') {
+            // Кабина
+            ctx.fillStyle = col.s;
+            ctx.fillRect(-sz * 0.4, -sz * 0.25, sz * 0.35, sz * 0.5);
+            // Платформа
+            ctx.fillStyle = '#4a4a4a';
+            ctx.fillRect(-sz * 0.05, -sz * 0.3, sz * 0.45, sz * 0.6);
+            // Снаряды на платформе
+            ctx.fillStyle = '#fbbf24';
+            for (let i = 0; i < 3; i++) {
+                ctx.fillRect(sz * 0.05 + i * sz * 0.12, -sz * 0.15, sz * 0.08, sz * 0.3);
+            }
+            // Колёса
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(-sz * 0.3, sz * 0.25, sz * 0.1, 0, Math.PI * 2);
+            ctx.arc(sz * 0.1, sz * 0.3, sz * 0.1, 0, Math.PI * 2);
+            ctx.arc(sz * 0.3, sz * 0.3, sz * 0.1, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
     
     ctx.restore();

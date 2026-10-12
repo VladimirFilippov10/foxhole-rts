@@ -38,19 +38,22 @@ export const GAME_MODES = {
 };
 
 export const VEHICLE_COSTS = {
-    infantry: { s: 10, c: 0, m: 0 },
-    devitt: { s: 35, c: 25, m: 15 },
-    gallagher: { s: 60, c: 45, m: 35 },
-    niska: { s: 40, c: 30, m: 20 },
-    hatchet: { s: 30, c: 20, m: 10 },
-    falchion: { s: 55, c: 40, m: 30 },
-    hoplite: { s: 35, c: 25, m: 15 },
-    warden_artillery: { s: 55, c: 40, m: 30 },
-    colonial_artillery: { s: 45, c: 30, m: 20 },
+    infantry: { s: 10, c: 0, m: 0, buildTime: 5 },
+    devitt: { s: 35, c: 25, m: 15, buildTime: 15 },
+    gallagher: { s: 60, c: 45, m: 35, buildTime: 25 },
+    niska: { s: 40, c: 30, m: 20, buildTime: 18 },
+    hatchet: { s: 30, c: 20, m: 10, buildTime: 12 },
+    falchion: { s: 55, c: 40, m: 30, buildTime: 22 },
+    hoplite: { s: 35, c: 25, m: 15, buildTime: 16 },
+    warden_artillery: { s: 55, c: 40, m: 30, buildTime: 30 },
+    colonial_artillery: { s: 45, c: 30, m: 20, buildTime: 28 },
     // Логистика
-    truck: { s: 25, c: 15, m: 10 }, // Грузовик - перевозит БК
-    fuel_truck: { s: 30, c: 20, m: 15 }, // Бензовоз - перевозит топливо
-    engineer: { s: 40, c: 30, m: 25 }, // Инженерная машина - ремонтирует
+    truck: { s: 25, c: 15, m: 10, buildTime: 10 }, // Грузовик - перевозит БК
+    fuel_truck: { s: 30, c: 20, m: 15, buildTime: 12 }, // Бензовоз - перевозит топливо
+    engineer: { s: 40, c: 30, m: 25, buildTime: 20 }, // Инженерная машина - ремонтирует
+    // Flatbed для артиллерии
+    duna: { s: 35, c: 25, m: 20, buildTime: 15 }, // Wardens flatbed
+    hauler: { s: 35, c: 25, m: 20, buildTime: 15 }, // Colonials flatbed
 };
 
 export const BUILDING_COSTS = {
@@ -74,9 +77,13 @@ export const SUPPLY_SYSTEM = {
     fuelConsumption: 0.1, // Расход топлива за движение
     ammoRegenRate: 0.05, // Скорость восстановления БК в базе
     fuelRegenRate: 0.08, // Скорость восстановления топлива в базе
-    truckCapacity: 50, // Вместимость грузовика
-    fuelTruckCapacity: 60, // Вместимость бензовоза
+    truckCapacity: 50, // Вместимость грузовика (ограниченный запас БК)
+    fuelTruckCapacity: 60, // Вместимость бензовоза (ограниченный запас топлива)
     engineerRepairRate: 0.2, // Скорость ремонта инженерной машиной
+    engineerCapacity: 80, // Вместимость инженерной машины (ограниченный запас материалов)
+    flatbedCapacity: 100, // Вместимость flatbed для артиллерии
+    artilleryAmmoConsumption: 5, // Расход БК артиллерией за выстрел
+    logisticsReplenishRate: 0.5, // Скорость пополнения логистики на базе
 };
 
 export function gridToPos(col, row) {

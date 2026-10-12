@@ -1,6 +1,7 @@
 // ===== GAME LOGIC =====
 import { dist, distToSeg, GAME_MODES } from './constants.js';
 import { AI } from './ai.js';
+import { createVehicle } from './vehicles.js';
 
 export class Game {
     constructor(faction, gameMode = 'normal') {
@@ -21,6 +22,9 @@ export class Game {
         this.mousePos = { x: 0, y: 0 };
         
         this.aiController = null;
+        
+        // Система производства
+        this.productionQueue = []; // Очередь производства [{type, faction, buildingId, startTime, buildTime}]
     }
 
     init(cps, mines, buildings, units) {
@@ -64,6 +68,9 @@ export class Game {
         this.res.c += pts * 0.015 * modeMultiplier;
         this.res.m += pts * 0.01 * modeMultiplier;
 
+        // Update production queue
+        this.updateProduction();
+        
         // Update units
         this.updateUnits();
         
@@ -107,12 +114,19 @@ export class Game {
                 b.type === 'town_hall' && 
                 dist(u.x, u.y, b.x, b.y) < 100
             );
-            if (isInBase && u.regenerateAtBase) {
-                u.regenerateAtBase();
+            if (isInBase) {
+                if (u.regenerateAtBase) {
+                    u.regenerateAtBase();
+                }
+                // Пополнение логистики на базе
+                if (u.replenishAtBase) {
+                    u.replenishAtBase();
+                }
             }
             
-            // Логистика: грузовики, бензовозы, инженеры
-            if (u.type === 'truck' || u.type === 'fuel_truck' || u.type === 'engineer') {
+            // Логистика: грузовики, бензовозы, инженеры, flatbed
+            if (u.type === 'truck' || u.type === 'fuel_truck' || u.type === 'engineer' || 
+                u.type === 'duna' || u.type === 'hauler') {
                 this.handleLogistics(u);
             }
             
@@ -333,6 +347,26 @@ export class Game {
                 unit.repairUnit(nearestAlly);
             }
         }
+        
+        // Flatbed пополняет БК артиллерии
+        if ((unit.type === 'duna' || unit.type === 'hauler') && unit.supplyArtillery) {
+            // Ищем ближайшую артиллерию
+            let nearestArtillery = null;
+            let artilleryDist = Infinity;
+            this.units.forEach(u => {
+                if (u.faction === unit.faction && u.hp > 0 && 
+                    (u.type === 'warden_artillery' || u.type === 'colonial_artillery')) {
+                    const d = dist(unit.x, unit.y, u.x, u.y);
+                    if (d < artilleryDist && d < 60) {
+                        artilleryDist = d;
+                        nearestArtillery = u;
+                    }
+                }
+            });
+            if (nearestArtillery) {
+                unit.supplyArtillery(nearestArtillery);
+            }
+        }
     }
     
     // Система укреплений
@@ -398,6 +432,53 @@ export class Game {
         fortification.range += 20;
         
         return true;
+    }
+    
+    // Система производства
+    updateProduction() {
+        const completed = [];
+        
+        this.productionQueue.forEach((item, index) => {
+            const elapsed = this.time - item.startTime;
+            const buildTimeTicks = item.buildTime * 60; // Конвертируем секунды в тики
+            
+            if (elapsed >= buildTimeTicks) {
+                // Производство завершено
+                const building = this.buildings.find(b => b.id === item.buildingId);
+                if (building) {
+                    const unit = this.createUnitFromQueue(item.type, item.faction, building);
+                    if (unit) {
+                        this.units.push(unit);
+                        completed.push(index);
+                    }
+                }
+            }
+        });
+        
+        // Удаляем завершённые производства (в обратном порядке)
+        completed.reverse().forEach(index => {
+            this.productionQueue.splice(index, 1);
+        });
+    }
+    
+    createUnitFromQueue(type, faction, building) {
+        const spawnX = building.x + 50;
+        const spawnY = building.y + 50;
+        return createVehicle(type, faction, spawnX, spawnY);
+    }
+    
+    addToProductionQueue(type, faction, buildingId, buildTime) {
+        this.productionQueue.push({
+            type,
+            faction,
+            buildingId,
+            startTime: this.time,
+            buildTime,
+        });
+    }
+    
+    getProductionProgress(buildingId) {
+        return this.productionQueue.filter(item => item.buildingId === buildingId);
     }
 
     checkWinCondition() {
