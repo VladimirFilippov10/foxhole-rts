@@ -131,10 +131,10 @@ function startGame() {
         const mines = getResourcePointsInWorld();
         
         // Find player and AI bases
-        // Wardens: Callahan Gate (index 0 - The Spine)
-        // Colonials: The Salt March (index 9)
-        const playerBaseIdx = selectedFaction === 'wardens' ? 0 : 9;
-        const aiBaseIdx = selectedFaction === 'wardens' ? 9 : 0;
+        // Wardens: Callahan Gate (index 0)
+        // Colonials: The Salt March (index 13)
+        const playerBaseIdx = selectedFaction === 'wardens' ? 0 : 13;
+        const aiBaseIdx = selectedFaction === 'wardens' ? 13 : 0;
         
         // Set ownership
         cps[playerBaseIdx].owner = selectedFaction;

@@ -473,19 +473,29 @@ export class Game {
         };
         
         const cost = FORTIFICATION_COSTS[type];
-        if (!cost) return null;
-        
-        // Проверка ресурсов
-        if (this.res.s < cost.s || this.res.c < cost.c || this.res.m < cost.m) {
+        if (!cost) {
+            console.error('❌ Неизвестный тип укрепления:', type);
             return null;
         }
         
-        // Проверка что строительство происходит в захваченной зоне
+        // Проверка ресурсов
+        if (this.res.s < cost.s || this.res.c < cost.c || this.res.m < cost.m) {
+            console.log('⚠️ Недостаточно ресурсов для строительства');
+            return null;
+        }
+        
+        // Проверка что строительство происходит в захваченной зоне (увеличен радиус)
         const inCapturedZone = this.cps.some(cp => {
-            return cp.owner === faction && dist(x, y, cp.x, cp.y) <= cp.radius + 80;
+            const distance = dist(x, y, cp.x, cp.y);
+            const canBuild = cp.owner === faction && distance <= cp.radius + 150;
+            if (canBuild) {
+                console.log(`✅ Можно строить в зоне ${cp.name} (расстояние: ${Math.floor(distance)})`);
+            }
+            return canBuild;
         });
         
         if (!inCapturedZone) {
+            console.log('⚠️ Нельзя строить здесь - не в захваченной зоне');
             return null;
         }
         
@@ -513,6 +523,7 @@ export class Game {
         };
         
         this.buildings.push(construction);
+        console.log(`🏗️ Бункер ${type} добавлен в очередь строительства. Всего зданий: ${this.buildings.length}`);
         return construction;
     }
     
