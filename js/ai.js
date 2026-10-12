@@ -1,5 +1,5 @@
 // ===== AI SYSTEM - STRATEGIC BEHAVIOR =====
-import { dist } from './constants.js';
+import { dist, VEHICLE_COSTS } from './constants.js';
 import { createVehicle } from './vehicles.js';
 
 export class AI {
@@ -10,28 +10,41 @@ export class AI {
         this.defenseMode = true; // Начинаем в оборонительном режиме
         this.lastAttackTime = 0;
         this.accumulatedForces = 0; // Счётчик накопленных сил
-        this.attackThreshold = 8; // Порог для начала атаки
+        this.attackThreshold = 12; // Увеличен порог для начала атаки
         this.artilleryPositions = []; // Позиции для артиллерии
+        
+        // Система ресурсов ИИ (медленнее чем у игрока)
+        this.aiResources = {
+            s: 150, // Начальные ресурсы
+            c: 75,
+            m: 60,
+        };
+        this.aiResourceRate = 0.6; // Множитель скорости фарма (60% от игрока)
     }
 
     update() {
         this.timer++;
-        this.difficulty = Math.min(3, 1 + Math.floor(this.timer / 3000)); // Медленнее растёт
+        this.difficulty = Math.min(3, 1 + Math.floor(this.timer / 4000)); // Ещё медленнее растёт
+        
+        // Генерация ресурсов ИИ (медленнее чем у игрока)
+        this.updateAIResources();
 
         // Проверка лимитов перед производством
         if (!this.G.canProduceUnit('infantry', this.G.ai)) {
             return; // Пропускаем производство если достигнут лимит
         }
 
-        // Спавн пехоты каждые 400 тиков
-        if (this.timer % 400 === 0) {
-            this.spawnInfantrySquad();
-            this.accumulatedForces++;
+        // Спавн пехоты каждые 600 тиков (было 400)
+        if (this.timer % 600 === 0) {
+            if (this.canAffordInfantry()) {
+                this.spawnInfantrySquad();
+                this.accumulatedForces++;
+            }
         }
 
-        // Спавн техники каждые 700 тиков
-        if (this.timer % 700 === 0) {
-            if (this.G.canProduceUnit('vehicle', this.G.ai)) {
+        // Спавн техники каждые 1000 тиков (было 700)
+        if (this.timer % 1000 === 0) {
+            if (this.G.canProduceUnit('vehicle', this.G.ai) && this.canAffordVehicle()) {
                 this.spawnVehicle();
                 this.accumulatedForces += 2; // Техника ценнее
             }
@@ -43,6 +56,37 @@ export class AI {
         // Управление артиллерией
         this.manageArtillery();
     }
+    
+    updateAIResources() {
+        // ИИ получает ресурсы медленнее чем игрок
+        const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai).length;
+        const modeMultiplier = this.G.gameMode === 'realism' ? 0.3 : this.G.gameMode === 'fast' ? 2.5 : 1.0;
+        
+        this.aiResources.s += aiPoints * 0.03 * this.aiResourceRate * modeMultiplier;
+        this.aiResources.c += aiPoints * 0.015 * this.aiResourceRate * modeMultiplier;
+        this.aiResources.m += aiPoints * 0.01 * this.aiResourceRate * modeMultiplier;
+    }
+    
+    canAffordInfantry() {
+        const cost = VEHICLE_COSTS.infantry;
+        return this.aiResources.s >= cost.s && 
+               this.aiResources.c >= cost.c && 
+               this.aiResources.m >= cost.m;
+    }
+    
+    canAffordVehicle() {
+        // Проверяем можем ли позволить себе хотя бы самый дешёвый танк
+        const cheapestVehicle = this.G.ai === 'wardens' ? VEHICLE_COSTS.devitt : VEHICLE_COSTS.hatchet;
+        return this.aiResources.s >= cheapestVehicle.s && 
+               this.aiResources.c >= cheapestVehicle.c && 
+               this.aiResources.m >= cheapestVehicle.m;
+    }
+    
+    spendResources(cost) {
+        this.aiResources.s -= cost.s;
+        this.aiResources.c -= cost.c;
+        this.aiResources.m -= cost.m;
+    }
 
     spawnInfantrySquad() {
         const barracks = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'barracks');
@@ -50,6 +94,17 @@ export class AI {
 
         // Меньше пехоты за раз
         const squadSize = 2 + Math.floor(this.difficulty / 2);
+        
+        // Проверяем хватает ли ресурсов на всю группу
+        const cost = VEHICLE_COSTS.infantry;
+        const totalCost = { s: cost.s * squadSize, c: cost.c * squadSize, m: cost.m * squadSize };
+        
+        if (this.aiResources.s < totalCost.s || this.aiResources.c < totalCost.c || this.aiResources.m < totalCost.m) {
+            return; // Не хватает ресурсов
+        }
+        
+        // Тратим ресурсы
+        this.spendResources(totalCost);
         
         for (let i = 0; i < squadSize; i++) {
             const unit = createVehicle('infantry', this.G.ai, 
@@ -84,19 +139,35 @@ export class AI {
             else types.push('falchion');
         }
         
-        // Добавляем артиллерию для дальнего обстрела
-        if (this.difficulty >= 2 && Math.random() < 0.3) {
+        // Добавляем артиллерию для дальнего обстрела (реже - 20% шанс)
+        if (this.difficulty >= 2 && Math.random() < 0.2) {
             const artilleryType = this.G.ai === 'wardens' ? 'warden_artillery' : 'colonial_artillery';
-            const unit = createVehicle(artilleryType, this.G.ai, factory.x + 60, factory.y + 60);
-            this.G.units.push(unit);
-            this.accumulatedForces += 3; // Артиллерия очень ценна
+            const cost = VEHICLE_COSTS[artilleryType];
             
-            // Артиллерия остаётся в оборонительной позиции
-            this.assignArtilleryPosition(unit);
-            return;
+            if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
+                this.spendResources(cost);
+                const unit = createVehicle(artilleryType, this.G.ai, factory.x + 60, factory.y + 60);
+                this.G.units.push(unit);
+                this.accumulatedForces += 3; // Артиллерия очень ценна
+                
+                // Артиллерия остаётся в оборонительной позиции
+                this.assignArtilleryPosition(unit);
+                return;
+            }
         }
         
+        // Выбираем случайный тип техники
         const type = types[Math.floor(Math.random() * types.length)];
+        const cost = VEHICLE_COSTS[type];
+        
+        // Проверяем хватает ли ресурсов
+        if (this.aiResources.s < cost.s || this.aiResources.c < cost.c || this.aiResources.m < cost.m) {
+            return; // Не хватает ресурсов
+        }
+        
+        // Тратим ресурсы
+        this.spendResources(cost);
+        
         const unit = createVehicle(type, this.G.ai, factory.x + 60, factory.y + 60);
         this.G.units.push(unit);
 
@@ -139,8 +210,8 @@ export class AI {
     }
 
     strategicBehavior() {
-        // Переключение между режимами каждые 2000 тиков
-        if (this.timer % 2000 === 0) {
+        // Переключение между режимами каждые 3000 тиков (было 2000)
+        if (this.timer % 3000 === 0) {
             this.defenseMode = !this.defenseMode;
         }
 
@@ -153,16 +224,16 @@ export class AI {
             this.defenseMode = true;
         }
         
-        // Стратегия накопления сил и атаки
-        if (this.accumulatedForces >= this.attackThreshold && this.timer - this.lastAttackTime > 4000) {
+        // Стратегия накопления сил и атаки (более консервативная)
+        if (this.accumulatedForces >= this.attackThreshold && this.timer - this.lastAttackTime > 6000) {
             this.defenseMode = false;
             this.lastAttackTime = this.timer;
             this.accumulatedForces = 0; // Сбрасываем счётчик после атаки
             this.launchAttack();
         }
         
-        // Если у нас больше точек и прошло достаточно времени - атакуем
-        if (aiPoints > playerPoints + 2 && this.timer - this.lastAttackTime > 3000) {
+        // Если у нас больше точек и прошло достаточно времени - атакуем (реже)
+        if (aiPoints > playerPoints + 3 && this.timer - this.lastAttackTime > 5000) {
             this.defenseMode = false;
             this.lastAttackTime = this.timer;
         }
