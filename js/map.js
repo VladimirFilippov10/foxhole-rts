@@ -2,8 +2,6 @@
 import { gridToPos } from './constants.js';
 
 // Grid: A-L (cols 0-11), rows 1-15 (0-14)
-// Увеличенные размеры для более медленной игры
-export const GRID_SCALE = 1.5; // Масштабирование карты
 export const LOCATIONS = [
     // Northern part (rows 1-4)
     { name: "Callahan's Pass", col: 11, row: 0, type: 'label' },
@@ -76,6 +74,21 @@ export const CAPTURE_POINTS = [
     { name: 'Eastern Outpost', col: 10, row: 6, radius: 105, owner: 'neutral', defenseLevel: 0 },
     { name: 'The Salt March', col: 7, row: 11, radius: 150, owner: 'colonials', defenseLevel: 0 },
 ];
+
+// Функция для получения точек захвата с гарантированной инициализацией defenseLevel
+export function getCapturePointsInWorld() {
+    return CAPTURE_POINTS.map((cp, i) => ({
+        id: 'cp' + i,
+        name: cp.name,
+        x: cp.col * 250 + 125,
+        y: cp.row * 150 + 75,
+        radius: cp.radius,
+        owner: cp.owner,
+        progress: cp.owner === 'neutral' ? 0 : 100,
+        capturing: null,
+        defenseLevel: cp.defenseLevel || 0, // Гарантируем инициализацию
+    }));
+}
 
 // Resource mines - expanded to 10 mines
 export const RESOURCE_POINTS = [
@@ -183,20 +196,20 @@ export const ROADS = [
 
 // City zones with detailed buildings - expanded for new cities
 export const CITY_ZONES = [
-    { col: 1, row: 2, radius: 120, buildings: 15, type: 'military' },
-    { col: 9, row: 1, radius: 80, buildings: 10, type: 'cache' },
-    { col: 4, row: 4, radius: 80, buildings: 10, type: 'plaza' },
-    { col: 9, row: 4, radius: 80, buildings: 10, type: 'belt' },
-    { col: 1, row: 5, radius: 70, buildings: 8, type: 'settlement' },
-    { col: 6, row: 2, radius: 70, buildings: 8, type: 'mining' },
-    { col: 3, row: 7, radius: 70, buildings: 8, type: 'border' },
-    { col: 1, row: 8, radius: 70, buildings: 8, type: 'settlement' },
-    { col: 6, row: 8, radius: 70, buildings: 8, type: 'causeway' },
-    { col: 4, row: 10, radius: 70, buildings: 8, type: 'crossroads' },
-    { col: 5, row: 11, radius: 70, buildings: 8, type: 'farms' },
-    { col: 9, row: 9, radius: 70, buildings: 8, type: 'settlement' },
-    { col: 10, row: 6, radius: 70, buildings: 8, type: 'outpost' },
-    { col: 7, row: 11, radius: 120, buildings: 15, type: 'salt_march' },
+    { col: 1, row: 2, radius: 180, buildings: 25, type: 'military' },
+    { col: 9, row: 1, radius: 140, buildings: 18, type: 'cache' },
+    { col: 4, row: 4, radius: 140, buildings: 18, type: 'plaza' },
+    { col: 9, row: 4, radius: 140, buildings: 18, type: 'belt' },
+    { col: 1, row: 5, radius: 120, buildings: 15, type: 'settlement' },
+    { col: 6, row: 2, radius: 120, buildings: 15, type: 'mining' },
+    { col: 3, row: 7, radius: 120, buildings: 15, type: 'border' },
+    { col: 1, row: 8, radius: 120, buildings: 15, type: 'settlement' },
+    { col: 6, row: 8, radius: 120, buildings: 15, type: 'causeway' },
+    { col: 4, row: 10, radius: 120, buildings: 15, type: 'crossroads' },
+    { col: 5, row: 11, radius: 120, buildings: 15, type: 'farms' },
+    { col: 9, row: 9, radius: 120, buildings: 15, type: 'settlement' },
+    { col: 10, row: 6, radius: 120, buildings: 15, type: 'outpost' },
+    { col: 7, row: 11, radius: 180, buildings: 25, type: 'salt_march' },
 ];
 
 // Trees (more variety)
@@ -239,19 +252,6 @@ export function getLocationsInWorld() {
         ...loc,
         x: loc.col * 250 + 125,
         y: loc.row * 150 + 75,
-    }));
-}
-
-export function getCapturePointsInWorld() {
-    return CAPTURE_POINTS.map((cp, i) => ({
-        id: 'cp' + i,
-        name: cp.name,
-        x: cp.col * 250 + 125,
-        y: cp.row * 150 + 75,
-        radius: cp.radius,
-        owner: cp.owner,
-        progress: cp.owner === 'neutral' ? 0 : 100,
-        capturing: null,
     }));
 }
 

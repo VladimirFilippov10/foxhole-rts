@@ -383,80 +383,406 @@ function drawDetailedBuilding(ctx, x, y, type, index) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.fillRect(x - 7, y - 7, 16, 16);
     
+    // More variety in buildings based on type and index
+    const buildingVariation = index % 5; // 5 different variations
+    
     // Different building types
     if (type === 'military' || type === 'cache') {
         // Military buildings - darker, fortified
-        ctx.fillStyle = '#4a4a4a';
-        ctx.fillRect(x - 9, y - 9, 18, 18);
-        ctx.strokeStyle = '#3a3a3a';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x - 9, y - 9, 18, 18);
-        
-        // Roof
-        ctx.fillStyle = '#5a5a5a';
-        ctx.fillRect(x - 10, y - 10, 20, 4);
-        
-        // Windows
-        ctx.fillStyle = '#fbbf24';
-        ctx.fillRect(x - 4, y - 2, 3, 3);
-        ctx.fillRect(x + 2, y - 2, 3, 3);
+        if (buildingVariation === 0) {
+            // Bunker style
+            ctx.fillStyle = '#3a3a3a';
+            ctx.fillRect(x - 10, y - 8, 20, 16);
+            ctx.strokeStyle = '#2a2a2a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 10, y - 8, 20, 16);
+            // Slits
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(x - 6, y - 2, 2, 4);
+            ctx.fillRect(x + 4, y - 2, 2, 4);
+        } else if (buildingVariation === 1) {
+            // Watchtower
+            ctx.fillStyle = '#4a4a4a';
+            ctx.fillRect(x - 6, y - 12, 12, 24);
+            ctx.strokeStyle = '#3a3a3a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 6, y - 12, 12, 24);
+            // Top platform
+            ctx.fillStyle = '#5a5a5a';
+            ctx.fillRect(x - 8, y - 14, 16, 3);
+            // Window
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(x - 2, y - 6, 4, 3);
+        } else if (buildingVariation === 2) {
+            // Armory
+            ctx.fillStyle = '#4a4a4a';
+            ctx.fillRect(x - 12, y - 10, 24, 20);
+            ctx.strokeStyle = '#3a3a3a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 12, y - 10, 24, 20);
+            // Reinforced door
+            ctx.fillStyle = '#2a2a2a';
+            ctx.fillRect(x - 3, y, 6, 10);
+            ctx.strokeStyle = '#1a1a1a';
+            ctx.strokeRect(x - 3, y, 6, 10);
+        } else if (buildingVariation === 3) {
+            // Barracks
+            ctx.fillStyle = '#4a4a4a';
+            ctx.fillRect(x - 14, y - 8, 28, 16);
+            ctx.strokeStyle = '#3a3a3a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 14, y - 8, 28, 16);
+            // Multiple windows
+            ctx.fillStyle = '#fbbf24';
+            for (let i = -10; i <= 10; i += 6) {
+                ctx.fillRect(x + i, y - 4, 3, 3);
+            }
+        } else {
+            // Command center
+            ctx.fillStyle = '#3a3a3a';
+            ctx.fillRect(x - 11, y - 11, 22, 22);
+            ctx.strokeStyle = '#2a2a2a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 11, y - 11, 22, 22);
+            // Antenna
+            ctx.strokeStyle = '#5a5a5a';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x, y - 11);
+            ctx.lineTo(x, y - 18);
+            ctx.stroke();
+            // Red light
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(x, y - 18, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
     } else if (type === 'settlement' || type === 'farms') {
         // Residential buildings - warmer colors
-        ctx.fillStyle = '#6a5a4a';
-        ctx.fillRect(x - 8, y - 8, 16, 16);
-        ctx.strokeStyle = '#5a4a3a';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(x - 8, y - 8, 16, 16);
-        
-        // Roof
-        ctx.fillStyle = '#7a6a5a';
-        ctx.fillRect(x - 9, y - 9, 18, 3);
-        
-        // Windows
-        ctx.fillStyle = '#fbbf24';
-        ctx.fillRect(x - 3, y - 2, 3, 3);
-        ctx.fillRect(x + 1, y - 2, 3, 3);
-        
-        // Door
-        ctx.fillStyle = '#4a3a2a';
-        ctx.fillRect(x - 2, y + 3, 4, 5);
+        if (buildingVariation === 0) {
+            // Small house
+            ctx.fillStyle = '#8b7355';
+            ctx.fillRect(x - 8, y - 8, 16, 16);
+            ctx.strokeStyle = '#6b5335';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x - 8, y - 8, 16, 16);
+            // Pitched roof
+            ctx.fillStyle = '#a0522d';
+            ctx.beginPath();
+            ctx.moveTo(x - 10, y - 8);
+            ctx.lineTo(x, y - 14);
+            ctx.lineTo(x + 10, y - 8);
+            ctx.closePath();
+            ctx.fill();
+            // Window and door
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(x - 4, y - 4, 3, 3);
+            ctx.fillStyle = '#4a3a2a';
+            ctx.fillRect(x + 1, y + 2, 4, 6);
+        } else if (buildingVariation === 1) {
+            // Two-story house
+            ctx.fillStyle = '#9b8365';
+            ctx.fillRect(x - 9, y - 12, 18, 24);
+            ctx.strokeStyle = '#7b6345';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x - 9, y - 12, 18, 24);
+            // Floor divider
+            ctx.strokeStyle = '#6b5335';
+            ctx.beginPath();
+            ctx.moveTo(x - 9, y);
+            ctx.lineTo(x + 9, y);
+            ctx.stroke();
+            // Windows
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(x - 5, y - 8, 3, 3);
+            ctx.fillRect(x + 2, y - 8, 3, 3);
+            ctx.fillRect(x - 5, y + 4, 3, 3);
+            ctx.fillRect(x + 2, y + 4, 3, 3);
+        } else if (buildingVariation === 2) {
+            // Cottage
+            ctx.fillStyle = '#7a6a5a';
+            ctx.fillRect(x - 10, y - 7, 20, 14);
+            ctx.strokeStyle = '#5a4a3a';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x - 10, y - 7, 20, 14);
+            // Thatched roof
+            ctx.fillStyle = '#8b7355';
+            ctx.beginPath();
+            ctx.moveTo(x - 12, y - 7);
+            ctx.lineTo(x, y - 13);
+            ctx.lineTo(x + 12, y - 7);
+            ctx.closePath();
+            ctx.fill();
+            // Chimney
+            ctx.fillStyle = '#5a4a3a';
+            ctx.fillRect(x + 5, y - 15, 3, 5);
+            // Door
+            ctx.fillStyle = '#4a3a2a';
+            ctx.fillRect(x - 2, y + 1, 4, 6);
+        } else if (buildingVariation === 3) {
+            // Barn
+            ctx.fillStyle = '#8b4513';
+            ctx.fillRect(x - 12, y - 10, 24, 20);
+            ctx.strokeStyle = '#6b3513';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x - 12, y - 10, 24, 20);
+            // Barn door
+            ctx.fillStyle = '#5a2a0a';
+            ctx.fillRect(x - 4, y, 8, 10);
+            // Hay loft window
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(x - 2, y - 6, 4, 3);
+        } else {
+            // Shop
+            ctx.fillStyle = '#9b8365';
+            ctx.fillRect(x - 10, y - 9, 20, 18);
+            ctx.strokeStyle = '#7b6345';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x - 10, y - 9, 20, 18);
+            // Awning
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(x - 11, y - 2, 22, 3);
+            // Display window
+            ctx.fillStyle = '#87ceeb';
+            ctx.fillRect(x - 7, y + 2, 14, 6);
+            ctx.strokeStyle = '#5a4a3a';
+            ctx.strokeRect(x - 7, y + 2, 14, 6);
+        }
     } else if (type === 'plaza') {
         // Plaza buildings - elegant
-        ctx.fillStyle = '#7a6a5a';
-        ctx.fillRect(x - 10, y - 10, 20, 20);
-        ctx.strokeStyle = '#6a5a4a';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x - 10, y - 10, 20, 20);
-        
-        // Roof
-        ctx.fillStyle = '#8a7a6a';
-        ctx.fillRect(x - 11, y - 11, 22, 4);
-        
-        // Windows (more)
-        ctx.fillStyle = '#fbbf24';
-        ctx.fillRect(x - 5, y - 3, 3, 3);
-        ctx.fillRect(x - 1, y - 3, 3, 3);
-        ctx.fillRect(x + 3, y - 3, 3, 3);
+        if (buildingVariation === 0) {
+            // Town hall
+            ctx.fillStyle = '#a08968';
+            ctx.fillRect(x - 12, y - 12, 24, 24);
+            ctx.strokeStyle = '#806948';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 12, y - 12, 24, 24);
+            // Columns
+            ctx.fillStyle = '#c0a988';
+            ctx.fillRect(x - 10, y - 8, 2, 16);
+            ctx.fillRect(x + 8, y - 8, 2, 16);
+            // Pediment
+            ctx.fillStyle = '#b09978';
+            ctx.beginPath();
+            ctx.moveTo(x - 13, y - 12);
+            ctx.lineTo(x, y - 18);
+            ctx.lineTo(x + 13, y - 12);
+            ctx.closePath();
+            ctx.fill();
+        } else if (buildingVariation === 1) {
+            // Church/Temple
+            ctx.fillStyle = '#9b8365';
+            ctx.fillRect(x - 10, y - 10, 20, 20);
+            ctx.strokeStyle = '#7b6345';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 10, y - 10, 20, 20);
+            // Steeple
+            ctx.fillStyle = '#8b7355';
+            ctx.beginPath();
+            ctx.moveTo(x - 3, y - 10);
+            ctx.lineTo(x, y - 20);
+            ctx.lineTo(x + 3, y - 10);
+            ctx.closePath();
+            ctx.fill();
+            // Cross
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x, y - 20);
+            ctx.lineTo(x, y - 24);
+            ctx.moveTo(x - 2, y - 22);
+            ctx.lineTo(x + 2, y - 22);
+            ctx.stroke();
+        } else if (buildingVariation === 2) {
+            // Market
+            ctx.fillStyle = '#8b7355';
+            ctx.fillRect(x - 14, y - 8, 28, 16);
+            ctx.strokeStyle = '#6b5335';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x - 14, y - 8, 28, 16);
+            // Open front
+            ctx.fillStyle = '#4a3a2a';
+            ctx.fillRect(x - 12, y - 4, 24, 12);
+            // Goods
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(x - 6, y + 2, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#22c55e';
+            ctx.beginPath();
+            ctx.arc(x, y + 2, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#fbbf24';
+            ctx.beginPath();
+            ctx.arc(x + 6, y + 2, 2, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (buildingVariation === 3) {
+            // Inn/Tavern
+            ctx.fillStyle = '#7a6a5a';
+            ctx.fillRect(x - 11, y - 11, 22, 22);
+            ctx.strokeStyle = '#5a4a3a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 11, y - 11, 22, 22);
+            // Sign
+            ctx.fillStyle = '#8b4513';
+            ctx.fillRect(x - 6, y - 14, 12, 3);
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = 'bold 6px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('🍺', x, y - 11);
+            // Windows
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(x - 7, y - 6, 4, 4);
+            ctx.fillRect(x + 3, y - 6, 4, 4);
+            // Door
+            ctx.fillStyle = '#4a3a2a';
+            ctx.fillRect(x - 3, y + 3, 6, 8);
+        } else {
+            // Fountain/Statue
+            ctx.fillStyle = '#6b7280';
+            ctx.beginPath();
+            ctx.arc(x, y, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#4b5563';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            // Water
+            ctx.fillStyle = '#3b82f6';
+            ctx.beginPath();
+            ctx.arc(x, y, 7, 0, Math.PI * 2);
+            ctx.fill();
+            // Statue
+            ctx.fillStyle = '#9ca3af';
+            ctx.fillRect(x - 2, y - 8, 4, 8);
+            ctx.beginPath();
+            ctx.arc(x, y - 10, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    } else if (type === 'mining') {
+        // Mining buildings
+        if (buildingVariation === 0) {
+            // Mine entrance
+            ctx.fillStyle = '#4a4a4a';
+            ctx.beginPath();
+            ctx.arc(x, y + 5, 10, Math.PI, 0);
+            ctx.fill();
+            ctx.fillStyle = '#2a2a2a';
+            ctx.beginPath();
+            ctx.arc(x, y + 5, 7, Math.PI, 0);
+            ctx.fill();
+            // Support beams
+            ctx.strokeStyle = '#8b4513';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x - 10, y + 5);
+            ctx.lineTo(x - 10, y - 5);
+            ctx.moveTo(x + 10, y + 5);
+            ctx.lineTo(x + 10, y - 5);
+            ctx.moveTo(x - 10, y - 5);
+            ctx.lineTo(x + 10, y - 5);
+            ctx.stroke();
+        } else if (buildingVariation === 1) {
+            // Smelter
+            ctx.fillStyle = '#5a4a3a';
+            ctx.fillRect(x - 10, y - 8, 20, 16);
+            ctx.strokeStyle = '#3a2a1a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 10, y - 8, 20, 16);
+            // Chimney
+            ctx.fillStyle = '#4a3a2a';
+            ctx.fillRect(x + 5, y - 15, 4, 10);
+            // Smoke
+            ctx.fillStyle = 'rgba(100, 100, 100, 0.5)';
+            ctx.beginPath();
+            ctx.arc(x + 7, y - 18, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x + 9, y - 22, 2, 0, Math.PI * 2);
+            ctx.fill();
+            // Fire glow
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(x - 3, y, 6, 4);
+        } else {
+            // Storage building
+            ctx.fillStyle = '#6a5a4a';
+            ctx.fillRect(x - 12, y - 10, 24, 20);
+            ctx.strokeStyle = '#4a3a2a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 12, y - 10, 24, 20);
+            // Crates
+            ctx.fillStyle = '#8b7355';
+            ctx.fillRect(x - 8, y + 2, 6, 6);
+            ctx.fillRect(x, y + 2, 6, 6);
+            ctx.fillRect(x - 4, y - 4, 6, 6);
+        }
+    } else if (type === 'border' || type === 'outpost') {
+        // Border/Outpost buildings
+        if (buildingVariation === 0) {
+            // Guard tower
+            ctx.fillStyle = '#5a5a5a';
+            ctx.fillRect(x - 5, y - 15, 10, 30);
+            ctx.strokeStyle = '#3a3a3a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 5, y - 15, 10, 30);
+            // Platform
+            ctx.fillStyle = '#6a6a6a';
+            ctx.fillRect(x - 8, y - 18, 16, 3);
+            // Window
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(x - 2, y - 10, 4, 3);
+        } else {
+            // Wall segment
+            ctx.fillStyle = '#6b7280';
+            ctx.fillRect(x - 15, y - 5, 30, 10);
+            ctx.strokeStyle = '#4b5563';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 15, y - 5, 30, 10);
+            // Battlements
+            for (let i = -12; i <= 12; i += 6) {
+                ctx.fillStyle = '#5b6270';
+                ctx.fillRect(x + i, y - 8, 4, 3);
+            }
+        }
     } else {
-        // Default buildings
-        ctx.fillStyle = '#5a4a3a';
-        ctx.fillRect(x - 8, y - 8, 16, 16);
-        ctx.strokeStyle = '#4a3a2a';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(x - 8, y - 8, 16, 16);
-        
-        // Roof
-        ctx.fillStyle = '#6a5a4a';
-        ctx.fillRect(x - 9, y - 9, 18, 3);
-        
-        // Window
-        ctx.fillStyle = '#fbbf24';
-        ctx.fillRect(x - 3, y - 2, 3, 3);
-        ctx.fillRect(x + 1, y - 2, 3, 3);
-        
-        // Door
-        ctx.fillStyle = '#4a3a2a';
-        ctx.fillRect(x - 2, y + 3, 4, 5);
+        // Default buildings with variety
+        if (buildingVariation === 0) {
+            ctx.fillStyle = '#7a6a5a';
+            ctx.fillRect(x - 9, y - 9, 18, 18);
+            ctx.strokeStyle = '#5a4a3a';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x - 9, y - 9, 18, 18);
+            ctx.fillStyle = '#8a7a6a';
+            ctx.fillRect(x - 10, y - 10, 20, 3);
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(x - 4, y - 3, 3, 3);
+            ctx.fillRect(x + 2, y - 3, 3, 3);
+        } else if (buildingVariation === 1) {
+            ctx.fillStyle = '#8b7355';
+            ctx.fillRect(x - 8, y - 10, 16, 20);
+            ctx.strokeStyle = '#6b5335';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x - 8, y - 10, 16, 20);
+            ctx.fillStyle = '#a0522d';
+            ctx.beginPath();
+            ctx.moveTo(x - 9, y - 10);
+            ctx.lineTo(x, y - 15);
+            ctx.lineTo(x + 9, y - 10);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#4a3a2a';
+            ctx.fillRect(x - 2, y + 2, 4, 8);
+        } else {
+            ctx.fillStyle = '#6a5a4a';
+            ctx.fillRect(x - 10, y - 8, 20, 16);
+            ctx.strokeStyle = '#4a3a2a';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x - 10, y - 8, 20, 16);
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(x - 6, y - 4, 3, 3);
+            ctx.fillRect(x + 3, y - 4, 3, 3);
+            ctx.fillStyle = '#4a3a2a';
+            ctx.fillRect(x - 2, y + 2, 4, 6);
+        }
     }
 }
 
@@ -1146,7 +1472,7 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
 function drawMinimap(ctx, G, canvas) {
     const mw = 180, mh = 120;
     const mx = canvas.width - mw - 10, my = canvas.height - mh - 50;
-    const sx = mw / 4500, sy = mh / 3375; // Увеличенная карта
+    const sx = mw / 3000, sy = mh / 2250;
     
     ctx.fillStyle = 'rgba(0,0,0,0.85)';
     ctx.fillRect(mx - 2, my - 2, mw + 4, mh + 4);

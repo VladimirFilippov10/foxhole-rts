@@ -63,7 +63,7 @@ export class Game {
         if (this.keys?.['a'] || this.keys?.['arrowleft']) this.cam.x -= spd;
         if (this.keys?.['d'] || this.keys?.['arrowright']) this.cam.x += spd;
         
-        const mapW = 4500, mapH = 3375; // Увеличенная карта (1.5x)
+        const mapW = 3000, mapH = 2250;
         this.cam.x = Math.max(0, Math.min(mapW - window.innerWidth, this.cam.x));
         this.cam.y = Math.max(0, Math.min(mapH - window.innerHeight, this.cam.y));
 

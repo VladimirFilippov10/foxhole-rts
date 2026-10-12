@@ -316,7 +316,7 @@ function handleMouseDown(e) {
     const mw = 180, mh = 120;
     const mx = canvas.width - mw - 10, my = canvas.height - mh - 50;
     if (e.clientX >= mx && e.clientX <= mx + mw && e.clientY >= my && e.clientY <= my + mh) {
-        const mapW = 4500, mapH = 3375; // Увеличенная карта (1.5x)
+        const mapW = 3000, mapH = 2250;
         const clickX = (e.clientX - mx) / mw;
         const clickY = (e.clientY - my) / mh;
         game.cam.x = Math.max(0, Math.min(mapW - canvas.width, clickX * mapW - canvas.width / 2));
@@ -571,6 +571,11 @@ window.toggleAoEMode = function() {
 };
 
 function openDefensePanel(cp, mx, my) {
+    // Инициализируем defenseLevel если его нет
+    if (cp.defenseLevel === undefined) {
+        cp.defenseLevel = 0;
+    }
+    
     const panel = document.getElementById('defensePanel');
     panel.classList.remove('hidden');
     panel.style.left = Math.min(mx, window.innerWidth - 380) + 'px';
@@ -590,8 +595,10 @@ function openDefensePanel(cp, mx, my) {
     ];
     
     levels.innerHTML = defenseInfo.map(d => {
-        const canUpgrade = cp.defenseLevel < d.level;
-        const isCurrent = cp.defenseLevel === d.level;
+        const currentLevel = cp.defenseLevel || 0;
+        const canUpgrade = currentLevel === d.level - 1; // Можно улучшить только на следующий уровень
+        const isCurrent = currentLevel === d.level;
+        const isPast = currentLevel > d.level;
         const canAfford = game.res.s >= d.cost.s && game.res.c >= d.cost.c && game.res.m >= d.cost.m;
         
         let status = '';
@@ -599,9 +606,11 @@ function openDefensePanel(cp, mx, my) {
         
         if (isCurrent) {
             status = '<div style="color:#22c55e;font-weight:bold;margin-top:0.25rem;">✓ Текущий уровень</div>';
+        } else if (isPast) {
+            status = '<div style="color:#6b7280;font-size:0.6rem;margin-top:0.25rem;">✓ Улучшено</div>';
         } else if (!canUpgrade) {
             cardClass += ' disabled';
-            status = '<div style="color:#6b7280;font-size:0.6rem;margin-top:0.25rem;">Недоступно</div>';
+            status = '<div style="color:#6b7280;font-size:0.6rem;margin-top:0.25rem;">Сначала улучшите предыдущий уровень</div>';
         } else if (!canAfford) {
             cardClass += ' disabled';
             status = '<div style="color:#ef4444;font-size:0.6rem;margin-top:0.25rem;">Недостаточно ресурсов</div>';
