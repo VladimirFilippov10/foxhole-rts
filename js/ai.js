@@ -50,10 +50,12 @@ export class AI {
         const actualVehicleInterval = baseVehicleInterval * spawnMultiplier;
 
         // Спавн пехоты (с учётом доминирования)
+        let spawnedThisTick = false;
         if (this.timer % actualInfantryInterval === 0) {
             if (this.canAffordInfantry()) {
                 this.spawnInfantrySquad();
                 this.accumulatedForces++;
+                spawnedThisTick = true;
             }
         }
 
@@ -62,6 +64,7 @@ export class AI {
             if (this.G.canProduceUnit('vehicle', this.G.ai) && this.canAffordVehicle()) {
                 this.spawnVehicle();
                 this.accumulatedForces += 2; // Техника ценнее
+                spawnedThisTick = true;
             }
         }
 
@@ -73,6 +76,32 @@ export class AI {
         
         // Строительство укреплений (медленнее чем игрок)
         this.buildFortifications();
+        // Оборонительные действия (не зависят от лимитов производства)
+        if (!spawnedThisTick) this.defensiveReactions();
+    }
+    
+    defensiveReactions() {
+        // Если свои территории под угрозой - отправляем свободных юнитов защищать
+        const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
+        if (aiPoints.length === 0) return;
+        
+        const threatened = aiPoints.filter(cp => {
+            const enemyNear = this.G.units.some(u =>
+                u.faction === this.G.faction && u.hp > 0 &&
+                dist(u.x, u.y, cp.x, cp.y) < cp.radius + 60
+            );
+            return enemyNear;
+        });
+        if (threatened.length === 0) return;
+        
+        const target = threatened[0];
+        const idle = this.G.units.filter(u =>
+            u.faction === this.G.ai && u.hp > 0 && u.tx === undefined && !u.aoe
+        );
+        idle.slice(0, 4).forEach(u => {
+            u.tx = target.x + (Math.random() - 0.5) * 60;
+            u.ty = target.y + (Math.random() - 0.5) * 60;
+        });
     }
     
     buildFortifications() {
@@ -400,16 +429,21 @@ export class AI {
                 // Отправляем сопровождение к артиллерии
                 this.sendEscortToArtillery(art);
             }
-            // Если цель слишком близко - отступаем
+            // Если цель слишком близко - отступаем ОДИН раз и стоим (без кругов)
             else if (targetDist < (art.minRange || 100)) {
-                const retreatAngle = Math.atan2(art.y - target.cp.y, art.x - target.cp.x);
-                art.tx = art.x + Math.cos(retreatAngle) * 100;
-                art.ty = art.y + Math.sin(retreatAngle) * 100;
+                if (art.tx === undefined && !art.retreatOrder) {
+                    const retreatAngle = Math.atan2(art.y - target.cp.y, art.x - target.cp.x);
+                    art.retreatOrder = { x: art.x + Math.cos(retreatAngle) * 150, y: art.y + Math.sin(retreatAngle) * 150 };
+                    art.tx = art.retreatOrder.x;
+                    art.ty = art.retreatOrder.y;
+                }
             }
-            // Если цель далеко - двигаемся ближе
+            // Если цель далеко - двигаемся ближе (только если ещё нет приказа движения)
             else if (targetDist > art.range) {
-                art.tx = target.cp.x + (Math.random() - 0.5) * 100;
-                art.ty = target.cp.y + (Math.random() - 0.5) * 100;
+                if (art.tx === undefined) {
+                    art.tx = target.cp.x + (Math.random() - 0.5) * 100;
+                    art.ty = target.cp.y + (Math.random() - 0.5) * 100;
+                }
             }
         });
     }
