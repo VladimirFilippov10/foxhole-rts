@@ -424,9 +424,6 @@
         <button id="aoeBtn" onclick="toggleAoEMode()" style="padding:0.5rem 1rem;background:rgba(17,24,39,0.9);border:1px solid #374151;border-radius:6px;color:white;cursor:pointer;font-size:0.8rem;">
             💥 AoE FIRE
         </button>
-        <button id="buildBtn" onclick="toggleBuildMode()" style="padding:0.5rem 1rem;background:rgba(17,24,39,0.9);border:1px solid #374151;border-radius:6px;color:white;cursor:pointer;font-size:0.8rem;">
-            🏰 BUILD
-        </button>
     </div>
 
     <div id="controlsHint" class="controls-hint" style="display:none;">
@@ -439,6 +436,13 @@
         <button class="close-btn" onclick="closeFactoryMenu()">×</button>
         <h3>🏭 Производство</h3>
         <div id="unitGrid" class="unit-grid"></div>
+    </div>
+
+    <div id="defensePanel" class="factory-menu hidden" style="min-width:350px;">
+        <button class="close-btn" onclick="closeDefensePanel()">×</button>
+        <h3>🛡️ Улучшение обороны</h3>
+        <div id="defenseInfo" style="color:#d1d5db;font-size:0.85rem;margin-bottom:1rem;"></div>
+        <div id="defenseLevels"></div>
     </div>
 
     <script type="module" src="js/main.js"></script>

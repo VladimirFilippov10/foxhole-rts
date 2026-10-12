@@ -13,8 +13,7 @@ let selectedGameMode = 'normal';
 let lastClickTime = 0;
 let factoryMenuOpen = false;
 let aoeMode = false;
-let buildMode = false;
-let selectedFortificationType = null;
+let selectedCapturePoint = null;
 
 // Vehicle info for factory menu
 const VEHICLE_INFO = {
@@ -353,33 +352,15 @@ function handleMouseDown(e) {
         return;
     }
     
-    // Build mode - upgrade territory defense
-    if (buildMode) {
-        // Проверяем клик по захваченной территории
-        const clickedCP = game.cps.find(cp => {
-            const d = dist(cp.x, cp.y, worldX, worldY);
-            return d <= cp.radius && cp.owner === game.faction;
-        });
-        
-        if (clickedCP) {
-            const cpIndex = game.cps.indexOf(clickedCP);
-            const result = game.upgradeTerritoryDefense(cpIndex);
-            if (result) {
-                notify(`${clickedCP.name}: оборона улучшена до уровня ${clickedCP.defenseLevel}!`);
-                buildMode = false;
-                const btn = document.getElementById('buildBtn');
-                btn.style.borderColor = '#374151';
-                btn.style.background = 'rgba(17,24,39,0.9)';
-            } else {
-                if (clickedCP.defenseLevel >= 3) {
-                    notify('Максимальный уровень обороны достигнут!');
-                } else {
-                    notify('Недостаточно ресурсов!');
-                }
-            }
-        } else {
-            notify('Кликните по захваченной территории для улучшения обороны!');
-        }
+    // Check if clicked on a flag (capture point)
+    const clickedFlag = game.cps.find(cp => {
+        const d = dist(cp.x, cp.y, worldX, worldY);
+        return d <= cp.radius && cp.owner === game.faction;
+    });
+    
+    if (clickedFlag && !isDouble && !game.moveMode && !aoeMode) {
+        selectedCapturePoint = clickedFlag;
+        openDefensePanel(clickedFlag, e.clientX, e.clientY);
         return;
     }
     
@@ -589,72 +570,74 @@ window.toggleAoEMode = function() {
     }
 };
 
-window.toggleBuildMode = function() {
-    if (!game) return;
-    buildMode = !buildMode;
-    const btn = document.getElementById('buildBtn');
+function openDefensePanel(cp, mx, my) {
+    const panel = document.getElementById('defensePanel');
+    panel.classList.remove('hidden');
+    panel.style.left = Math.min(mx, window.innerWidth - 380) + 'px';
+    panel.style.top = Math.min(my, window.innerHeight - 400) + 'px';
     
-    if (buildMode) {
-        btn.style.borderColor = '#22c55e';
-        btn.style.background = 'rgba(34,197,94,0.15)';
-        showFortificationMenu();
-    } else {
-        btn.style.borderColor = '#374151';
-        btn.style.background = 'rgba(17,24,39,0.9)';
-        hideFortificationMenu();
-    }
-};
-
-function showFortificationMenu() {
-    // Создаём меню улучшения обороны территорий
-    let menu = document.getElementById('fortificationMenu');
-    if (!menu) {
-        menu = document.createElement('div');
-        menu.id = 'fortificationMenu';
-        menu.style.cssText = 'position:fixed;bottom:5rem;right:1rem;background:rgba(17,24,39,0.95);border:2px solid #4b5563;border-radius:12px;padding:1rem;z-index:300;min-width:320px;';
-        document.body.appendChild(menu);
-    }
+    const info = document.getElementById('defenseInfo');
+    info.innerHTML = `
+        <div style="font-weight:bold;color:#60a5fa;margin-bottom:0.5rem;">${cp.name}</div>
+        <div>Текущий уровень обороны: <strong style="color:#fbbf24;">${cp.defenseLevel}/3</strong></div>
+    `;
     
+    const levels = document.getElementById('defenseLevels');
     const defenseInfo = [
-        { level: 1, name: 'Оборона Уровень 1', icon: '🛡️', stats: 'DMG:15 RNG:120 HP:300', cost: { s: 50, c: 30, m: 40 } },
-        { level: 2, name: 'Оборона Уровень 2', icon: '🛡️🛡️', stats: 'DMG:25 RNG:150 HP:600', cost: { s: 100, c: 60, m: 80 } },
-        { level: 3, name: 'Оборона Уровень 3', icon: '🛡️🛡️🛡️', stats: 'DMG:40 RNG:180 HP:1000', cost: { s: 150, c: 90, m: 120 } },
+        { level: 1, name: 'Уровень 1', icon: '🛡️', stats: 'DMG:15 RNG:120 HP:300', cost: { s: 50, c: 30, m: 40 } },
+        { level: 2, name: 'Уровень 2', icon: '🛡️🛡️', stats: 'DMG:25 RNG:150 HP:600', cost: { s: 100, c: 60, m: 80 } },
+        { level: 3, name: 'Уровень 3', icon: '🛡️🛡️🛡️', stats: 'DMG:40 RNG:180 HP:1000 + защита от артиллерии', cost: { s: 150, c: 90, m: 120 } },
     ];
     
-    menu.innerHTML = `
-        <h3 style="font-size:1rem;margin-bottom:0.75rem;color:#22c55e;border-bottom:1px solid #374151;padding-bottom:0.5rem;">🏰 Улучшение обороны территорий</h3>
-        <p style="font-size:0.75rem;color:#9ca3af;margin-bottom:0.75rem;">Кликните по захваченной территории для улучшения</p>
-        <div style="display:grid;grid-template-columns:1fr;gap:0.5rem;">
-            ${defenseInfo.map(info => `
-                <div class="unit-card" style="cursor:default;">
-                    <div class="unit-name">${info.icon} ${info.name}</div>
-                    <div class="unit-stats">${info.stats}</div>
-                    <div class="unit-cost">S:${info.cost.s} C:${info.cost.c} M:${info.cost.m}</div>
-                </div>
-            `).join('')}
-        </div>
-    `;
-    menu.style.display = 'block';
+    levels.innerHTML = defenseInfo.map(d => {
+        const canUpgrade = cp.defenseLevel < d.level;
+        const isCurrent = cp.defenseLevel === d.level;
+        const canAfford = game.res.s >= d.cost.s && game.res.c >= d.cost.c && game.res.m >= d.cost.m;
+        
+        let status = '';
+        let cardClass = 'unit-card';
+        
+        if (isCurrent) {
+            status = '<div style="color:#22c55e;font-weight:bold;margin-top:0.25rem;">✓ Текущий уровень</div>';
+        } else if (!canUpgrade) {
+            cardClass += ' disabled';
+            status = '<div style="color:#6b7280;font-size:0.6rem;margin-top:0.25rem;">Недоступно</div>';
+        } else if (!canAfford) {
+            cardClass += ' disabled';
+            status = '<div style="color:#ef4444;font-size:0.6rem;margin-top:0.25rem;">Недостаточно ресурсов</div>';
+        }
+        
+        return `
+            <div class="${cardClass}" style="margin-bottom:0.5rem;${canUpgrade && canAfford ? 'cursor:pointer;' : ''}" 
+                 ${canUpgrade && canAfford ? `onclick="upgradeDefense(${d.level})"` : ''}>
+                <div class="unit-name">${d.icon} ${d.name}</div>
+                <div class="unit-stats">${d.stats}</div>
+                <div class="unit-cost">S:${d.cost.s} C:${d.cost.c} M:${d.cost.m}</div>
+                ${status}
+            </div>
+        `;
+    }).join('');
 }
 
-function hideFortificationMenu() {
-    const menu = document.getElementById('fortificationMenu');
-    if (menu) {
-        menu.style.display = 'none';
-    }
-    selectedFortificationType = null;
-}
+window.closeDefensePanel = function() {
+    document.getElementById('defensePanel').classList.add('hidden');
+    selectedCapturePoint = null;
+};
 
-window.selectFortification = function(level) {
-    buildMode = true; // Включаем режим улучшения обороны
-    notify(`Выбрано улучшение обороны уровня ${level}. Кликните по захваченной территории.`);
-    hideFortificationMenu();
+window.upgradeDefense = function(level) {
+    if (!selectedCapturePoint) return;
     
-    // Обновляем кнопку BUILD
-    const btn = document.getElementById('buildBtn');
-    if (btn) {
-        btn.style.borderColor = '#22c55e';
-        btn.style.background = 'rgba(34,197,94,0.15)';
+    const cpIndex = game.cps.indexOf(selectedCapturePoint);
+    const result = game.upgradeTerritoryDefense(cpIndex);
+    
+    if (result) {
+        notify(`${selectedCapturePoint.name}: оборона улучшена до уровня ${selectedCapturePoint.defenseLevel}!`);
+        // Обновляем панель
+        openDefensePanel(selectedCapturePoint, 
+            parseInt(document.getElementById('defensePanel').style.left),
+            parseInt(document.getElementById('defensePanel').style.top));
+    } else {
+        notify('Не удалось улучшить оборону!');
     }
 };
 

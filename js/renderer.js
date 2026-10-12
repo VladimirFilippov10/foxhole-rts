@@ -608,13 +608,8 @@ function drawCapturePoint(ctx, cp, cam) {
         ctx.stroke();
         ctx.setLineDash([]);
         
-        // Draw defense level stars
-        ctx.fillStyle = '#fbbf24';
-        ctx.font = 'bold 14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const stars = '★'.repeat(cp.defenseLevel);
-        ctx.fillText(stars, x, y + cp.radius * 0.3);
+        // Draw visual fortifications based on level
+        drawFortifications(ctx, x, y, cp.defenseLevel, col);
     }
     
     // Capture progress
@@ -638,6 +633,93 @@ function drawCapturePoint(ctx, cp, cam) {
     ctx.font = 'bold 10px monospace';
     ctx.textAlign = 'center';
     ctx.fillText(cp.name, x, y - cp.radius - 10);
+}
+
+function drawFortifications(ctx, x, y, level, col) {
+    // Level 1: Sandbags
+    if (level >= 1) {
+        const sandbagPositions = [
+            { angle: 0, dist: 40 },
+            { angle: Math.PI / 2, dist: 40 },
+            { angle: Math.PI, dist: 40 },
+            { angle: Math.PI * 1.5, dist: 40 },
+        ];
+        
+        sandbagPositions.forEach(pos => {
+            const sx = x + Math.cos(pos.angle) * pos.dist;
+            const sy = y + Math.sin(pos.angle) * pos.dist;
+            
+            // Sandbag
+            ctx.fillStyle = '#8b7355';
+            ctx.beginPath();
+            ctx.ellipse(sx, sy, 8, 5, pos.angle, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#6b5335';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        });
+    }
+    
+    // Level 2: Concrete walls
+    if (level >= 2) {
+        const wallPositions = [
+            { x: x - 50, y: y, width: 20, height: 8 },
+            { x: x + 50, y: y, width: 20, height: 8 },
+            { x: x, y: y - 50, width: 8, height: 20 },
+            { x: x, y: y + 50, width: 8, height: 20 },
+        ];
+        
+        wallPositions.forEach(wall => {
+            // Wall shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fillRect(wall.x - wall.width / 2 + 2, wall.y - wall.height / 2 + 2, wall.width, wall.height);
+            
+            // Wall
+            ctx.fillStyle = '#6b7280';
+            ctx.fillRect(wall.x - wall.width / 2, wall.y - wall.height / 2, wall.width, wall.height);
+            ctx.strokeStyle = '#4b5563';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(wall.x - wall.width / 2, wall.y - wall.height / 2, wall.width, wall.height);
+        });
+    }
+    
+    // Level 3: Turrets
+    if (level >= 3) {
+        const turretPositions = [
+            { angle: Math.PI / 4, dist: 60 },
+            { angle: Math.PI * 3 / 4, dist: 60 },
+            { angle: Math.PI * 5 / 4, dist: 60 },
+            { angle: Math.PI * 7 / 4, dist: 60 },
+        ];
+        
+        turretPositions.forEach(pos => {
+            const tx = x + Math.cos(pos.angle) * pos.dist;
+            const ty = y + Math.sin(pos.angle) * pos.dist;
+            
+            // Turret base
+            ctx.fillStyle = '#374151';
+            ctx.beginPath();
+            ctx.arc(tx, ty, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#1f2937';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Turret barrel
+            ctx.strokeStyle = col.p;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(tx, ty);
+            ctx.lineTo(tx + Math.cos(pos.angle) * 15, ty + Math.sin(pos.angle) * 15);
+            ctx.stroke();
+            
+            // Turret highlight
+            ctx.fillStyle = col.a;
+            ctx.beginPath();
+            ctx.arc(tx, ty, 4, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
 }
 
 function drawMine(ctx, mine, cam) {
