@@ -1,6 +1,5 @@
 // ===== GAME LOGIC =====
 import { dist, distToSeg, GAME_MODES } from './constants.js';
-import { RIVER_POINTS } from './map.js';
 import { AI } from './ai.js';
 
 export class Game {

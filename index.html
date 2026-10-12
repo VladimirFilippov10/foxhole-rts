@@ -68,6 +68,83 @@
             background: rgba(55,65,81,0.8);
             border-color: #60a5fa;
         }
+        
+        .map-row { display: flex; gap: 2rem; margin-bottom: 2rem; flex-wrap: wrap; justify-content: center; }
+        .map-btn {
+            width: 280px;
+            padding: 1.5rem;
+            border: 2px solid #374151;
+            border-radius: 12px;
+            background: rgba(31,41,55,0.8);
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        .map-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(96,165,250,0.1), rgba(139,92,246,0.1));
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .map-btn:hover::before {
+            opacity: 1;
+        }
+        .map-btn:hover {
+            transform: translateY(-5px);
+            border-color: #60a5fa;
+            box-shadow: 0 10px 30px rgba(96,165,250,0.3);
+        }
+        .map-btn.locked {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .map-btn.locked:hover {
+            transform: none;
+            border-color: #374151;
+            box-shadow: none;
+        }
+        .map-btn .map-icon { font-size: 3.5rem; margin-bottom: 0.75rem; }
+        .map-btn h3 { font-size: 1.4rem; margin-bottom: 0.5rem; color: #60a5fa; }
+        .map-btn p { font-size: 0.75rem; color: rgba(255,255,255,0.7); line-height: 1.4; margin-bottom: 0.75rem; }
+        .map-btn .map-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: #fbbf24;
+            border-top: 1px solid #374151;
+            padding-top: 0.75rem;
+            width: 100%;
+        }
+        .map-btn .map-stats span {
+            background: rgba(251,191,36,0.1);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+        .map-btn .locked-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(239,68,68,0.2);
+            color: #ef4444;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+        
         .hud-top { position: fixed; top: 0; left: 0; right: 0; padding: 0.5rem 1rem; background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent); display: flex; justify-content: space-between; align-items: center; z-index: 100; }
         .res-group { display: flex; gap: 1.2rem; }
         .res { display: flex; align-items: center; gap: 0.4rem; }
@@ -104,10 +181,56 @@
     <div id="menuScreen" class="screen">
         <h1>⚔️ WAR OF THE CONTINENT</h1>
         <p class="subtitle">2D RTS в стиле Foxhole</p>
-        <div style="margin-bottom: 2rem; text-align: center;">
-            <h2 style="color: #9ca3af; font-size: 1.2rem; margin-bottom: 1rem;">🗺️ Карта: Deadlands</h2>
-            <p style="color: #6b7280; font-size: 0.9rem;">10 городов • Река с петлёй • 4 моста • Шахты ресурсов</p>
+        <button class="mode-btn" onclick="showMapSelect()" style="margin-bottom: 2rem; width: 300px;">
+            <div class="mode-icon">🎮</div>
+            <h3>Начать игру</h3>
+            <p>Выберите карту, фракцию и режим</p>
+        </button>
+    </div>
+
+    <div id="mapSelectScreen" class="screen hidden">
+        <h1>🗺️ ВЫБОР КАРТЫ</h1>
+        <p class="subtitle">Выберите поле боя</p>
+        <div class="map-row">
+            <button class="map-btn" onclick="selectMap('deadlands')">
+                <div class="map-icon">🏔️</div>
+                <h3>Deadlands</h3>
+                <p>Центральный фронт с открытой местностью. 14 городов, 10 шахт ресурсов, расширенная сеть дорог.</p>
+                <div class="map-stats">
+                    <span>14 городов</span>
+                    <span>10 шахт</span>
+                    <span>Открытая местность</span>
+                </div>
+            </button>
+            <button class="map-btn locked" onclick="notify('Карта скоро будет доступна!')">
+                <div class="locked-badge">Скоро</div>
+                <div class="map-icon">🌊</div>
+                <h3>Howl County</h3>
+                <p>Лесистая местность с реками и мостами. Тактические переправы.</p>
+                <div class="map-stats">
+                    <span>12 городов</span>
+                    <span>8 шахт</span>
+                    <span>Реки и мосты</span>
+                </div>
+            </button>
+            <button class="map-btn locked" onclick="notify('Карта скоро будет доступна!')">
+                <div class="locked-badge">Скоро</div>
+                <div class="map-icon">🏜️</div>
+                <h3>Kingscain</h3>
+                <p>Пустынная карта с дюнами и оазисами. Ограниченные ресурсы.</p>
+                <div class="map-stats">
+                    <span>10 городов</span>
+                    <span>6 шахт</span>
+                    <span>Пустыня</span>
+                </div>
+            </button>
         </div>
+        <button class="back-btn" onclick="backToMainMenu()">← Назад</button>
+    </div>
+
+    <div id="factionScreen" class="screen hidden">
+        <h1>⚔️ ВЫБОР ФРАКЦИИ</h1>
+        <p class="subtitle">Выберите свою армию</p>
         <div class="faction-row">
             <button class="faction-btn wardens" onclick="selectFaction('wardens')">
                 <div class="icon">🛡️</div><h2>WARDENS</h2>
@@ -118,6 +241,7 @@
                 <p>Hatchet • Falchion • Hoplite APC<br>Быстрые полугусеничники<br>Партизанская тактика</p>
             </button>
         </div>
+        <button class="back-btn" onclick="backToMapSelect()">← Назад к выбору карты</button>
     </div>
 
     <div id="settingsScreen" class="screen hidden">
@@ -152,7 +276,7 @@
                 </div>
             </button>
         </div>
-        <button class="back-btn" onclick="backToMenu()">← Назад к выбору фракции</button>
+        <button class="back-btn" onclick="backToMapSelect()">← Назад к выбору карты</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>

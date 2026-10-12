@@ -7,6 +7,7 @@ import { render } from './renderer.js';
 
 let canvas, ctx;
 let game = null;
+let selectedMap = 'deadlands';
 let selectedFaction = 'wardens';
 let selectedGameMode = 'normal';
 let lastClickTime = 0;
@@ -47,9 +48,20 @@ function resizeCanvas() {
 }
 
 // Screen management
+window.showMapSelect = function() {
+    document.getElementById('menuScreen').classList.add('hidden');
+    document.getElementById('mapSelectScreen').classList.remove('hidden');
+};
+
+window.selectMap = function(map) {
+    selectedMap = map;
+    document.getElementById('mapSelectScreen').classList.add('hidden');
+    document.getElementById('factionScreen').classList.remove('hidden');
+};
+
 window.selectFaction = function(faction) {
     selectedFaction = faction;
-    document.getElementById('menuScreen').classList.add('hidden');
+    document.getElementById('factionScreen').classList.add('hidden');
     document.getElementById('settingsScreen').classList.remove('hidden');
 };
 
@@ -59,9 +71,15 @@ window.selectGameMode = function(mode) {
     startGame();
 };
 
-window.backToMenu = function() {
-    document.getElementById('settingsScreen').classList.add('hidden');
+window.backToMainMenu = function() {
+    document.getElementById('mapSelectScreen').classList.add('hidden');
     document.getElementById('menuScreen').classList.remove('hidden');
+};
+
+window.backToMapSelect = function() {
+    document.getElementById('settingsScreen').classList.add('hidden');
+    document.getElementById('factionScreen').classList.add('hidden');
+    document.getElementById('mapSelectScreen').classList.remove('hidden');
 };
 
 function startGame() {

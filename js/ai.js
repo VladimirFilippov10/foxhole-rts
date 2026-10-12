@@ -1,7 +1,6 @@
 // ===== AI SYSTEM WITH PATHFINDING =====
 import { dist, distToSeg } from './constants.js';
 import { createVehicle } from './vehicles.js';
-import { RIVER_POINTS, BRIDGES } from './map.js';
 
 export class AI {
     constructor(gameState) {

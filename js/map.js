@@ -28,10 +28,10 @@ export const LOCATIONS = [
     { name: 'The Crossing', col: 5, row: 5, type: 'bridge' },
     { name: 'Bunker Entrance', col: 9, row: 5, type: 'bunker' },
     
-    // River area (rows 7-9)
+    // Central area (rows 7-9)
     { name: 'Tarsal Pathway', col: 1, row: 6, type: 'workshop' },
     { name: 'Abandoned Ward', col: 3, row: 6, type: 'label' },
-    { name: 'Waterfoot Gap', col: 4, row: 6, type: 'ford' },
+    { name: 'Central Crossing', col: 4, row: 6, type: 'crossing' },
     { name: "Callahan's Boot", col: 6, row: 6, type: 'workshop' },
     { name: 'The Steppes', col: 9, row: 6, type: 'label' },
     { name: 'Outpost', col: 9, row: 7, type: 'hex' },
@@ -43,11 +43,11 @@ export const LOCATIONS = [
     // Southern part (rows 10-12)
     { name: 'Overgrown Pasture', col: 1, row: 9, type: 'label' },
     { name: 'Salvation Road', col: 2, row: 9, type: 'label' },
-    { name: 'Flooded Fields', col: 3, row: 9, type: 'water_zone' },
+    { name: 'Flooded Fields', col: 3, row: 9, type: 'label' },
     { name: 'The Pits', col: 5, row: 9, type: 'building' },
     { name: 'Brine Glen', col: 9, row: 9, type: 'settlement' },
     { name: 'Jaspar Farm', col: 2, row: 10, type: 'label' },
-    { name: 'Concrete Shallows', col: 2, row: 10, type: 'water_zone' },
+    { name: 'Concrete Shallows', col: 2, row: 10, type: 'label' },
     { name: 'The Salt Trail', col: 2, row: 11, type: 'hex' },
     { name: 'The Salt Farms', col: 5, row: 11, type: 'settlement' },
     { name: 'The Salt March', col: 7, row: 11, type: 'hex' },
@@ -156,14 +156,8 @@ export const TREES = [];
 for (let i = 0; i < 300; i++) {
     const x = Math.random() * 3000;
     const y = Math.random() * 2250;
-    let valid = true;
-    for (const cp of RIVER_POINTS) {
-        if (Math.sqrt((x - cp.x) ** 2 + (y - cp.y) ** 2) < 60) { valid = false; break; }
-    }
-    if (valid) {
-        const type = Math.random() < 0.7 ? 'pine' : 'oak';
-        TREES.push({ x, y, size: 10 + Math.random() * 8, type });
-    }
+    const type = Math.random() < 0.7 ? 'pine' : 'oak';
+    TREES.push({ x, y, size: 10 + Math.random() * 8, type });
 }
 
 // Bushes
