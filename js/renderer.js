@@ -425,12 +425,12 @@ function drawUnit(ctx, u, cam, selected, hovered) {
     if ((hovered || selected.includes(u.id)) && u.range > 0) {
         ctx.beginPath();
         ctx.arc(x, y, u.range, 0, Math.PI * 2);
-        ctx.strokeStyle = col.a + '40';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = col.a + '80'; // Более заметный
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 4]);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = col.a + '10';
+        ctx.fillStyle = col.a + '20'; // Более заметная заливка
         ctx.fill();
     }
     
@@ -489,25 +489,26 @@ function drawUnit(ctx, u, cam, selected, hovered) {
         }
     }
     
-    // Reload bar (under unit)
+    // Reload bar (under unit) - always visible
     if (u.cd > 0) {
         const reloadProgress = Math.min(1, (u.gameTime - u.lastAtk) / u.cd);
-        const barWidth = sz;
-        const barY = y + sz / 2 + 8;
+        const barWidth = sz * 1.5; // Шире
+        const barHeight = 6; // Выше
+        const barY = y + sz / 2 + 10;
         
         // Background
-        ctx.fillStyle = '#1f2937';
-        ctx.fillRect(x - barWidth / 2, barY, barWidth, 4);
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(x - barWidth / 2, barY, barWidth, barHeight);
         
         // Progress
         const reloadColor = reloadProgress >= 1 ? '#22c55e' : '#fbbf24';
         ctx.fillStyle = reloadColor;
-        ctx.fillRect(x - barWidth / 2, barY, barWidth * reloadProgress, 4);
+        ctx.fillRect(x - barWidth / 2, barY, barWidth * reloadProgress, barHeight);
         
         // Border
-        ctx.strokeStyle = '#374151';
+        ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 1;
-        ctx.strokeRect(x - barWidth / 2, barY, barWidth, 4);
+        ctx.strokeRect(x - barWidth / 2, barY, barWidth, barHeight);
     }
     
     if (selected.includes(u.id)) {

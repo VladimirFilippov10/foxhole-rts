@@ -154,8 +154,27 @@ function updateSelInfo() {
         const units = game.units.filter(u => game.selected.includes(u.id));
         const types = {};
         units.forEach(u => { types[u.label] = (types[u.label] || 0) + 1; });
-        let html = `<p>Выбрано: ${units.length} юнитов</p>`;
+        
+        let html = `<p style="font-weight:bold;margin-bottom:4px;">Выбрано: ${units.length} юнитов</p>`;
         Object.entries(types).forEach(([t, c]) => { html += `<p class="sel-type">${t} ×${c}</p>`; });
+        
+        // Show stats for first selected unit
+        if (units.length === 1) {
+            const u = units[0];
+            const reloadProgress = Math.min(100, ((u.gameTime - u.lastAtk) / u.cd) * 100);
+            html += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #374151;">`;
+            html += `<p style="font-size:0.7rem;color:#9ca3af;">HP: ${Math.floor(u.hp)}/${u.maxHp}</p>`;
+            html += `<p style="font-size:0.7rem;color:#9ca3af;">DMG: ${u.dmg}</p>`;
+            html += `<p style="font-size:0.7rem;color:#9ca3af;">RNG: ${u.range}</p>`;
+            html += `<p style="font-size:0.7rem;color:#9ca3af;">SPD: ${u.spd}</p>`;
+            html += `<p style="font-size:0.7rem;color:#9ca3af;">CD: ${(u.cd / 60).toFixed(1)}s</p>`;
+            html += `<p style="font-size:0.7rem;color:${reloadProgress >= 100 ? '#22c55e' : '#fbbf24'};">Reload: ${Math.floor(reloadProgress)}%</p>`;
+            if (u.aoe) {
+                html += `<p style="font-size:0.7rem;color:#f97316;">AoE: ${u.aoeRadius}</p>`;
+            }
+            html += `</div>`;
+        }
+        
         el.innerHTML = html;
         el.style.display = 'block';
     } else {
