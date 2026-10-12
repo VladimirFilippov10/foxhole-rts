@@ -223,6 +223,14 @@ function gameLoop() {
             `;
         }
         
+        // Обновляем очередь производства если меню открыто
+        if (factoryMenuOpen) {
+            const factory = game.buildings.find(b => b.type === 'factory' && b.faction === game.faction);
+            if (factory) {
+                updateFactoryQueue(factory);
+            }
+        }
+        
         updateSelInfo();
         
         if (game.over) {
@@ -434,11 +442,55 @@ function openFactoryMenu(factory, mx, my) {
         if (canAfford) {
             card.onclick = () => {
                 trainUnit(type, factory);
-                closeFactoryMenu();
+                updateFactoryQueue(factory); // Обновляем очередь после заказа
             };
         }
         grid.appendChild(card);
     });
+    
+    // Показываем очередь производства
+    updateFactoryQueue(factory);
+}
+
+function updateFactoryQueue(factory) {
+    const queue = game.getProductionProgress(factory.id);
+    let queueHtml = '';
+    
+    if (queue.length > 0) {
+        queueHtml = '<div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid #374151;">';
+        queueHtml += '<div style="font-size:0.75rem;color:#9ca3af;margin-bottom:0.5rem;">📋 Очередь производства:</div>';
+        
+        queue.forEach((item, index) => {
+            const info = VEHICLE_INFO[item.type];
+            const elapsed = game.time - item.startTime;
+            const buildTimeTicks = item.buildTime * 60;
+            const progress = Math.min(100, (elapsed / buildTimeTicks) * 100);
+            
+            queueHtml += `
+                <div style="margin-bottom:0.5rem;">
+                    <div style="font-size:0.7rem;color:#d1d5db;">${info.icon} ${info.name}</div>
+                    <div style="background:#1f2937;height:4px;border-radius:2px;overflow:hidden;margin-top:2px;">
+                        <div style="background:#60a5fa;height:100%;width:${progress}%;transition:width 0.3s;"></div>
+                    </div>
+                    <div style="font-size:0.6rem;color:#6b7280;margin-top:2px;">${Math.floor(progress)}% - ${Math.ceil((buildTimeTicks - elapsed) / 60)}с</div>
+                </div>
+            `;
+        });
+        
+        queueHtml += '</div>';
+    }
+    
+    // Добавляем очередь в меню
+    const menu = document.getElementById('factoryMenu');
+    const existingQueue = menu.querySelector('.production-queue');
+    if (existingQueue) {
+        existingQueue.innerHTML = queueHtml;
+    } else {
+        const queueDiv = document.createElement('div');
+        queueDiv.className = 'production-queue';
+        queueDiv.innerHTML = queueHtml;
+        menu.appendChild(queueDiv);
+    }
 }
 
 function trainUnit(type, factory) {
@@ -472,7 +524,10 @@ function trainUnit(type, factory) {
     // Добавляем в очередь производства
     const buildTime = cost.buildTime || 10; // По умолчанию 10 секунд
     game.addToProductionQueue(type, game.faction, factory.id, buildTime);
-    notify(`${info.name} поставлен в очередь производства (${buildTime}с)`);
+    notify(`${info.name} поставлен в очередь (${buildTime}с)`);
+    
+    // Обновляем очередь в меню
+    updateFactoryQueue(factory);
 }
 
 window.closeFactoryMenu = function() {
@@ -562,8 +617,16 @@ function hideFortificationMenu() {
 
 window.selectFortification = function(type) {
     selectedFortificationType = type;
+    buildMode = true; // Включаем режим строительства
     notify(`Выбрано: ${FORTIFICATION_INFO[type].name}. Кликните на карту для строительства.`);
     hideFortificationMenu();
+    
+    // Обновляем кнопку BUILD
+    const btn = document.getElementById('buildBtn');
+    if (btn) {
+        btn.style.borderColor = '#22c55e';
+        btn.style.background = 'rgba(34,197,94,0.15)';
+    }
 };
 
 function notify(msg) {

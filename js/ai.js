@@ -34,16 +34,16 @@ export class AI {
             return; // Пропускаем производство если достигнут лимит
         }
 
-        // Спавн пехоты каждые 600 тиков (было 400)
-        if (this.timer % 600 === 0) {
+        // Спавн пехоты каждые 900 тиков (было 600)
+        if (this.timer % 900 === 0) {
             if (this.canAffordInfantry()) {
                 this.spawnInfantrySquad();
                 this.accumulatedForces++;
             }
         }
 
-        // Спавн техники каждые 1000 тиков (было 700)
-        if (this.timer % 1000 === 0) {
+        // Спавн техники каждые 1500 тиков (было 1000)
+        if (this.timer % 1500 === 0) {
             if (this.G.canProduceUnit('vehicle', this.G.ai) && this.canAffordVehicle()) {
                 this.spawnVehicle();
                 this.accumulatedForces += 2; // Техника ценнее
