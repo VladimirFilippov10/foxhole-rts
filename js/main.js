@@ -1,5 +1,5 @@
 // ===== MAIN ENTRY POINT =====
-import { VEHICLE_COSTS, dist } from './constants.js';
+import { VEHICLE_COSTS, dist, GAME_MODES } from './constants.js';
 import { createVehicle, FACTION_VEHICLES } from './vehicles.js';
 import { getCapturePointsInWorld, getResourcePointsInWorld } from './map.js';
 import { Game } from './game.js';
@@ -8,6 +8,7 @@ import { render } from './renderer.js';
 let canvas, ctx;
 let game = null;
 let selectedFaction = 'wardens';
+let selectedGameMode = 'normal';
 let lastClickTime = 0;
 let factoryMenuOpen = false;
 let aoeMode = false;
@@ -49,7 +50,18 @@ function resizeCanvas() {
 window.selectFaction = function(faction) {
     selectedFaction = faction;
     document.getElementById('menuScreen').classList.add('hidden');
+    document.getElementById('settingsScreen').classList.remove('hidden');
+};
+
+window.selectGameMode = function(mode) {
+    selectedGameMode = mode;
+    document.getElementById('settingsScreen').classList.add('hidden');
     startGame();
+};
+
+window.backToMenu = function() {
+    document.getElementById('settingsScreen').classList.add('hidden');
+    document.getElementById('menuScreen').classList.remove('hidden');
 };
 
 function startGame() {
@@ -60,8 +72,19 @@ function startGame() {
     badge.className = 'faction-badge ' + selectedFaction;
     badge.innerHTML = selectedFaction === 'wardens' ? '🛡️ WARDENS' : '⚔️ COLONIALS';
     
-    // Create game
-    game = new Game(selectedFaction);
+    // Show game mode in HUD
+    const modeInfo = document.getElementById('gameModeInfo');
+    if (modeInfo) {
+        const mode = GAME_MODES[selectedGameMode];
+        modeInfo.textContent = `${mode.icon} ${mode.name}`;
+    }
+    
+    // Create game with selected mode
+    game = new Game(selectedFaction, selectedGameMode);
+    
+    // Set starting resources based on game mode
+    const startRes = GAME_MODES[selectedGameMode].startingResources;
+    game.res = { ...startRes };
     
     // Setup map
     const cps = getCapturePointsInWorld();

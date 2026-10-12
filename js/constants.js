@@ -12,6 +12,31 @@ export const COLORS = {
     neutral: { p: '#6b7280', s: '#4b5563', a: '#9ca3af' },
 };
 
+// Game modes with different resource generation rates
+export const GAME_MODES = {
+    realism: {
+        name: 'Реализм',
+        description: 'Медленный фарм ресурсов, долгая игра',
+        icon: '🎯',
+        resourceMultiplier: 0.3, // 30% от стандартного
+        startingResources: { s: 100, c: 50, m: 40 },
+    },
+    normal: {
+        name: 'Обычный',
+        description: 'Стандартный темп игры',
+        icon: '⚖️',
+        resourceMultiplier: 1.0,
+        startingResources: { s: 200, c: 100, m: 80 },
+    },
+    fast: {
+        name: 'Быстрый бой',
+        description: 'Ускоренный фарм, быстрая игра',
+        icon: '⚡',
+        resourceMultiplier: 2.5, // 250% от стандартного
+        startingResources: { s: 400, c: 200, m: 150 },
+    },
+};
+
 export const VEHICLE_COSTS = {
     infantry: { s: 10, c: 0, m: 0 },
     devitt: { s: 35, c: 25, m: 15 },

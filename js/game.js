@@ -1,13 +1,13 @@
 // ===== GAME LOGIC =====
-import { dist, distToSeg } from './constants.js';
+import { dist, distToSeg, GAME_MODES } from './constants.js';
 import { RIVER_POINTS } from './map.js';
 import { AI } from './ai.js';
 
 export class Game {
-    constructor(faction) {
+    constructor(faction, gameMode = 'normal') {
         this.faction = faction;
         this.ai = faction === 'wardens' ? 'colonials' : 'wardens';
-        this.res = { s: 200, c: 100, m: 80 };
+        this.gameMode = gameMode;
         this.units = [];
         this.buildings = [];
         this.cps = [];
@@ -58,11 +58,12 @@ export class Game {
         this.cam.x = Math.max(0, Math.min(mapW - window.innerWidth, this.cam.x));
         this.cam.y = Math.max(0, Math.min(mapH - window.innerHeight, this.cam.y));
 
-        // Resource generation
+        // Resource generation with game mode multiplier
         const pts = this.cps.filter(c => c.owner === this.faction).length;
-        this.res.s += pts * 0.03;
-        this.res.c += pts * 0.015;
-        this.res.m += pts * 0.01;
+        const modeMultiplier = GAME_MODES[this.gameMode].resourceMultiplier;
+        this.res.s += pts * 0.03 * modeMultiplier;
+        this.res.c += pts * 0.015 * modeMultiplier;
+        this.res.m += pts * 0.01 * modeMultiplier;
 
         // Update units
         this.updateUnits();

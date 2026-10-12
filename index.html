@@ -20,6 +20,54 @@
         .faction-btn .icon { font-size: 3.5rem; margin-bottom: 0.75rem; }
         .faction-btn h2 { font-size: 1.5rem; margin-bottom: 0.5rem; }
         .faction-btn p { font-size: 0.8rem; color: rgba(255,255,255,0.7); text-align: center; line-height: 1.4; }
+        
+        .mode-row { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
+        .mode-btn { 
+            width: 220px; 
+            padding: 1.5rem; 
+            border: 2px solid #374151; 
+            border-radius: 12px; 
+            background: rgba(31,41,55,0.8);
+            cursor: pointer; 
+            transition: all 0.3s; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            text-align: center;
+            color: white;
+        }
+        .mode-btn:hover { 
+            transform: translateY(-5px); 
+            border-color: #60a5fa; 
+            box-shadow: 0 10px 25px rgba(96,165,250,0.3);
+        }
+        .mode-btn .mode-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+        .mode-btn h3 { font-size: 1.3rem; margin-bottom: 0.5rem; color: #60a5fa; }
+        .mode-btn p { font-size: 0.75rem; color: rgba(255,255,255,0.7); line-height: 1.4; margin-bottom: 0.75rem; }
+        .mode-btn .mode-stats { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 0.25rem; 
+            font-size: 0.7rem; 
+            color: #fbbf24;
+            border-top: 1px solid #374151;
+            padding-top: 0.5rem;
+            width: 100%;
+        }
+        .back-btn {
+            padding: 0.75rem 2rem;
+            background: rgba(31,41,55,0.8);
+            border: 2px solid #374151;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        .back-btn:hover {
+            background: rgba(55,65,81,0.8);
+            border-color: #60a5fa;
+        }
         .hud-top { position: fixed; top: 0; left: 0; right: 0; padding: 0.5rem 1rem; background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent); display: flex; justify-content: space-between; align-items: center; z-index: 100; }
         .res-group { display: flex; gap: 1.2rem; }
         .res { display: flex; align-items: center; gap: 0.4rem; }
@@ -55,7 +103,11 @@
 <body>
     <div id="menuScreen" class="screen">
         <h1>⚔️ WAR OF THE CONTINENT</h1>
-        <p class="subtitle">2D RTS в стиле Foxhole — Deadlands</p>
+        <p class="subtitle">2D RTS в стиле Foxhole</p>
+        <div style="margin-bottom: 2rem; text-align: center;">
+            <h2 style="color: #9ca3af; font-size: 1.2rem; margin-bottom: 1rem;">🗺️ Карта: Deadlands</h2>
+            <p style="color: #6b7280; font-size: 0.9rem;">10 городов • Река с петлёй • 4 моста • Шахты ресурсов</p>
+        </div>
         <div class="faction-row">
             <button class="faction-btn wardens" onclick="selectFaction('wardens')">
                 <div class="icon">🛡️</div><h2>WARDENS</h2>
@@ -68,6 +120,41 @@
         </div>
     </div>
 
+    <div id="settingsScreen" class="screen hidden">
+        <h1>⚙️ НАСТРОЙКИ ИГРЫ</h1>
+        <p class="subtitle">Выберите режим игры</p>
+        <div class="mode-row">
+            <button class="mode-btn" onclick="selectGameMode('realism')">
+                <div class="mode-icon">🎯</div>
+                <h3>Реализм</h3>
+                <p>Медленный фарм ресурсов<br>Долгая стратегическая игра<br>Каждая единица на счету</p>
+                <div class="mode-stats">
+                    <span>Фарм: ×0.3</span>
+                    <span>Ресурсы: 100/50/40</span>
+                </div>
+            </button>
+            <button class="mode-btn" onclick="selectGameMode('normal')">
+                <div class="mode-icon">⚖️</div>
+                <h3>Обычный</h3>
+                <p>Стандартный темп игры<br>Сбалансированный фарм<br>Оптимальный баланс</p>
+                <div class="mode-stats">
+                    <span>Фарм: ×1.0</span>
+                    <span>Ресурсы: 200/100/80</span>
+                </div>
+            </button>
+            <button class="mode-btn" onclick="selectGameMode('fast')">
+                <div class="mode-icon">⚡</div>
+                <h3>Быстрый бой</h3>
+                <p>Ускоренный фарм ресурсов<br>Быстрые сражения<br>Много техники сразу</p>
+                <div class="mode-stats">
+                    <span>Фарм: ×2.5</span>
+                    <span>Ресурсы: 400/200/150</span>
+                </div>
+            </button>
+        </div>
+        <button class="back-btn" onclick="backToMenu()">← Назад к выбору фракции</button>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
 
     <div id="hudTop" class="hud-top" style="display:none;">
@@ -78,6 +165,7 @@
         </div>
         <div style="display:flex;align-items:center;gap:1rem;">
             <span style="font-family:monospace;font-size:0.8rem;color:#d1d5db;">Territories: <span id="tCount">1</span>/10</span>
+            <span id="gameModeInfo" style="font-family:monospace;font-size:0.8rem;color:#9ca3af;"></span>
             <span id="factionBadge" class="faction-badge wardens">🛡️ WARDENS</span>
         </div>
     </div>
