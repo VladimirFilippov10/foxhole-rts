@@ -13,6 +13,7 @@ export class Vehicle {
         this.ty = undefined;
         this.lastAtk = 0;
         this.gameTime = 0; // Для расчёта перезарядки
+        this.direction = 0; // Направление в радианах (0 = вправо)
         
         this.hp = 100;
         this.maxHp = 100;

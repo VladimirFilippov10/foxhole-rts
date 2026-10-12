@@ -139,18 +139,19 @@ export class AI {
 
     crossesWater(x1, y1, x2, y2) {
         // Check if line segment crosses any river segment
+        // Use larger distance (30) to account for river width
         for (let i = 0; i < RIVER_POINTS.length - 1; i++) {
             const p1 = RIVER_POINTS[i];
             const p2 = RIVER_POINTS[i + 1];
             
             // Check multiple points along the line
-            const steps = 10;
+            const steps = 20;
             for (let s = 0; s <= steps; s++) {
                 const t = s / steps;
                 const px = x1 + (x2 - x1) * t;
                 const py = y1 + (y2 - y1) * t;
                 
-                if (distToSeg(px, py, p1.x, p1.y, p2.x, p2.y) < 20) {
+                if (distToSeg(px, py, p1.x, p1.y, p2.x, p2.y) < 30) {
                     return true;
                 }
             }

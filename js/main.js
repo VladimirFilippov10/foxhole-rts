@@ -257,14 +257,14 @@ function handleMouseDown(e) {
     
     // Select units
     const clickedUnit = game.units.find(u => 
-        dist(u.x, u.y, worldX, worldY) < 18 && u.faction === game.faction
+        dist(u.x, u.y, worldX, worldY) < 25 && u.faction === game.faction
     );
     
     if (clickedUnit) {
         game.selected = [clickedUnit.id];
     } else {
         game.selected = game.units.filter(u => 
-            dist(u.x, u.y, worldX, worldY) < 50 && u.faction === game.faction
+            dist(u.x, u.y, worldX, worldY) < 60 && u.faction === game.faction
         ).map(u => u.id);
     }
 }

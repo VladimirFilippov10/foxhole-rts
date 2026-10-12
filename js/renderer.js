@@ -242,7 +242,7 @@ function drawRoads(ctx, roads, cam) {
         
         // Road shadow
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.lineWidth = 16;
+        ctx.lineWidth = 28;
         ctx.lineCap = 'round';
         ctx.beginPath();
         
@@ -256,7 +256,7 @@ function drawRoads(ctx, roads, cam) {
         
         // Road base
         ctx.strokeStyle = '#5a4a35';
-        ctx.lineWidth = 14;
+        ctx.lineWidth = 24;
         ctx.beginPath();
         ctx.moveTo(fromX - cam.x, fromY - cam.y);
         ctx.quadraticCurveTo(midX - cam.x, midY - cam.y, toX - cam.x, toY - cam.y);
@@ -264,7 +264,7 @@ function drawRoads(ctx, roads, cam) {
         
         // Road surface
         ctx.strokeStyle = '#7a6a55';
-        ctx.lineWidth = 10;
+        ctx.lineWidth = 20;
         ctx.beginPath();
         ctx.moveTo(fromX - cam.x, fromY - cam.y);
         ctx.quadraticCurveTo(midX - cam.x, midY - cam.y, toX - cam.x, toY - cam.y);
@@ -289,36 +289,36 @@ function drawBridges(ctx, bridges, cam) {
         
         // Bridge shadow
         ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.fillRect(x - 32, y - 14, 64, 28);
+        ctx.fillRect(x - 37, y - 16, 74, 32);
         
         // Bridge structure
         ctx.fillStyle = '#6a5a45';
-        ctx.fillRect(x - 30, y - 12, 60, 24);
+        ctx.fillRect(x - 35, y - 14, 70, 28);
         
         // Bridge planks
         ctx.strokeStyle = '#5a4a35';
         ctx.lineWidth = 1;
-        for (let i = -25; i < 30; i += 5) {
+        for (let i = -30; i < 35; i += 5) {
             ctx.beginPath();
-            ctx.moveTo(x + i, y - 12);
-            ctx.lineTo(x + i, y + 12);
+            ctx.moveTo(x + i, y - 14);
+            ctx.lineTo(x + i, y + 14);
             ctx.stroke();
         }
         
         // Bridge details
         ctx.strokeStyle = '#4a3a25';
         ctx.lineWidth = 2;
-        ctx.strokeRect(x - 30, y - 12, 60, 24);
+        ctx.strokeRect(x - 35, y - 14, 70, 28);
         
         // Railings
         ctx.fillStyle = '#4a3a25';
-        ctx.fillRect(x - 30, y - 14, 60, 3);
-        ctx.fillRect(x - 30, y + 11, 60, 3);
+        ctx.fillRect(x - 35, y - 16, 70, 3);
+        ctx.fillRect(x - 35, y + 13, 70, 3);
         
         // Railing posts
-        for (let i = -25; i <= 25; i += 10) {
-            ctx.fillRect(x + i, y - 16, 2, 5);
-            ctx.fillRect(x + i, y + 11, 2, 5);
+        for (let i = -30; i <= 30; i += 10) {
+            ctx.fillRect(x + i, y - 18, 2, 5);
+            ctx.fillRect(x + i, y + 13, 2, 5);
         }
         
         // Bridge name
@@ -676,45 +676,68 @@ function drawUnit(ctx, u, cam, selected, hovered) {
         ctx.fill();
     }
     
+    // Save context for rotation
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(u.direction || 0);
+    
+    // Shadow (not rotated)
+    ctx.restore();
+    ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
     ctx.beginPath();
     ctx.ellipse(x + 2, y + 3, sz * 0.5, sz * 0.25, 0, 0, Math.PI * 2);
     ctx.fill();
     
+    // Rotate for unit drawing
+    ctx.translate(x, y);
+    ctx.rotate(u.direction || 0);
+    
     if (u.type === 'infantry') {
         ctx.fillStyle = col.p;
         ctx.beginPath();
-        ctx.arc(x, y, sz / 2, 0, Math.PI * 2);
+        ctx.arc(0, 0, sz / 2, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = col.a;
         ctx.lineWidth = 1.5;
         ctx.stroke();
+        // Direction indicator for infantry
+        ctx.fillStyle = col.a;
+        ctx.beginPath();
+        ctx.moveTo(sz / 2, 0);
+        ctx.lineTo(sz / 2 - 3, -2);
+        ctx.lineTo(sz / 2 - 3, 2);
+        ctx.closePath();
+        ctx.fill();
     } else {
+        // Vehicle body (centered at 0,0)
         ctx.fillStyle = col.p;
-        ctx.fillRect(x - sz / 2, y - sz / 3, sz, sz * 0.65);
+        ctx.fillRect(-sz / 2, -sz / 3, sz, sz * 0.65);
         ctx.strokeStyle = col.a;
         ctx.lineWidth = 1.5;
-        ctx.strokeRect(x - sz / 2, y - sz / 3, sz, sz * 0.65);
+        ctx.strokeRect(-sz / 2, -sz / 3, sz, sz * 0.65);
         
         if (['hatchet', 'devitt', 'gallagher', 'falchion'].includes(u.type)) {
+            // Turret
             ctx.fillStyle = col.s;
             ctx.beginPath();
-            ctx.arc(x, y, sz * 0.25, 0, Math.PI * 2);
+            ctx.arc(0, 0, sz * 0.25, 0, Math.PI * 2);
             ctx.fill();
+            // Barrel (points in direction of movement)
             ctx.strokeStyle = col.a;
             ctx.lineWidth = u.type === 'gallagher' || u.type === 'falchion' ? 3 : 2;
             ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + sz * 0.55, y);
+            ctx.moveTo(0, 0);
+            ctx.lineTo(sz * 0.55, 0);
             ctx.stroke();
         }
         
         if (['niska', 'hoplite'].includes(u.type)) {
             ctx.fillStyle = col.s;
-            ctx.fillRect(x - sz * 0.3, y - sz * 0.2, sz * 0.6, sz * 0.4);
+            ctx.fillRect(-sz * 0.3, -sz * 0.2, sz * 0.6, sz * 0.4);
             ctx.strokeStyle = col.a;
             ctx.lineWidth = 1;
-            ctx.strokeRect(x - sz * 0.3, y - sz * 0.2, sz * 0.6, sz * 0.4);
+            ctx.strokeRect(-sz * 0.3, -sz * 0.2, sz * 0.6, sz * 0.4);
         }
         
         if (u.type === 'warden_artillery' || u.type === 'colonial_artillery') {
@@ -722,31 +745,31 @@ function drawUnit(ctx, u, cam, selected, hovered) {
             ctx.strokeStyle = col.a;
             ctx.lineWidth = u.type === 'warden_artillery' ? 5 : 4;
             ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + sz * 0.7, y - sz * 0.3);
+            ctx.moveTo(0, 0);
+            ctx.lineTo(sz * 0.7, 0);
             ctx.stroke();
             // Base
             ctx.fillStyle = col.s;
-            ctx.fillRect(x - sz * 0.25, y, sz * 0.5, sz * 0.3);
-            
-            // Faction indicator
-            if (u.type === 'warden_artillery') {
-                // Blue star for Wardens
-                ctx.fillStyle = '#60a5fa';
-                ctx.font = 'bold 10px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('★', x, y - sz * 0.5);
-            } else {
-                // Red triangle for Colonials
-                ctx.fillStyle = '#f87171';
-                ctx.beginPath();
-                ctx.moveTo(x, y - sz * 0.6);
-                ctx.lineTo(x - 4, y - sz * 0.45);
-                ctx.lineTo(x + 4, y - sz * 0.45);
-                ctx.closePath();
-                ctx.fill();
-            }
+            ctx.fillRect(-sz * 0.25, 0, sz * 0.5, sz * 0.3);
         }
+    }
+    
+    ctx.restore();
+    
+    // Draw selection and faction indicators (not rotated)
+    if (u.type === 'warden_artillery') {
+        ctx.fillStyle = '#60a5fa';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('★', x, y - sz * 0.5);
+    } else if (u.type === 'colonial_artillery') {
+        ctx.fillStyle = '#f87171';
+        ctx.beginPath();
+        ctx.moveTo(x, y - sz * 0.6);
+        ctx.lineTo(x - 4, y - sz * 0.45);
+        ctx.lineTo(x + 4, y - sz * 0.45);
+        ctx.closePath();
+        ctx.fill();
     }
     
     // Reload bar (under unit) - always visible

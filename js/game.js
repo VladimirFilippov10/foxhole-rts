@@ -171,6 +171,8 @@ export class Game {
                     const blockedByBuilding = this.isBlockedForVehicle(nx, ny, u);
                     
                     if (!blockedByWater && !blockedByBuilding) {
+                        // Update direction based on movement
+                        u.direction = Math.atan2(ny - u.y, nx - u.x);
                         u.x = nx;
                         u.y = ny;
                     } else if (blockedByWater) {
@@ -240,7 +242,7 @@ export class Game {
         for (let i = 0; i < RIVER_POINTS.length - 1; i++) {
             const p1 = RIVER_POINTS[i];
             const p2 = RIVER_POINTS[i + 1];
-            if (distToSeg(x, y, p1.x, p1.y, p2.x, p2.y) < 20) return true;
+            if (distToSeg(x, y, p1.x, p1.y, p2.x, p2.y) < 30) return true;
         }
         return false;
     }
