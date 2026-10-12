@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Foxhole RTS — 2D</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <!-- Верхняя панель -->
+  <div id="topbar">
+    <div class="res"><span class="ico ico-metal"></span><b id="resMetal">0</b></div>
+    <div class="res"><span class="ico ico-fuel"></span><b id="resFuel">0</b></div>
+    <div class="sep"></div>
+    <div class="res"><span class="lbl">Защита:</span><div class="bar big"><i id="integBar"></i></div><b id="integPct">100%</b></div>
+    <div class="sep"></div>
+    <div class="res"><span class="lbl">Оборона:</span><b id="defCount">0</b></div>
+    <div class="sep"></div>
+    <div class="res"><span class="lbl">Враги:</span><b id="enemyCount">0</b></div>
+    <div class="sep"></div>
+    <div class="res timer"><b id="timer">0:00</b></div>
+  </div>
+
+  <!-- Панель производства (перетаскивается за заголовок) -->
+  <div id="prodPanel" class="panel">
+    <div id="prodHeader" class="panel-header"><span class="grip">⣿</span> Производство
+      <button id="prodCollapse" title="Свернуть/развернуть">▾</button>
+    </div>
+    <div id="prodBody" class="panel-body">
+      <div class="btn-row">
+        <button data-unit="scout"    title="Лёгкий разведчик"><span class="uic uic-scout"></span>Разведчик<small id="cost-scout"></small></button>
+        <button data-unit="tank"     title="Танк"><span class="uic uic-tank"></span>Танк<small id="cost-tank"></small></button>
+        <button data-unit="arty"     title="САУ — артиллерия"><span class="uic uic-arty"></span>Артиллерия<small id="cost-arty"></small></button>
+        <button data-unit="logistic" title="Логист — чинит укрепления"><span class="uic uic-logi"></span>Логист<small id="cost-logistic"></small></button>
+      </div>
+      <div class="queue-line">Очередь: <span id="queueList">—</span></div>
+    </div>
+  </div>
+
+  <!-- Панель информации о выделенном -->
+  <div id="selInfo" class="panel hidden">
+    <div class="panel-header">Выбрано</div>
+    <div class="panel-body" id="selInfoBody"></div>
+  </div>
+
+  <div id="hint">ЛКМ — выделение · рамка — группа · ПКМ — приказ · колесо — зум · 1/2/3 — выбор обороны, затем ПКМ — разместить · Shift+ПКМ — залп арты в точку · F — залп всей арты в курсор · Del — снести выбранное · при наведении на оборону показывается её радиус</div>
+  <div id="toasts"></div>
+</div>
+<script src="main.js"></script>
+</body>
+</html>
