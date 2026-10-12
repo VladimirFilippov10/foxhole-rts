@@ -172,6 +172,7 @@ export class WardenArtillery extends Vehicle {
         this.hp = this.maxHp = 100; // Хуже живучесть
         this.dmg = 85; // Больше урона
         this.range = 500; // Дальность 500
+        this.minRange = 150; // Минимальная дальность - не может стрелять в упор
         this.spd = 0.3; // Очень медленная
         this.cd = 480; // 8 секунд при 60 FPS
         this.size = 24;
@@ -188,6 +189,7 @@ export class ColonialArtillery extends Vehicle {
         this.hp = this.maxHp = 110; // Чуть лучше живучесть
         this.dmg = 75; // Немного меньше урона
         this.range = 400; // Дальность 400
+        this.minRange = 120; // Минимальная дальность - не может стрелять в упор
         this.spd = 0.6; // В 2 раза быстрее Wardens
         this.cd = 420; // 7 секунд при 60 FPS
         this.size = 22;

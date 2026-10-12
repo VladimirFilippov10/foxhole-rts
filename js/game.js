@@ -151,18 +151,30 @@ export class Game {
                 }
             });
 
-            // Attack - simplified logic
+            // Attack logic - only attack if target is in range
+            let attackTarget = null;
+            let canAttack = false;
+            
             // For artillery, check if aoeTarget is set
-            let attackTarget = nearest;
             if (u.aoe && u.aoeTarget) {
-                // Use aoeTarget instead of nearest enemy
                 const targetDist = dist(u.x, u.y, u.aoeTarget.x, u.aoeTarget.y);
-                if (targetDist <= u.range) {
+                // Artillery has minimum range - can't shoot at close targets
+                const minRange = u.minRange || 100;
+                if (targetDist >= minRange && targetDist <= u.range) {
                     attackTarget = { x: u.aoeTarget.x, y: u.aoeTarget.y };
+                    canAttack = true;
+                }
+            } else if (nearest && nearest.hp > 0) {
+                const targetDist = dist(u.x, u.y, nearest.x, nearest.y);
+                // Check if target is in attack range
+                if (targetDist <= u.range && u.dmg > 0 && u.cd > 0) {
+                    attackTarget = nearest;
+                    canAttack = true;
                 }
             }
             
-            if (attackTarget && dist(u.x, u.y, attackTarget.x, attackTarget.y) <= u.range && u.dmg > 0 && u.cd > 0) {
+            // Attack if possible
+            if (canAttack && attackTarget) {
                 const timeSinceLastAttack = this.time - u.lastAtk;
                 if (timeSinceLastAttack >= u.cd) {
                     // Проверка БК перед атакой
@@ -205,8 +217,8 @@ export class Game {
                     }
                 }
             }
-            // Move to target
-            if (u.tx !== undefined) {
+            // Move to target if not attacking or target is out of range
+            else if (u.tx !== undefined) {
                 const d = dist(u.x, u.y, u.tx, u.ty);
                 if (d > 5) {
                     // Проверка топлива
@@ -461,6 +473,15 @@ export class Game {
         
         // Проверка ресурсов
         if (this.res.s < cost.s || this.res.c < cost.c || this.res.m < cost.m) {
+            return null;
+        }
+        
+        // Проверка что строительство происходит в захваченной зоне
+        const inCapturedZone = this.cps.some(cp => {
+            return cp.owner === faction && dist(x, y, cp.x, cp.y) <= cp.radius + 50;
+        });
+        
+        if (!inCapturedZone) {
             return null;
         }
         
