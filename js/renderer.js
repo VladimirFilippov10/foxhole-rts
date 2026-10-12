@@ -547,6 +547,39 @@ function drawBuilding(ctx, b, cam) {
     if (b.type && b.type.startsWith('bunker_')) {
         const sz = b.type === 'bunker_light' ? 30 : b.type === 'bunker_medium' ? 38 : 46;
         
+        // Если бункер строится - показываем процесс строительства
+        if (b.isBuilding) {
+            // Строительная площадка
+            ctx.fillStyle = 'rgba(139, 115, 85, 0.5)';
+            ctx.fillRect(x - sz / 2, y - sz / 2, sz, sz);
+            
+            // Каркас
+            ctx.strokeStyle = '#8b7355';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(x - sz / 2, y - sz / 2, sz, sz);
+            ctx.setLineDash([]);
+            
+            // Прогресс строительства
+            const progress = b.buildProgress || 0;
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`🔨 ${Math.floor(progress)}%`, x, y);
+            
+            // Полоска прогресса
+            ctx.fillStyle = '#333';
+            ctx.fillRect(x - sz / 2, y + sz / 2 + 3, sz, 6);
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(x - sz / 2, y + sz / 2 + 3, sz * (progress / 100), 6);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x - sz / 2, y + sz / 2 + 3, sz, 6);
+            
+            return;
+        }
+        
         // Тень
         ctx.fillStyle = 'rgba(0,0,0,0.4)';
         ctx.fillRect(x - sz / 2 + 3, y - sz / 2 + 3, sz, sz);

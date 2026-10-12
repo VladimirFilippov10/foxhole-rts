@@ -77,6 +77,9 @@ export class Game {
         // Update production queue
         this.updateProduction();
         
+        // Update construction
+        this.updateConstruction();
+        
         // Update units
         this.updateUnits();
         
@@ -464,9 +467,9 @@ export class Game {
     // Система укреплений
     buildFortification(type, x, y, faction) {
         const FORTIFICATION_COSTS = {
-            bunker_light: { s: 30, c: 20, m: 25, hp: 300, defense: 10, range: 120 },
-            bunker_medium: { s: 60, c: 40, m: 50, hp: 600, defense: 20, range: 150 },
-            bunker_heavy: { s: 100, c: 70, m: 80, hp: 1000, defense: 35, range: 180 },
+            bunker_light: { s: 30, c: 20, m: 25, hp: 300, defense: 10, range: 120, buildTime: 10 },
+            bunker_medium: { s: 60, c: 40, m: 50, hp: 600, defense: 20, range: 150, buildTime: 15 },
+            bunker_heavy: { s: 100, c: 70, m: 80, hp: 1000, defense: 35, range: 180, buildTime: 20 },
         };
         
         const cost = FORTIFICATION_COSTS[type];
@@ -479,19 +482,20 @@ export class Game {
         
         // Проверка что строительство происходит в захваченной зоне
         const inCapturedZone = this.cps.some(cp => {
-            return cp.owner === faction && dist(x, y, cp.x, cp.y) <= cp.radius + 50;
+            return cp.owner === faction && dist(x, y, cp.x, cp.y) <= cp.radius + 80;
         });
         
         if (!inCapturedZone) {
             return null;
         }
         
-        // Построение укрепления
+        // Списываем ресурсы
         this.res.s -= cost.s;
         this.res.c -= cost.c;
         this.res.m -= cost.m;
         
-        const fortification = {
+        // Добавляем в очередь строительства (не строим мгновенно)
+        const construction = {
             id: 'fort_' + Math.random().toString(36).substr(2, 9),
             type: type,
             faction: faction,
@@ -503,10 +507,63 @@ export class Game {
             range: cost.range,
             level: 1,
             lastAtk: 0,
+            buildProgress: 0, // 0-100%
+            buildTime: cost.buildTime * 60, // В тиках (60 FPS)
+            isBuilding: true,
         };
         
-        this.buildings.push(fortification);
-        return fortification;
+        this.buildings.push(construction);
+        return construction;
+    }
+    
+    updateConstruction() {
+        this.buildings.forEach(b => {
+            if (b.isBuilding && b.buildProgress !== undefined) {
+                b.buildProgress += 100 / b.buildTime;
+                
+                if (b.buildProgress >= 100) {
+                    b.buildProgress = 100;
+                    b.isBuilding = false;
+                    b.hp = b.maxHp; // Полное HP после завершения
+                } else {
+                    // Во время строительства HP пропорционально прогрессу
+                    b.hp = Math.floor(b.maxHp * (b.buildProgress / 100));
+                }
+            }
+            
+            // Бункеры атакуют врагов в радиусе действия (только если достроены)
+            if (b.type && b.type.startsWith('bunker_') && !b.isBuilding && b.range > 0) {
+                // Инициализация таймера атаки
+                if (b.lastAtk === undefined) b.lastAtk = 0;
+                
+                // Проверяем кулдаун (2 секунды между выстрелами)
+                if (this.time - b.lastAtk < 120) return;
+                
+                // Ищем ближайшего врага в радиусе действия
+                let nearestEnemy = null;
+                let nearestDist = Infinity;
+                
+                this.units.forEach(u => {
+                    if (u.faction !== b.faction && u.hp > 0) {
+                        const d = dist(b.x, b.y, u.x, u.y);
+                        if (d <= b.range && d < nearestDist) {
+                            nearestDist = d;
+                            nearestEnemy = u;
+                        }
+                    }
+                });
+                
+                // Атакуем если нашли врага
+                if (nearestEnemy) {
+                    b.lastAtk = this.time;
+                    const damage = b.defense || 10;
+                    nearestEnemy.takeDamage(damage);
+                    
+                    // Визуальный эффект выстрела
+                    this.addParticles(nearestEnemy.x, nearestEnemy.y, '#ffcc00', 3);
+                }
+            }
+        });
     }
     
     upgradeFortification(fortification) {

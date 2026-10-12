@@ -55,6 +55,53 @@ export class AI {
         
         // Управление артиллерией
         this.manageArtillery();
+        
+        // Строительство укреплений (медленнее чем игрок)
+        this.buildFortifications();
+    }
+    
+    buildFortifications() {
+        // ИИ строит бункеры каждые 2000 тиков (медленнее чем игрок)
+        if (this.timer % 2000 !== 0) return;
+        
+        // Проверяем ресурсы на бункер
+        const bunkerCost = { s: 30, c: 20, m: 25 }; // Лёгкий бункер
+        if (this.aiResources.s < bunkerCost.s || 
+            this.aiResources.c < bunkerCost.c || 
+            this.aiResources.m < bunkerCost.m) {
+            return;
+        }
+        
+        // Находим свои территории
+        const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
+        if (aiPoints.length === 0) return;
+        
+        // Выбираем случайную территорию для защиты
+        const targetPoint = aiPoints[Math.floor(Math.random() * aiPoints.length)];
+        
+        // Проверяем сколько уже бункеров рядом
+        const nearbyBunkers = this.G.buildings.filter(b => 
+            b.faction === this.G.ai && 
+            b.type && b.type.startsWith('bunker_') &&
+            dist(b.x, b.y, targetPoint.x, targetPoint.y) < targetPoint.radius + 80
+        );
+        
+        // Строим максимум 2 бункера на точку
+        if (nearbyBunkers.length >= 2) return;
+        
+        // Выбираем позицию для бункера
+        const angle = Math.random() * Math.PI * 2;
+        const distance = targetPoint.radius * 0.6;
+        const buildX = targetPoint.x + Math.cos(angle) * distance;
+        const buildY = targetPoint.y + Math.sin(angle) * distance;
+        
+        // Строим бункер (ИИ строит медленнее - увеличиваем время строительства)
+        const fortification = this.G.buildFortification('bunker_light', buildX, buildY, this.G.ai);
+        if (fortification) {
+            // Увеличиваем время строительства для ИИ
+            fortification.buildTime *= 1.5; // ИИ строит в 1.5 раза медленнее
+            this.spendResources(bunkerCost);
+        }
     }
     
     updateAIResources() {
