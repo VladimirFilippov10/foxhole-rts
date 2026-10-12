@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { GameState, Faction, BuildingType, UnitType, UNIT_STATS, BUILDING_STATS, FACTION_COLORS } from './types';
 import { createInitialState, updateGameState, createUnit, placeBuilding, moveSelectedUnits, canAfford } from './gameEngine';
 import { renderGame } from './renderer';
-import { playBuildSound, playSelectSound, playAttackSound } from './audio';
+import { playBuildSound, playSelectSound } from './audio';
 
 type Screen = 'menu' | 'game' | 'gameover';
 
