@@ -44,7 +44,7 @@ export function render(ctx, G, canvas) {
     // Units
     const hoveredUnit = getHoveredUnit(G, cam);
     G.units.forEach(u => {
-        drawUnit(ctx, u, cam, G.selected, hoveredUnit === u);
+        drawUnit(ctx, u, cam, G.selected, hoveredUnit === u, G);
         
         // Draw AoE target if set
         if (u.aoe && u.aoeTarget) {
@@ -612,7 +612,7 @@ function drawBuilding(ctx, b, cam) {
     ctx.fillRect(x - sz / 2, y + sz / 2 + 3, sz * hpPct, 4);
 }
 
-function drawUnit(ctx, u, cam, selected, hovered) {
+function drawUnit(ctx, u, cam, selected, hovered, G) {
     const x = u.x - cam.x;
     const y = u.y - cam.y;
     if (x < -40 || x > ctx.canvas.width + 40 || y < -40 || y > ctx.canvas.height + 40) return;
