@@ -39,14 +39,15 @@ export class AI {
         const totalPoints = this.G.cps.length;
         const playerDominance = playerPoints > totalPoints * 0.5;
         
-        // Базовые интервалы спавна (увеличены в 3 раза)
-        const infantrySpawnInterval = 2700; // 900 * 3
-        const vehicleSpawnInterval = 4500; // 1500 * 3
+        // Базовые интервалы спавна
+        const baseInfantryInterval = 900;
+        const baseVehicleInterval = 1500;
         
-        // Если игрок доминирует, замедляем спавн ещё в 2 раза
-        const spawnMultiplier = playerDominance ? 2 : 1;
-        const actualInfantryInterval = infantrySpawnInterval * spawnMultiplier;
-        const actualVehicleInterval = vehicleSpawnInterval * spawnMultiplier;
+        // До 50% точек: ИИ спавнит в 3 раза медленнее базового
+        // После 50% точек: ИИ спавнит в 2 раза медленнее базового
+        const spawnMultiplier = playerDominance ? 2 : 3;
+        const actualInfantryInterval = baseInfantryInterval * spawnMultiplier;
+        const actualVehicleInterval = baseVehicleInterval * spawnMultiplier;
 
         // Спавн пехоты (с учётом доминирования)
         if (this.timer % actualInfantryInterval === 0) {
