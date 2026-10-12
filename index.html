@@ -1,97 +1,719 @@
-<!doctype html>
-<html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>War of the Continent - 2D RTS</title>
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    />
     <style>
-      /* 内联样式确保主题色立即生效，避免闪烁 */
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-      }
-      html.light,
-      html.light body {
-        background-color: #ffffff !important;
-        color: #000000;
-      }
-      html.dark,
-      html.dark body {
-        background-color: #1a1a1a !important;
-        color: #ffffff;
-      }
-    </style>
-    <script>
-      // 在 React 加载前立即设置主题，避免闪烁
-      (function () {
-        const isInIframe = window.self !== window.top;
-
-        function applyThemeToDOM(theme) {
-          document.documentElement.classList.remove("light", "dark");
-          document.documentElement.classList.add(theme);
-          document.documentElement.setAttribute("data-theme", theme);
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-
-        if (isInIframe) {
-          // 监听父窗口主动推送的主题消息
-          window.addEventListener("message", function (event) {
-            if (event.data && typeof event.data.theme === "string") {
-              const theme = event.data.theme;
-              if (theme === "light" || theme === "dark") {
-                applyThemeToDOM(theme);
-              }
+        
+        body {
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            background: #111827;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: white;
+        }
+        
+        #gameCanvas {
+            display: block;
+            cursor: crosshair;
+        }
+        
+        .menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .menu h1 {
+            font-size: 4rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.1em;
+        }
+        
+        .menu p {
+            color: #9ca3af;
+            font-size: 1.2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .faction-buttons {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .faction-btn {
+            width: 280px;
+            height: 320px;
+            border: 2px solid;
+            border-radius: 12px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .faction-btn.wardens {
+            background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 100%);
+            border-color: #3b82f6;
+        }
+        
+        .faction-btn.colonials {
+            background: linear-gradient(135deg, #5f1e1e 0%, #b91c1c 100%);
+            border-color: #ef4444;
+        }
+        
+        .faction-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+        
+        .faction-btn .icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        
+        .faction-btn h2 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .faction-btn p {
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.7);
+            text-align: center;
+        }
+        
+        .hud {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            pointer-events: none;
+        }
+        
+        .resources {
+            display: flex;
+            gap: 1.5rem;
+            pointer-events: auto;
+        }
+        
+        .resource {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .resource-icon {
+            font-size: 1.5rem;
+        }
+        
+        .resource-value {
+            font-family: monospace;
+            font-size: 1rem;
+        }
+        
+        .resource-label {
+            font-size: 0.75rem;
+            color: #9ca3af;
+        }
+        
+        .faction-indicator {
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            font-weight: bold;
+            pointer-events: auto;
+        }
+        
+        .faction-indicator.wardens {
+            background: rgba(30, 58, 95, 0.8);
+            color: #60a5fa;
+        }
+        
+        .faction-indicator.colonials {
+            background: rgba(95, 30, 30, 0.8);
+            color: #f87171;
+        }
+        
+        .bottom-hud {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            z-index: 100;
+            pointer-events: none;
+        }
+        
+        .selection-info {
+            background: rgba(17, 24, 39, 0.9);
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 0.75rem;
+            pointer-events: auto;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+            pointer-events: auto;
+        }
+        
+        .action-btn {
+            background: rgba(17, 24, 39, 0.9);
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 0.5rem;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .action-btn:hover:not(:disabled) {
+            background: rgba(31, 41, 55, 0.9);
+            border-color: #4b5563;
+        }
+        
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(17, 24, 39, 0.95);
+            border: 1px solid #4b5563;
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            z-index: 200;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-10px);
             }
-          });
-        } else {
-          // 非 iframe 环境，使用默认 dark 主题
-          applyThemeToDOM("dark");
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
         }
-      })();
-    </script>
-      <script>
-      (function () {
-        if (window.self === window.top) return;
-        var reported = {};
-        window.addEventListener("error", function (event) {
-          // 资源加载失败的 error 事件没有 message，此处仅上报 JS 运行时错误
-          if (!event || !event.message) return;
-          var key =
-            event.message + "|" + (event.filename || "") + "|" + (event.lineno || 0);
-          if (reported[key]) return; // 相同错误只上报一次，避免渲染循环刷屏
-          reported[key] = true;
-          try {
-            window.parent.postMessage(
-              {
-                type: "sandbox-runtime-error",
-                payload: {
-                  message: String(event.message).slice(0, 500),
-                  filename: event.filename || "",
-                  lineno: event.lineno || 0,
-                  colno: event.colno || 0,
-                  stack:
-                    event.error && event.error.stack
-                      ? String(event.error.stack).slice(0, 2000)
-                      : ""
+        
+        .controls-help {
+            position: fixed;
+            top: 4rem;
+            right: 1rem;
+            font-size: 0.75rem;
+            color: #6b7280;
+            text-align: right;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="menu" class="menu">
+        <h1>WAR OF THE CONTINENT</h1>
+        <p>2D RTS в стиле Foxhole</p>
+        
+        <div class="faction-buttons">
+            <button class="faction-btn wardens" onclick="startGame('wardens')">
+                <div class="icon">🛡️</div>
+                <h2>WARDENS</h2>
+                <p>Тяжёлая бронетехника<br>Промышленное превосходство<br>Дальнобойная артиллерия</p>
+            </button>
+            
+            <button class="faction-btn colonials" onclick="startGame('colonials')">
+                <div class="icon">⚔️</div>
+                <h2>COLONIALS</h2>
+                <p>Быстрые полугусеничники<br>Партизанская тактика<br>Скоростное производство</p>
+            </button>
+        </div>
+        
+        <div style="color: #6b7280; font-size: 0.875rem; text-align: center; max-width: 600px;">
+            <p>Две нации сражаются за контроль над континентом. Захватывайте территории, стройте здания, создавайте технику и разгромите противника!</p>
+        </div>
+    </div>
+    
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="hud" class="hud" style="display: none;">
+        <div class="resources">
+            <div class="resource">
+                <span class="resource-icon">📦</span>
+                <span class="resource-value" id="supplies">200</span>
+                <span class="resource-label">SUP</span>
+            </div>
+            <div class="resource">
+                <span class="resource-icon">⚙️</span>
+                <span class="resource-value" id="components">100</span>
+                <span class="resource-label">COMP</span>
+            </div>
+            <div class="resource">
+                <span class="resource-icon">🪨</span>
+                <span class="resource-value" id="materials">80</span>
+                <span class="resource-label">MAT</span>
+            </div>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="color: #d1d5db; font-family: monospace; font-size: 0.875rem;">
+                Territories: <span id="territoryCount">1</span>/9
+            </div>
+            <div id="factionIndicator" class="faction-indicator wardens">
+                🛡️ WARDENS
+            </div>
+        </div>
+    </div>
+    
+    <div id="bottomHud" class="bottom-hud" style="display: none;">
+        <div id="selectionInfo" class="selection-info" style="display: none;"></div>
+        
+        <div class="action-buttons">
+            <button class="action-btn" onclick="buildStructure('barracks')" title="Barracks - S:40 C:20 M:20">
+                🏠 Barracks
+            </button>
+            <button class="action-btn" onclick="buildStructure('factory')" title="Factory - S:50 C:30 M:40">
+                🏭 Factory
+            </button>
+            <button class="action-btn" onclick="buildStructure('refinery')" title="Refinery - S:30 C:15 M:30">
+                ⛽ Refinery
+            </button>
+        </div>
+    </div>
+    
+    <div id="controlsHelp" class="controls-help" style="display: none;">
+        <p>WASD - Camera</p>
+        <p>Click - Select</p>
+        <p>Right-click - Move</p>
+        <p>Shift+Drag - Pan</p>
+    </div>
+    
+    <div id="notification" class="notification" style="display: none;"></div>
+
+    <script>
+        // Game State
+        let gameState = null;
+        let canvas, ctx;
+        let animationId = null;
+        let keys = {};
+        let mousePos = { x: 0, y: 0 };
+        let isDragging = false;
+        let lastMousePos = { x: 0, y: 0 };
+        let placingBuilding = null;
+        
+        // Constants
+        const UNIT_TYPES = {
+            infantry: { health: 50, damage: 8, range: 120, speed: 1.5, cost: { supplies: 10, components: 0, materials: 0 }, size: 10 },
+            light_tank: { health: 200, damage: 25, range: 150, speed: 2, cost: { supplies: 30, components: 20, materials: 10 }, size: 22 },
+            heavy_tank: { health: 400, damage: 45, range: 160, speed: 1.2, cost: { supplies: 50, components: 40, materials: 30 }, size: 28 },
+            artillery: { health: 150, damage: 60, range: 300, speed: 0.8, cost: { supplies: 40, components: 30, materials: 20 }, size: 24 }
+        };
+        
+        const BUILDING_TYPES = {
+            barracks: { health: 400, cost: { supplies: 40, components: 20, materials: 20 }, size: 40 },
+            factory: { health: 500, cost: { supplies: 50, components: 30, materials: 40 }, size: 45 },
+            refinery: { health: 300, cost: { supplies: 30, components: 15, materials: 30 }, size: 40 }
+        };
+        
+        const FACTION_COLORS = {
+            wardens: { primary: '#2563eb', secondary: '#1d4ed8', accent: '#60a5fa' },
+            colonials: { primary: '#dc2626', secondary: '#b91c1c', accent: '#f87171' }
+        };
+        
+        // Initialize
+        function init() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+            window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('contextmenu', e => e.preventDefault());
+        }
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        function startGame(faction) {
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('hud').style.display = 'flex';
+            document.getElementById('bottomHud').style.display = 'flex';
+            document.getElementById('controlsHelp').style.display = 'block';
+            
+            const indicator = document.getElementById('factionIndicator');
+            indicator.className = 'faction-indicator ' + faction;
+            indicator.innerHTML = faction === 'wardens' ? '🛡️ WARDENS' : '⚔️ COLONIALS';
+            
+            gameState = createInitialState(faction);
+            gameLoop();
+        }
+        
+        function createInitialState(playerFaction) {
+            const aiFaction = playerFaction === 'wardens' ? 'colonials' : 'wardens';
+            
+            return {
+                playerFaction,
+                resources: { supplies: 200, components: 100, materials: 80 },
+                units: [
+                    ...createSquad(playerFaction, { x: 350, y: 450 }, 'infantry', 5),
+                    ...createSquad(aiFaction, { x: 2650, y: 1050 }, 'infantry', 5)
+                ],
+                buildings: [
+                    { id: 'b1', type: 'town_hall', faction: playerFaction, position: { x: 300, y: 350 }, health: 1000, maxHealth: 1000 },
+                    { id: 'b2', type: 'barracks', faction: playerFaction, position: { x: 500, y: 350 }, health: 400, maxHealth: 400 },
+                    { id: 'b3', type: 'town_hall', faction: aiFaction, position: { x: 2700, y: 1000 }, health: 1000, maxHealth: 1000 },
+                    { id: 'b4', type: 'barracks', faction: aiFaction, position: { x: 2500, y: 1000 }, health: 400, maxHealth: 400 }
+                ],
+                capturePoints: [
+                    { id: 'cp1', name: 'Clanshead Valley', position: { x: 400, y: 400 }, radius: 80, owner: playerFaction, captureProgress: 100 },
+                    { id: 'cp2', name: 'Godcrofts', position: { x: 900, y: 600 }, radius: 80, owner: 'neutral', captureProgress: 0 },
+                    { id: 'cp3', name: 'Merentis', position: { x: 1500, y: 1000 }, radius: 90, owner: 'neutral', captureProgress: 0 },
+                    { id: 'cp4', name: 'Basrash', position: { x: 2600, y: 1000 }, radius: 90, owner: aiFaction, captureProgress: 100 }
+                ],
+                selectedUnits: [],
+                selectedBuilding: null,
+                cameraOffset: { x: 0, y: 0 },
+                mapWidth: 3000,
+                mapHeight: 2000,
+                gameTime: 0
+            };
+        }
+        
+        function createSquad(faction, position, type, count) {
+            const stats = UNIT_TYPES[type];
+            const units = [];
+            for (let i = 0; i < count; i++) {
+                units.push({
+                    id: 'u' + Math.random().toString(36).substr(2, 9),
+                    type,
+                    faction,
+                    position: {
+                        x: position.x + (i % 3) * 30 - 30,
+                        y: position.y + Math.floor(i / 3) * 30 - 15
+                    },
+                    health: stats.health,
+                    maxHealth: stats.health,
+                    damage: stats.damage,
+                    range: stats.range,
+                    speed: stats.speed,
+                    attackCooldown: 60,
+                    lastAttack: 0
+                });
+            }
+            return units;
+        }
+        
+        function gameLoop() {
+            if (!gameState) return;
+            
+            update();
+            render();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+        
+        function update() {
+            gameState.gameTime++;
+            
+            // Camera movement
+            const speed = 8;
+            if (keys['w'] || keys['arrowup']) gameState.cameraOffset.y -= speed;
+            if (keys['s'] || keys['arrowdown']) gameState.cameraOffset.y += speed;
+            if (keys['a'] || keys['arrowleft']) gameState.cameraOffset.x -= speed;
+            if (keys['d'] || keys['arrowright']) gameState.cameraOffset.x += speed;
+            
+            gameState.cameraOffset.x = Math.max(0, Math.min(gameState.mapWidth - canvas.width, gameState.cameraOffset.x));
+            gameState.cameraOffset.y = Math.max(0, Math.min(gameState.mapHeight - canvas.height, gameState.cameraOffset.y));
+            
+            // Resource generation
+            const playerPoints = gameState.capturePoints.filter(p => p.owner === gameState.playerFaction).length;
+            gameState.resources.supplies += playerPoints * 0.02;
+            gameState.resources.components += playerPoints * 0.01;
+            gameState.resources.materials += playerPoints * 0.008;
+            
+            // Update units
+            gameState.units.forEach(unit => {
+                const enemies = gameState.units.filter(u => u.faction !== unit.faction && u.health > 0);
+                const nearestEnemy = enemies.reduce((nearest, enemy) => {
+                    const dist = distance(unit.position, enemy.position);
+                    if (!nearest || dist < distance(unit.position, nearest.position)) return enemy;
+                    return nearest;
+                }, null);
+                
+                if (nearestEnemy && distance(unit.position, nearestEnemy.position) <= unit.range) {
+                    if (gameState.gameTime - unit.lastAttack >= unit.attackCooldown) {
+                        unit.lastAttack = gameState.gameTime;
+                        nearestEnemy.health -= unit.damage;
+                    }
+                } else if (unit.targetPosition) {
+                    if (distance(unit.position, unit.targetPosition) > 5) {
+                        unit.position = moveTowards(unit.position, unit.targetPosition, unit.speed);
+                    } else {
+                        unit.targetPosition = undefined;
+                    }
                 }
-              },
-              "*"
-            );
-          } catch (e) {
-            /* 上报失败不影响页面运行 */
-          }
-        });
-      })();
+            });
+            
+            // Remove dead units
+            gameState.units = gameState.units.filter(u => u.health > 0);
+            
+            // Update HUD
+            document.getElementById('supplies').textContent = Math.floor(gameState.resources.supplies);
+            document.getElementById('components').textContent = Math.floor(gameState.resources.components);
+            document.getElementById('materials').textContent = Math.floor(gameState.resources.materials);
+            document.getElementById('territoryCount').textContent = playerPoints;
+        }
+        
+        function render() {
+            const cam = gameState.cameraOffset;
+            
+            // Background
+            ctx.fillStyle = '#2d4a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Grid
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+            ctx.lineWidth = 1;
+            for (let x = -(cam.x % 50); x < canvas.width; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = -(cam.y % 50); y < canvas.height; y += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // Capture points
+            gameState.capturePoints.forEach(point => {
+                const x = point.position.x - cam.x;
+                const y = point.position.y - cam.y;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, point.radius, 0, Math.PI * 2);
+                const color = point.owner === 'neutral' ? '#6b7280' : FACTION_COLORS[point.owner].primary;
+                ctx.fillStyle = color + '20';
+                ctx.fill();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '11px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(point.name, x, y - point.radius - 8);
+            });
+            
+            // Buildings
+            gameState.buildings.forEach(building => {
+                const x = building.position.x - cam.x;
+                const y = building.position.y - cam.y;
+                const colors = FACTION_COLORS[building.faction];
+                const size = 40;
+                
+                ctx.fillStyle = colors.primary;
+                ctx.fillRect(x - size / 2, y - size / 2, size, size);
+                ctx.strokeStyle = colors.accent;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x - size / 2, y - size / 2, size, size);
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 10px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(building.type.toUpperCase().slice(0, 3), x, y);
+            });
+            
+            // Units
+            gameState.units.forEach(unit => {
+                const x = unit.position.x - cam.x;
+                const y = unit.position.y - cam.y;
+                const colors = FACTION_COLORS[unit.faction];
+                const size = UNIT_TYPES[unit.type].size;
+                
+                ctx.fillStyle = colors.primary;
+                if (unit.type === 'infantry') {
+                    ctx.beginPath();
+                    ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(x - size / 2, y - size / 3, size, size * 0.65);
+                }
+                
+                if (gameState.selectedUnits.includes(unit.id)) {
+                    ctx.strokeStyle = '#fbbf24';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(x, y, size / 2 + 5, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            });
+        }
+        
+        function handleMouseDown(e) {
+            if (e.button === 2) {
+                if (placingBuilding) {
+                    placingBuilding = null;
+                    showNotification('Placement cancelled');
+                    return;
+                }
+                if (gameState.selectedUnits.length > 0) {
+                    const worldPos = {
+                        x: e.clientX + gameState.cameraOffset.x,
+                        y: e.clientY + gameState.cameraOffset.y
+                    };
+                    gameState.units.forEach(unit => {
+                        if (gameState.selectedUnits.includes(unit.id)) {
+                            unit.targetPosition = worldPos;
+                        }
+                    });
+                }
+                return;
+            }
+            
+            if (placingBuilding) {
+                const worldPos = {
+                    x: e.clientX + gameState.cameraOffset.x,
+                    y: e.clientY + gameState.cameraOffset.y
+                };
+                const cost = BUILDING_TYPES[placingBuilding].cost;
+                if (canAfford(gameState.resources, cost)) {
+                    gameState.resources.supplies -= cost.supplies;
+                    gameState.resources.components -= cost.components;
+                    gameState.resources.materials -= cost.materials;
+                    gameState.buildings.push({
+                        id: 'b' + Math.random().toString(36).substr(2, 9),
+                        type: placingBuilding,
+                        faction: gameState.playerFaction,
+                        position: worldPos,
+                        health: BUILDING_TYPES[placingBuilding].health,
+                        maxHealth: BUILDING_TYPES[placingBuilding].health
+                    });
+                    showNotification(placingBuilding + ' constructed!');
+                    placingBuilding = null;
+                } else {
+                    showNotification('Not enough resources!');
+                }
+                return;
+            }
+            
+            const worldPos = {
+                x: e.clientX + gameState.cameraOffset.x,
+                y: e.clientY + gameState.cameraOffset.y
+            };
+            
+            const clickedUnit = gameState.units.find(u => {
+                const dist = distance(u.position, worldPos);
+                return dist < 20 && u.faction === gameState.playerFaction;
+            });
+            
+            if (clickedUnit) {
+                gameState.selectedUnits = [clickedUnit.id];
+            } else {
+                gameState.selectedUnits = gameState.units.filter(u => {
+                    const dist = distance(u.position, worldPos);
+                    return dist < 60 && u.faction === gameState.playerFaction;
+                }).map(u => u.id);
+            }
+        }
+        
+        function handleMouseMove(e) {
+            mousePos = { x: e.clientX, y: e.clientY };
+            
+            if (isDragging) {
+                const dx = e.clientX - lastMousePos.x;
+                const dy = e.clientY - lastMousePos.y;
+                lastMousePos = { x: e.clientX, y: e.clientY };
+                
+                gameState.cameraOffset.x -= dx;
+                gameState.cameraOffset.y -= dy;
+            }
+        }
+        
+        function handleMouseUp(e) {
+            isDragging = false;
+        }
+        
+        function buildStructure(type) {
+            const cost = BUILDING_TYPES[type].cost;
+            if (!canAfford(gameState.resources, cost)) {
+                showNotification('Not enough resources!');
+                return;
+            }
+            placingBuilding = type;
+            showNotification('Click on map to place ' + type + '. Right-click to cancel.');
+        }
+        
+        function showNotification(msg) {
+            const notif = document.getElementById('notification');
+            notif.textContent = msg;
+            notif.style.display = 'block';
+            setTimeout(() => notif.style.display = 'none', 3000);
+        }
+        
+        function distance(a, b) {
+            return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+        }
+        
+        function moveTowards(from, to, speed) {
+            const dist = distance(from, to);
+            if (dist < speed) return { ...to };
+            const ratio = speed / dist;
+            return {
+                x: from.x + (to.x - from.x) * ratio,
+                y: from.y + (to.y - from.y) * ratio
+            };
+        }
+        
+        function canAfford(resources, cost) {
+            return resources.supplies >= cost.supplies &&
+                   resources.components >= cost.components &&
+                   resources.materials >= cost.materials;
+        }
+        
+        // Start
+        init();
     </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+</body>
 </html>
