@@ -36,7 +36,7 @@ export class Infantry extends Vehicle {
         this.hp = this.maxHp = 50;
         this.dmg = 8;
         this.range = 120;
-        this.spd = 0.8; // Очень медленно
+        this.spd = 0.6; // Очень медленно
         this.cd = 50;
         this.size = 8;
         this.label = 'Пехота';
@@ -48,10 +48,10 @@ export class Devitt extends Vehicle {
     constructor(faction, x, y) {
         super('devitt', faction, x, y);
         this.hp = this.maxHp = 280;
-        this.dmg = 35;
+        this.dmg = 50;
         this.range = 160;
-        this.spd = 1.2; // Медленный
-        this.cd = 70;
+        this.spd = 1.0; // Медленный
+        this.cd = 380;
         this.size = 22;
         this.armor = 5;
         this.label = 'Devitt';
@@ -62,12 +62,12 @@ export class Gallagher extends Vehicle {
     constructor(faction, x, y) {
         super('gallagher', faction, x, y);
         this.hp = this.maxHp = 520;
-        this.dmg = 65;
+        this.dmg = 30;
         this.range = 180;
-        this.spd = 0.9; // Очень медленный
-        this.cd = 80;
+        this.spd = 1.7; // Очень медленный
+        this.cd = 250;
         this.size = 28;
-        this.armor = 12;
+        this.armor = 25;
         this.label = 'Gallagher 30mm';
     }
 }
@@ -75,11 +75,11 @@ export class Gallagher extends Vehicle {
 export class Niska extends Vehicle {
     constructor(faction, x, y) {
         super('niska', faction, x, y);
-        this.hp = this.maxHp = 240;
-        this.dmg = 20;
+        this.hp = this.maxHp = 260;
+        this.dmg = 10;
         this.range = 150;
-        this.spd = 1.4;
-        this.cd = 60;
+        this.spd = 1.8;
+        this.cd = 45;
         this.size = 22;
         this.armor = 4;
         this.label = 'Niska APC';
@@ -91,10 +91,10 @@ export class Hatchet extends Vehicle {
     constructor(faction, x, y) {
         super('hatchet', faction, x, y);
         this.hp = this.maxHp = 220;
-        this.dmg = 30;
+        this.dmg = 50;
         this.range = 150;
-        this.spd = 1.5; // Быстрее Wardens
-        this.cd = 65;
+        this.spd = 1.2; // Быстрее Wardens
+        this.cd = 430;
         this.size = 20;
         this.armor = 3;
         this.label = 'Hatchet';
@@ -105,10 +105,10 @@ export class Falchion extends Vehicle {
     constructor(faction, x, y) {
         super('falchion', faction, x, y);
         this.hp = this.maxHp = 480;
-        this.dmg = 70;
+        this.dmg = 60;
         this.range = 170;
         this.spd = 1.0;
-        this.cd = 75;
+        this.cd = 400;
         this.size = 26;
         this.armor = 10;
         this.label = 'Falchion';
@@ -119,10 +119,10 @@ export class Hoplite extends Vehicle {
     constructor(faction, x, y) {
         super('hoplite', faction, x, y);
         this.hp = this.maxHp = 200;
-        this.dmg = 18;
+        this.dmg = 5;
         this.range = 140;
         this.spd = 1.6; // Самый быстрый
-        this.cd = 55;
+        this.cd = 50;
         this.size = 20;
         this.armor = 3;
         this.label = 'Hoplite APC';
