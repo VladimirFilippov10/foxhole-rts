@@ -240,7 +240,7 @@ function startGame() {
         const aiAPC = game.ai === 'wardens' ? 'niska' : 'hoplite';
         units.push(createVehicle(aiAPC, game.ai, aiBase.x, aiBase.y + 120));
         
-        const aiAssaultTank = game.ai === 'wardens' ? 'gallagher' : 'falchion';
+        const aiAssaultTank = game.ai === 'wardens' ? 'gallagher_highwayman' : 'falchion';
         units.push(createVehicle(aiAssaultTank, game.ai, aiBase.x + 50, aiBase.y - 30));
         
         // Initialize game

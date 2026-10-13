@@ -29,11 +29,6 @@ export class AI {
         // Генерация ресурсов ИИ (медленнее чем у игрока)
         this.updateAIResources();
 
-        // Проверка лимитов перед производством
-        if (!this.G.canProduceUnit('infantry', this.G.ai)) {
-            return; // Пропускаем производство если достигнут лимит
-        }
-
         // Проверка доминирования игрока (больше 50% точек)
         const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction).length;
         const totalPoints = this.G.cps.length;
@@ -49,10 +44,13 @@ export class AI {
         const actualInfantryInterval = baseInfantryInterval * spawnMultiplier;
         const actualVehicleInterval = baseVehicleInterval * spawnMultiplier;
 
-        // Спавн пехоты (с учётом доминирования)
+        // Спавн пехоты (с учётом доминирования И лимита пехоты).
+        // ВАЖНО: лимит блокирует только производство, но НЕ вывод из строя всего ИИ.
+        // (раньше здесь был `return` — при достижении лимита пехоты ИИ полностью
+        //  замирал: переставал атаковать, управлять артиллерией и строить укрепления)
         let spawnedThisTick = false;
         if (this.timer % actualInfantryInterval === 0) {
-            if (this.canAffordInfantry()) {
+            if (this.G.canProduceUnit('infantry', this.G.ai) && this.canAffordInfantry()) {
                 this.spawnInfantrySquad();
                 this.accumulatedForces++;
                 spawnedThisTick = true;
@@ -389,8 +387,10 @@ export class AI {
         
         if (!target) return;
         
-        // Отправляем все доступные юниты в атаку
-        const aiUnits = this.G.units.filter(u => u.faction === this.G.ai && u.hp > 0);
+        // Отправляем в атаку пехоту и технику, но НЕ артиллерию:
+        // она остаётся на позиции и работает отдельно через manageArtillery
+        // (в лоб на вражескую базу она едет и гибнет — «внезапно пропадает»).
+        const aiUnits = this.G.units.filter(u => u.faction === this.G.ai && u.hp > 0 && !u.aoe);
         aiUnits.forEach(unit => {
             unit.tx = target.x + (Math.random() - 0.5) * 50;
             unit.ty = target.y + (Math.random() - 0.5) * 50;
@@ -438,17 +438,29 @@ export class AI {
                     art.ty = art.retreatOrder.y;
                 }
             }
-            // Если цель далеко - двигаемся ближе (только если ещё нет приказа движения)
+            // Если цель далеко - двигаемся ближе (только если ещё нет приказа движения).
+            // Точку выбираем ЗА ПРЕДЕЛАМИ вражеского города: раньше артиллерия ехала
+            // в центр точки (cp.x ± 100), упиралась в стену обороны и «внезапно
+            // пропадала» — гибла под обстрелом обороны сразу после начала движения.
             else if (targetDist > art.range) {
                 if (art.tx === undefined) {
-                    art.tx = target.cp.x + (Math.random() - 0.5) * 100;
-                    art.ty = target.cp.y + (Math.random() - 0.5) * 100;
+                    const moveAngle = Math.atan2(target.cp.y - art.y, target.cp.x - art.x);
+                    // Останавливаемся на дистанции чуть меньше дальности стрельбы,
+                    // но не ближе радиуса города (+ запас), чтобы не заезжать в оборону.
+                    const parkDist = Math.max(target.cp.radius + 40, art.range - 60);
+                    art.tx = target.cp.x - Math.cos(moveAngle) * parkDist;
+                    art.ty = target.cp.y - Math.sin(moveAngle) * parkDist;
                 }
             }
         });
     }
     
     sendEscortToArtillery(artillery) {
+        // Не спамим приказами сопровождения каждый кадр — достаточно раз в ~3 секунды,
+        // иначе эскорт постоянно «переклеивается» и стоит на месте.
+        if (artillery.lastEscortAt !== undefined && this.timer - artillery.lastEscortAt < 180) return;
+        artillery.lastEscortAt = this.timer;
+        
         // Находим свободные юниты для сопровождения
         const availableUnits = this.G.units.filter(u => 
             u.faction === this.G.ai && 
@@ -456,7 +468,7 @@ export class AI {
             u.tx === undefined && // Не имеет цели
             u !== artillery &&
             (u.type === 'infantry' || u.type === 'devitt' || u.type === 'hatchet' || 
-             u.type === 'gallagher' || u.type === 'falchion' || 
+             u.type === 'gallagher_highwayman' || u.type === 'falchion' || 
              u.type === 'niska' || u.type === 'hoplite')
         );
         

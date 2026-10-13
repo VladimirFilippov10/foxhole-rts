@@ -1,5 +1,5 @@
 // ===== RENDERER =====
-import { COLORS } from './constants.js';
+import { COLORS, dist } from './constants.js';
 import { ROADS, CITY_ZONES, TREES, BUSHES, ROCKS, GRASS_PATCHES, LAKES } from './map.js';
 
 export function render(ctx, G, canvas) {
