@@ -74,16 +74,74 @@ export class Vehicle {
     }
 }
 
-export class Infantry extends Vehicle {
+// ===== ИНФАНТЕРИЯ (базовый класс) =====
+// Все виды пехоты считаются «пехотой» (isInfantry = true): проходят сквозь
+// здания, не попадают в лимит техники и корректно обрабатываются игрой,
+// ИИ и рендером. Разные виды — разные характеристики и роли:
+//   rifleman     — обычная стрелковая пехота (универсальная, идёт в атаку)
+//   mg_gunner    — пулемётчик: дешёвый DPS, короткая дальность — ОСНОВА ОБОРОНЫ
+//   sniper       — снайпер: большая дальность и урон, мало HP — высылается к
+//                  захваченным противником точкам (1 снайпер на 1 город)
+export class InfantryBase extends Vehicle {
+    constructor(type, faction, x, y) {
+        super(type, faction, x, y);
+        this.isInfantry = true;
+        this.size = 8;
+        this.spd = 0.5;
+    }
+}
+
+export class Infantry extends InfantryBase {
     constructor(faction, x, y) {
-        super('infantry', faction, x, y);
+        super('rifleman', faction, x, y);
         this.hp = this.maxHp = 35;
         this.dmg = 6;
         this.range = 110;
         this.spd = 0.5; // Очень медленно
         this.cd = 90;
-        this.size = 8;
-        this.label = 'Пехота';
+        this.label = 'Стрелок';
+    }
+}
+
+export class MgGunner extends InfantryBase {
+    constructor(faction, x, y) {
+        super('mg_gunner', faction, x, y);
+        this.hp = this.maxHp = 45;      // крепче стрелка — держит оборону
+        this.dmg = 5;                   // небольшой урон...
+        this.range = 95;                // ...зато короткая дистанция
+        this.spd = 0.45;                // почти неподвижен — позиционная роль
+        this.cd = 25;                   // очень скорострельный пулемёт
+        this.antiInfantry = true;       // эффективен против пехоты
+        this.infantryMultiplier = 2.0;  // x2 урона по пехоте
+        this.label = 'Пулемётчик';
+    }
+}
+
+export class Sniper extends InfantryBase {
+    constructor(faction, x, y) {
+        super('sniper', faction, x, y);
+        this.hp = this.maxHp = 25;      // хрупкий
+        this.dmg = 22;                  // высокий одиночный урон
+        this.range = 260;               // стреляет с дальней дистанции
+        this.spd = 0.55;                // чуть быстрее обычной пехоты — доходит до позиции
+        this.cd = 170;                  // редкие, но точные выстрелы
+        this.label = 'Снайпер';
+    }
+}
+
+// Гранатомётчик — наступательная пехота: средний DPS и AoE-урон по
+// скоплениям вражеской пехоты (гранаты задевают всех в радиусе).
+export class Grenadier extends InfantryBase {
+    constructor(faction, x, y) {
+        super('grenadier', faction, x, y);
+        this.hp = this.maxHp = 40;
+        this.dmg = 9;
+        this.range = 130;
+        this.spd = 0.5;
+        this.cd = 130;
+        this.grenadeLauncher = true;    // AoE по пехоте вокруг цели (game.js)
+        this.grenadeRadius = 45;
+        this.label = 'Гранатомётчик';
     }
 }
 
@@ -501,7 +559,11 @@ export class Flatbed extends Vehicle {
 
 export function createVehicle(type, faction, x, y) {
     const map = {
-        infantry: Infantry,
+        infantry: Infantry,      // старое имя = стрелки (обратная совместимость)
+        rifleman: Infantry,
+        mg_gunner: MgGunner,
+        grenadier: Grenadier,
+        sniper: Sniper,
         // Wardens
         king_spire: KingSpire,
         devitt: Devitt,
@@ -532,3 +594,13 @@ export const FACTION_VEHICLES = {
     wardens: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska', 'warden_artillery', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
     colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'hoplite', 'colonial_artillery', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
 };
+
+// ===== Помощники по видам пехоты =====
+export const INFANTRY_TYPES = ['rifleman', 'mg_gunner', 'grenadier', 'sniper'];
+
+// Юнит — пехота? (новый флаг isInfantry + обратная совместимость со старым
+// типом 'infantry' из сохранений/скриптов)
+export function isInfUnit(u) {
+    if (!u) return false;
+    return u.isInfantry === true || u.type === 'infantry' || INFANTRY_TYPES.includes(u.type);
+}

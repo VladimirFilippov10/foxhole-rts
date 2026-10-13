@@ -1,7 +1,7 @@
 // ===== GAME LOGIC =====
 import { dist, distToSeg, GAME_MODES, SUPPLY_SYSTEM } from './constants.js';
 import { AI } from './ai.js';
-import { createVehicle } from './vehicles.js';
+import { createVehicle, isInfUnit, INFANTRY_TYPES } from './vehicles.js';
 
 // Логирование (console.log) — используется и здесь, и в ai.js.
 // ИСПРАВЛЕНИЕ: раньше game.js вызывал aiLog(...), который был определён только
@@ -437,7 +437,7 @@ export class Game {
                             let damage = u.dmg;
                             
                             // Scorpion: increased damage to infantry
-                            if (u.antiInfantry && attackTarget.type === 'infantry') {
+                            if (u.antiInfantry && isInfUnit(attackTarget)) {
                                 damage *= u.infantryMultiplier || 2.5;
                             }
                             
@@ -453,10 +453,10 @@ export class Game {
                             }
                             
                             // Nemesis: grenade launcher AoE
-                            if (u.grenadeLauncher && attackTarget.type === 'infantry') {
+                            if (u.grenadeLauncher && isInfUnit(attackTarget)) {
                                 // Grenade affects nearby infantry
                                 this.units.forEach(enemy => {
-                                    if (enemy.faction !== u.faction && enemy.hp > 0 && enemy.type === 'infantry') {
+                                    if (enemy.faction !== u.faction && enemy.hp > 0 && isInfUnit(enemy)) {
                                         const distToTarget = dist(attackTarget.x, attackTarget.y, enemy.x, enemy.y);
                                         if (distToTarget <= (u.grenadeRadius || 40)) {
                                             enemy.takeDamage(Math.floor(damage * 0.6));
@@ -682,7 +682,7 @@ export class Game {
         if (u.hp <= 0) return;
         const hasOrder = (u.tx !== undefined) || !!u.retreatOrder || !!u.moveOrder;
         if (!hasOrder) return;
-        const minGap = (u.aoe || u.type === 'infantry') ? 16 : 24;
+        const minGap = (u.aoe || isInfUnit(u)) ? 16 : 24;
         for (const o of this.units) {
             if (o === u || o.hp <= 0 || o.faction !== u.faction) continue;
             const dx = o.x - u.x, dy = o.y - u.y;
@@ -792,8 +792,8 @@ export class Game {
         const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed'];
         const units = this.units.filter(u => u.faction === faction && u.hp > 0);
 
-        if (type === 'infantry') {
-            const infantryCount = units.filter(u => u.type === 'infantry').length;
+        if (type === 'infantry' || INFANTRY_TYPES.includes(type)) {
+            const infantryCount = units.filter(u => isInfUnit(u)).length;
             return infantryCount < limits.infantry;
         } else {
             // ИСПРАВЛЕНИЕ: раньше в «технику» попадали ВСЕ не-пехотные юниты,
@@ -802,7 +802,7 @@ export class Game {
             // не мог производить боевую технику («не спавнит технику»,
             // «техника=1 при пехоте=23»). Теперь лимит считается только по
             // БОЕВОЙ технике; логистика ограничена отдельным небольшим лимитом.
-            const combatVeh = units.filter(u => u.type !== 'infantry' && !LOGISTICS_TYPES.includes(u.type)).length;
+            const combatVeh = units.filter(u => !isInfUnit(u) && !LOGISTICS_TYPES.includes(u.type)).length;
             if (limits.combatVehicles !== undefined) return combatVeh < limits.combatVehicles;
             return combatVeh < limits.vehicles;
         }
@@ -815,14 +815,14 @@ export class Game {
     getUnitCounts(faction) {
         const units = this.units.filter(u => u.faction === faction);
         return {
-            infantry: units.filter(u => u.type === 'infantry').length,
-            vehicles: units.filter(u => u.type !== 'infantry').length,
+            infantry: units.filter(u => isInfUnit(u)).length,
+            vehicles: units.filter(u => !isInfUnit(u)).length,
         };
     }
 
     isBlockedForVehicle(x, y, unit) {
         // Infantry can pass through buildings
-        if (unit.type === 'infantry') return false;
+        if (isInfUnit(unit)) return false;
         
         // Check city zones (buildings block vehicles)
         // Only block in the very center where buildings actually are

@@ -1,6 +1,6 @@
 // ===== AI SYSTEM - STRATEGIC BEHAVIOR =====
 import { dist, VEHICLE_COSTS } from './constants.js';
-import { createVehicle } from './vehicles.js';
+import { createVehicle, isInfUnit } from './vehicles.js';
 
 // Логирование действий бота в консоль (отключается: window.AI_LOG = false)
 let LOG_ENABLED = true;
@@ -49,11 +49,36 @@ export class AI {
         this.vehicleDebtTarget = 5; // нужно 5 пехоты -> 1 техника
         this.vehicleCount = 0;      // всего произведено техники ИИ
         this.infantryCount = 0;     // всего произведено пехотинцев ИИ
+
+        // ===== РОДИ ПЕХОТЫ: АТАКА / ОБОРОНА / СНАЙПЕРЫ =====
+        // Состав атакующей пехоты (в процентах от отряда):
+        //   стрелки ~60%, гранатомётчики ~20%, пулемётчики ~20%
+        // В обороне (гарнизон своих точек) ИИ использует ПРЕИМУЩЕСТВЕННО
+        // пулемётчиков, а снайперов рассылает по захваченным противником
+        // городам — ровно 1 снайпер на 1 город.
+        this.sniperAssignments = new Map(); // cityKey -> id снайпера
+        this.lastSniperScanAt = -9999;
     }
 
     // Размер отряда пехоты по сложности
     squadSizeOf(diff) {
-        return 2 + Math.floor((diff || this.difficulty) / 2);
+        const d = diff || this.difficulty;
+        return Math.min(4, 2 + Math.floor(d / 2));
+    }
+
+    // ===== СОСТАВ ПЕХОТЫ =====
+    // 'attack' — смешанные отряды для штурма: стрелки + гранатомётчики
+    //            + немного пулемётчиков.
+    // 'defense' — преимущественно пулемётчики (дешёвый плотный огонь на
+    //             короткой дистанции — идеальны для обороны своих точек).
+    pickInfantryType(role) {
+        const r = Math.random();
+        if (role === 'defense') {
+            return r < 0.75 ? 'mg_gunner' : 'rifleman';
+        }
+        if (r < 0.6) return 'rifleman';
+        if (r < 0.8) return 'grenadier';
+        return 'mg_gunner';
     }
 
     // Текущее соотношение пехота:техника «на поле» (живые юниты ИИ).
@@ -63,7 +88,7 @@ export class AI {
         let inf = 0, veh = 0;
         for (const u of this.G.units) {
             if (u.faction !== this.G.ai || u.hp <= 0) continue;
-            if (u.type === 'infantry') inf++;
+            if (isInfUnit(u)) inf++;
             else if (u.type !== 'truck' && u.type !== 'fuel_truck' &&
                      u.type !== 'engineer' && u.type !== 'flatbed') veh++;
         }
@@ -123,9 +148,9 @@ export class AI {
         const INF_PER_VEHICLE = 5;
         let spawnedThisTick = false;
 
-        const liveInf = this.G.units.filter(u => u.faction === this.G.ai && u.type === 'infantry' && u.hp > 0).length;
+        const liveInf = this.G.units.filter(u => u.faction === this.G.ai && isInfUnit(u) && u.hp > 0).length;
         const liveVeh = this.G.units.filter(u => u.faction === this.G.ai && u.hp > 0 &&
-            u.type !== 'infantry' && u.type !== 'truck' && u.type !== 'fuel_truck' &&
+            !isInfUnit(u) && u.type !== 'truck' && u.type !== 'fuel_truck' &&
             u.type !== 'engineer' && u.type !== 'flatbed').length;
         // Соотношение «на поле»: пехоты больше 5x техники -> копим технику (debt)
         const debtTarget = liveVeh * INF_PER_VEHICLE;
@@ -176,6 +201,10 @@ export class AI {
 
         // Гарнизон: минимум 1 юнит охраны на каждой захваченной точке
         this.maintainGarrisons();
+
+        // Снайперы: 1 снайпер на каждый захваченный противником город
+        // (при достаточном запасе ресурсов цель расширяется и на главную базу)
+        this.manageSnipers();
 
         // Стратегическое поведение
         this.strategicBehavior();
@@ -319,7 +348,7 @@ export class AI {
 
         const sendToNeedy = (logType, predicate) => {
             const vehicles = this.G.units.filter(u =>
-                u.faction === this.G.ai && u.hp > 0 && u.type !== 'infantry' &&
+                u.faction === this.G.ai && u.hp > 0 && !isInfUnit(u) &&
                 u.type !== logType && predicate(u)
             ).sort((a, b) => a.hp / (a.maxHp || 1) - b.hp / (b.maxHp || 1));
             if (vehicles.length === 0) return;
@@ -373,7 +402,7 @@ export class AI {
         const holdChance = this.getHoldGroundChance();
         const vehicles = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 &&
-            u.type !== 'infantry' && u.type !== 'truck' &&
+            !isInfUnit(u) && u.type !== 'truck' &&
             u.type !== 'fuel_truck' && u.type !== 'engineer' && u.type !== 'flatbed'
         );
         for (const v of vehicles) {
@@ -403,7 +432,7 @@ export class AI {
 
         const damaged = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 &&
-            u.type !== 'infantry' && u.type !== 'truck' &&
+            !isInfUnit(u) && u.type !== 'truck' &&
             u.type !== 'fuel_truck' && u.type !== 'engineer' && u.type !== 'flatbed' &&
             u.hp < (u.maxHp || 100) * 0.5
         );
@@ -412,7 +441,7 @@ export class AI {
         // Если у главной базы стоит вражеская техника — её нужно уничтожить
         // всей доступной техникой и пехотой ИИ (независимо от режима).
         const enemyVehiclesAtBase = this.G.units.filter(u =>
-            u.faction === this.G.faction && u.hp > 0 && u.type !== 'infantry' &&
+            u.faction === this.G.faction && u.hp > 0 && !isInfUnit(u) &&
             dist(u.x, u.y, base.x, base.y) <= base.radius + 150
         );
         if (enemyVehiclesAtBase.length > 0) {
@@ -639,41 +668,66 @@ export class AI {
         this.aiResources.m -= cost.m;
     }
 
-    spawnInfantrySquad() {
+    spawnInfantrySquad(role = 'attack') {
         const barracks = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'barracks');
         if (!barracks) return;
 
         // Меньше пехоты за раз
-        const squadSize = 2 + Math.floor(this.difficulty / 2);
-        
-        // Проверяем хватает ли ресурсов на всю группу
-        const cost = VEHICLE_COSTS.infantry;
-        const totalCost = { s: cost.s * squadSize, c: cost.c * squadSize, m: cost.m * squadSize };
-        
-        if (this.aiResources.s < totalCost.s || this.aiResources.c < totalCost.c || this.aiResources.m < totalCost.m) {
-            return; // Не хватает ресурсов
+        const squadSize = this.squadSizeOf(this.difficulty);
+
+        // Формируем состав отряда: в атаку — разная пехота (стрелки,
+        // гранатомётчики, немного пулемётчиков), в оборону — преимущественно
+        // пулемётчики. Считаем стоимость по фактическому составу и проверяем,
+        // хватает ли ресурсов (если нет — берём более дешёвые варианты).
+        let types = [];
+        for (let i = 0; i < squadSize; i++) types.push(this.pickInfantryType(role));
+        while (types.length > 0 && !this.canAffordSquad(types)) {
+            // Заменяем самый дорогой юнит на стрелка (дешевле всего);
+            // если и так все стрелки — уменьшаем отряд
+            const idx = types.reduce((best, t, i) =>
+                (VEHICLE_COSTS[t].s > VEHICLE_COSTS[types[best]].s ? i : best), 0);
+            if (types[idx] === 'rifleman') types.pop();
+            else types[idx] = 'rifleman';
         }
-        
-        // Тратим ресурсы
+        if (types.length === 0) return; // не хватает даже на стрелков
+
+        const totalCost = this.squadCost(types);
         this.spendResources(totalCost);
-        
-        for (let i = 0; i < squadSize; i++) {
-            const unit = createVehicle('infantry', this.G.ai, 
-                barracks.x + 50 + (i % 3) * 20, 
+
+        const spawned = [];
+        for (let i = 0; i < types.length; i++) {
+            const unit = createVehicle(types[i], this.G.ai,
+                barracks.x + 50 + (i % 3) * 20,
                 barracks.y + 50 + Math.floor(i / 3) * 20);
             this.G.units.push(unit);
+            spawned.push(unit);
         }
 
         // В оборонительном режиме - защищаем свои территории
         if (this.defenseMode) {
-            this.assignDefensivePositions(this.G.units.slice(-squadSize));
+            this.assignDefensivePositions(spawned);
         } else {
             // В режиме атаки - идём к ближайшей точке
             const target = this.findDefensiveTarget(barracks.x, barracks.y);
             if (target) {
-                this.assignSquadToTarget(this.G.units.slice(-squadSize), target);
+                this.assignSquadToTarget(spawned, target);
             }
         }
+    }
+
+    // Стоимость отряда пехоты по фактическому составу
+    squadCost(types) {
+        const total = { s: 0, c: 0, m: 0 };
+        for (const t of types) {
+            const c = VEHICLE_COSTS[t] || VEHICLE_COSTS.infantry;
+            total.s += c.s; total.c += c.c; total.m += c.m;
+        }
+        return total;
+    }
+
+    canAffordSquad(types) {
+        const t = this.squadCost(types);
+        return this.aiResources.s >= t.s && this.aiResources.c >= t.c && this.aiResources.m >= t.m;
     }
 
     spawnVehicle() {
@@ -854,8 +908,8 @@ export class AI {
 
         // Отряд 3-5 человек: техника идёт впереди, пехота под её прикрытием
         const squadSize = Math.min(3 + Math.floor(this.difficulty), sorted.length);
-        const vehicles = sorted.filter(u => u.type !== 'infantry');
-        const infantry = sorted.filter(u => u.type === 'infantry');
+        const vehicles = sorted.filter(u => !isInfUnit(u));
+        const infantry = sorted.filter(u => isInfUnit(u));
         const squad = [...vehicles, ...infantry].slice(0, squadSize);
 
         const leader = squad[0];
@@ -1064,7 +1118,7 @@ export class AI {
             u.hp > 0 && 
             u.tx === undefined && // Не имеет цели
             u !== artillery &&
-            (u.type === 'infantry' || u.type === 'devitt' || u.type === 'hatchet' || 
+            (isInfUnit(u) || u.type === 'devitt' || u.type === 'hatchet' || 
              u.type === 'gallagher_highwayman' || u.type === 'falchion' || 
              u.type === 'niska' || u.type === 'hoplite')
         );
