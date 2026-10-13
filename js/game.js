@@ -170,12 +170,25 @@ export class Game {
             
             // Артиллерия сама не ездит кругами: без приказа она стоит на месте
             // (стрельба обрабатывается ниже по aoeTarget / автоатаке)
-            if (u.aoe && u.tx !== undefined && !u.retreatOrder) {
+            // Артиллерия: приказ движения (tx/ty) снимается ТОЛЬКО при реальном
+            // прибытии в точку. Раньше условие было перепутано (!retreatOrder),
+            // из-за чего приказ отъезда сбрасывался сразу, арта получала новый
+            // приказ каждый тик и «вечно ехала», пока не гибла — баг
+            // «артиллерия пропадает после начала движения».
+            if (u.aoe && u.tx !== undefined) {
                 const dToOrder = dist(u.x, u.y, u.tx, u.ty);
                 if (dToOrder < 15) {
                     u.tx = undefined;
                     u.ty = undefined;
                     u.stuckCounter = 0;
+                    if (u.retreatOrder) {
+                        aiLog(`[GAME][ARTILLERY] ${u.label}: отъехала на позицию (${Math.round(u.x)}, ${Math.round(u.y)})`);
+                        u.retreatOrder = null;
+                    }
+                    if (u.moveOrder) {
+                        aiLog(`[GAME][ARTILLERY] ${u.label}: выдвинулась на огневую позицию (${Math.round(u.x)}, ${Math.round(u.y)}), стоит и ждёт цель в зоне ${u.minRange}-${u.range}`);
+                        u.moveOrder = null;
+                    }
                 }
             }
             
@@ -254,11 +267,12 @@ export class Game {
                         u.shotsFired = 0;
                     }
                 } else if (targetDist < minRange) {
-                    // Target too close - артиллерия не ездит кругами:
-                    // отъезжаем ровно один раз и останавливаемся (без бесконечного кружения)
-                    if (!u.retreatOrder || dist(u.x, u.y, u.retreatOrder.x, u.retreatOrder.y) > 20) {
+                    // Цель слишком близко — отъезжаем РОВНО ОДИН раз (пока нет
+                    // активного приказа) и стоим. Раньше условие было инвертировано
+                    // и приказ переставлялся каждый тик — арта «ехала на месте».
+                    if (!u.retreatOrder && u.tx === undefined) {
                         const retreatAngle = Math.atan2(u.y - u.aoeTarget.y, u.x - u.aoeTarget.x);
-                        u.retreatOrder = { x: u.x + Math.cos(retreatAngle) * 150, y: u.y + Math.sin(retreatAngle) * 150 };
+                        u.retreatOrder = { x: u.x + Math.cos(retreatAngle) * (minRange + 60), y: u.y + Math.sin(retreatAngle) * (minRange + 60) };
                         u.tx = u.retreatOrder.x;
                         u.ty = u.retreatOrder.y;
                     }
@@ -274,10 +288,10 @@ export class Game {
                     attackTarget = nearest;
                     canAttack = true;
                 } else if (targetDist < minRange && u.aoe) {
-                    // Artillery: target too close - отъезд один раз, без кругов
-                    if (!u.retreatOrder || dist(u.x, u.y, u.retreatOrder.x, u.retreatOrder.y) > 20) {
+                    // Artillery: цель слишком близко — отъезд ОДИН раз, без кругов
+                    if (!u.retreatOrder && u.tx === undefined) {
                         const retreatAngle = Math.atan2(u.y - nearest.y, u.x - nearest.x);
-                        u.retreatOrder = { x: u.x + Math.cos(retreatAngle) * 150, y: u.y + Math.sin(retreatAngle) * 150 };
+                        u.retreatOrder = { x: u.x + Math.cos(retreatAngle) * (minRange + 60), y: u.y + Math.sin(retreatAngle) * (minRange + 60) };
                         u.tx = u.retreatOrder.x;
                         u.ty = u.retreatOrder.y;
                     }

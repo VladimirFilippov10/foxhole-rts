@@ -2,6 +2,18 @@
 import { dist, VEHICLE_COSTS } from './constants.js';
 import { createVehicle } from './vehicles.js';
 
+// Логирование действий бота в консоль (отключается: window.AI_LOG = false)
+let LOG_ENABLED = true;
+if (typeof window !== 'undefined') {
+    Object.defineProperty(window, 'AI_LOG', {
+        get: () => LOG_ENABLED,
+        set: v => { LOG_ENABLED = !!v; console.log('[AI] Логирование ' + (LOG_ENABLED ? 'включено' : 'отключено')); },
+    });
+}
+function aiLog(...args) {
+    if (LOG_ENABLED) console.log(...args);
+}
+
 export class AI {
     constructor(gameState) {
         this.G = gameState;
@@ -23,7 +35,25 @@ export class AI {
     }
 
     update() {
+        try {
+            this.updateInner();
+        } catch (err) {
+            // ИИ никогда не должен ронять игровой цикл: логируем ошибку и продолжаем
+            console.error('[AI][ERROR] Ошибка в update() бота:', err);
+        }
+    }
+
+    updateInner() {
         this.timer++;
+
+        // Периодический отчёт о состоянии бота (каждые ~10 секунд)
+        if (this.timer % 600 === 0) {
+            const aiUnits = this.G.units.filter(u => u.faction === this.G.ai && u.hp > 0);
+            const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai).length;
+            const playerPts = this.G.cps.filter(c => c.owner === this.G.faction).length;
+            const arts = aiUnits.filter(u => u.aoe).length;
+            aiLog(`[AI][STATUS] t=${this.timer} режим=${this.defenseMode ? 'ОБОРОНА' : 'АТАКА'} силы=${this.accumulatedForces}/${this.attackThreshold} сложность=${this.difficulty} юнитов=${aiUnits.length} арт=${arts} точки(ИИ/игрок)=${aiPoints}/${playerPts} res: s=${Math.floor(this.aiResources.s)} c=${Math.floor(this.aiResources.c)} m=${Math.floor(this.aiResources.m)}`);
+        }
         this.difficulty = Math.min(3, 1 + Math.floor(this.timer / 4000)); // Ещё медленнее растёт
         
         // Генерация ресурсов ИИ (медленнее чем у игрока)
@@ -54,6 +84,8 @@ export class AI {
                 this.spawnInfantrySquad();
                 this.accumulatedForces++;
                 spawnedThisTick = true;
+            } else {
+                aiLog(`[AI][SPAWN] т.${this.timer}: пехота НЕ произведена (лимит=${this.G.canProduceUnit('infantry', this.G.ai)}, ресурсы=${this.canAffordInfantry()})`);
             }
         }
 
@@ -63,6 +95,8 @@ export class AI {
                 this.spawnVehicle();
                 this.accumulatedForces += 2; // Техника ценнее
                 spawnedThisTick = true;
+            } else {
+                aiLog(`[AI][SPAWN] т.${this.timer}: техника НЕ произведена (лимит=${this.G.canProduceUnit('vehicle', this.G.ai)}, ресурсы=${this.canAffordVehicle()})`);
             }
         }
 
@@ -258,8 +292,15 @@ export class AI {
                 this.G.units.push(unit);
                 this.accumulatedForces += 3; // Артиллерия очень ценна
                 
-                // Артиллерия остаётся в оборонительной позиции
-                this.assignArtilleryPosition(unit);
+                // ВАЖНОЕ ИСПРАВЛЕНИЕ ("арта пропадает после начала движения"):
+                // раньше артиллерии выдавался обычный приказ движения (tx/ty).
+                // По прибытии game.updateUnits() сбрасывал tx/ty, manageArtillery()
+                // тут же ставил новый приказ, и арта снова трогалась с места —
+                // уезжала на фронт и гибла. Теперь арта помнит, что она артиллерия
+                // (isArtillery): стоит на месте и сама выбирает позицию для
+                // стрельбы через setArtilleryPosition() в game.js.
+                unit.isArtillery = true;
+                aiLog(`[AI][ARTILLERY] т.${this.timer}: произведена ${unit.label} в (${Math.round(unit.x)}, ${Math.round(unit.y)}), range=${unit.range}, minRange=${unit.minRange}`);
                 return;
             }
         }
@@ -348,6 +389,7 @@ export class AI {
         // Переключение между режимами каждые 3000 тиков (было 2000)
         if (this.timer % 3000 === 0) {
             this.defenseMode = !this.defenseMode;
+            aiLog(`[AI][MODE] т.${this.timer}: переключение режима -> ${this.defenseMode ? 'ОБОРОНА' : 'АТАКА'} (по таймеру)`);
         }
 
         // Проверяем, нужно ли перейти в оборону
@@ -355,8 +397,9 @@ export class AI {
         const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction).length;
         
         // Если у игрока больше точек - переходим в оборону
-        if (playerPoints > aiPoints + 2) {
+        if (playerPoints > aiPoints + 2 && !this.defenseMode) {
             this.defenseMode = true;
+            aiLog(`[AI][MODE] т.${this.timer}: принудительная ОБОРОНА (точки ИИ=${aiPoints}, игрока=${playerPoints})`);
         }
         
         // Стратегия накопления сил и атаки (более консервативная)
@@ -365,6 +408,8 @@ export class AI {
             this.lastAttackTime = this.timer;
             this.accumulatedForces = 0; // Сбрасываем счётчик после атаки
             this.launchAttack();
+        } else if (this.accumulatedForces >= this.attackThreshold) {
+            aiLog(`[AI][ATTACK] т.${this.timer}: силы накоплены (${this.accumulatedForces}), но атака отложена — перезарядка после прошлой атаки ${this.timer - this.lastAttackTime}/6000 тиков`);
         }
         
         // Если у нас больше точек и прошло достаточно времени - атакуем (реже)
@@ -395,66 +440,82 @@ export class AI {
             unit.tx = target.x + (Math.random() - 0.5) * 50;
             unit.ty = target.y + (Math.random() - 0.5) * 50;
         });
+        const arts = this.G.units.filter(u => u.faction === this.G.ai && u.aoe && u.hp > 0).length;
+        aiLog(`[AI][ATTACK] т.${this.timer}: АТАКА! ${aiUnits.length} юнитов идут на цель (${Math.round(target.x)}, ${Math.round(target.y)}) "${target.name || ''}". Артиллерия (${arts} шт.) остаётся на позициях.`);
     }
     
     manageArtillery() {
-        // Находим всю артиллерию ИИ
-        const artillery = this.G.units.filter(u => 
-            u.faction === this.G.ai && 
+        // Находим всю живую артиллерию ИИ
+        const artillery = this.G.units.filter(u =>
+            u.faction === this.G.ai &&
             (u.type === 'warden_artillery' || u.type === 'colonial_artillery') &&
             u.hp > 0
         );
-        
+
         if (artillery.length === 0) return;
-        
+
         // Находим позиции для обстрела (далеко от вражеских территорий)
         const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction);
         if (playerPoints.length === 0) return;
-        
+
         artillery.forEach(art => {
             // Находим ближайшую вражескую точку
             const target = playerPoints.reduce((closest, cp) => {
                 const d = dist(art.x, art.y, cp.x, cp.y);
                 return d < closest.dist ? { cp, dist: d } : closest;
             }, { cp: null, dist: Infinity });
-            
+
             if (!target.cp) return;
-            
-            // Если цель в радиусе атаки - стреляем
+
             const targetDist = dist(art.x, art.y, target.cp.x, target.cp.y);
-            if (targetDist <= art.range && targetDist >= (art.minRange || 100)) {
-                // Устанавливаем цель для AoE атаки
+            const minRange = art.minRange || 100;
+
+            // Если цель в радиусе атаки - стреляем и СТОИМ на месте
+            if (targetDist <= art.range && targetDist >= minRange) {
                 art.aoeTarget = { x: target.cp.x, y: target.cp.y };
-                
-                // Отправляем сопровождение к артиллерии
+                if (!art._fireLogged) {
+                    art._fireLogged = true;
+                    aiLog(`[AI][ARTILLERY] т.${this.timer}: ${art.label} ведёт огонь по "${target.cp.name || ''}" с позиции (${Math.round(art.x)}, ${Math.round(art.y)}), дистанция=${Math.round(targetDist)}`);
+                }
                 this.sendEscortToArtillery(art);
             }
-            // Если цель слишком близко - отступаем ОДИН раз и стоим (без кругов)
-            else if (targetDist < (art.minRange || 100)) {
-                if (art.tx === undefined && !art.retreatOrder) {
+            // Цель слишком близко — один раз отъезжаем назад и встаём на новую
+            // огневую позицию. ВАЖНО: приказ движения сохраняется до прибытия
+            // (флаг isArtillery в game.js не даёт updateUnits() сбросить tx/ty
+            // раньше времени — именно из-за этого сброса арта "вечно ехала"
+            // и пропадала на подступах к фронту).
+            else if (targetDist < minRange) {
+                if (!art.retreatOrder) {
                     const retreatAngle = Math.atan2(art.y - target.cp.y, art.x - target.cp.x);
-                    art.retreatOrder = { x: art.x + Math.cos(retreatAngle) * 150, y: art.y + Math.sin(retreatAngle) * 150 };
+                    art.retreatOrder = {
+                        x: art.x + Math.cos(retreatAngle) * (minRange + 60 - targetDist),
+                        y: art.y + Math.sin(retreatAngle) * (minRange + 60 - targetDist),
+                    };
                     art.tx = art.retreatOrder.x;
                     art.ty = art.retreatOrder.y;
+                    aiLog(`[AI][ARTILLERY] т.${this.timer}: ${art.label} — цель слишком близко (${Math.round(targetDist)} < ${minRange}), отъезжает на (${Math.round(art.tx)}, ${Math.round(art.ty)})`);
                 }
             }
-            // Если цель далеко - двигаемся ближе (только если ещё нет приказа движения).
-            // Точку выбираем ЗА ПРЕДЕЛАМИ вражеского города: раньше артиллерия ехала
-            // в центр точки (cp.x ± 100), упиралась в стену обороны и «внезапно
-            // пропадала» — гибла под обстрелом обороны сразу после начала движения.
+            // Цель вне дальности — один раз даём приказ выдвинуться на огневую
+            // позицию ЗА ПРЕДЕЛАМИ вражеского города и ждём прибытия. После
+            // прибытия (retreatOrder/moveOrder очищены в game.js) снова
+            // проверяем дистанцию — без бесконечного переставления приказов.
             else if (targetDist > art.range) {
-                if (art.tx === undefined) {
+                if (!art.moveOrder && art.tx === undefined) {
                     const moveAngle = Math.atan2(target.cp.y - art.y, target.cp.x - art.x);
-                    // Останавливаемся на дистанции чуть меньше дальности стрельбы,
-                    // но не ближе радиуса города (+ запас), чтобы не заезжать в оборону.
                     const parkDist = Math.max(target.cp.radius + 40, art.range - 60);
-                    art.tx = target.cp.x - Math.cos(moveAngle) * parkDist;
-                    art.ty = target.cp.y - Math.sin(moveAngle) * parkDist;
+                    art.moveOrder = {
+                        x: target.cp.x - Math.cos(moveAngle) * parkDist,
+                        y: target.cp.y - Math.sin(moveAngle) * parkDist,
+                    };
+                    art.tx = art.moveOrder.x;
+                    art.ty = art.moveOrder.y;
+                    aiLog(`[AI][ARTILLERY] т.${this.timer}: ${art.label} — цель далеко (${Math.round(targetDist)} > ${art.range}), выдвигается на огневую позицию (${Math.round(art.tx)}, ${Math.round(art.ty)})`);
                 }
             }
         });
     }
-    
+
     sendEscortToArtillery(artillery) {
         // Не спамим приказами сопровождения каждый кадр — достаточно раз в ~3 секунды,
         // иначе эскорт постоянно «переклеивается» и стоит на месте.
