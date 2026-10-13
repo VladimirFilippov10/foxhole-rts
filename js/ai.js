@@ -229,8 +229,18 @@ export class AI {
         for (let i = 0; i < squadSize; i++) {
             const u = idle[i];
             const cp = sorted[i % Math.min(sorted.length, 3)]; // делим на 2-3 ближайшие точки
-            u.tx = cp.x + (Math.random() - 0.5) * cp.radius;
-            u.ty = cp.y + (Math.random() - 0.5) * cp.radius;
+            // Цель приказа: нейтральная точка — в любую точку (там нет обороны);
+            // во вражескую — только если её оборона уже пробита, иначе ставим
+            // приказ у границы зоны (юнит не упрётся в блок-линию и не «исчезнет»).
+            const canEnter = cp.owner === 'neutral' || this.G.isCityDefenseBroken(cp);
+            if (canEnter) {
+                u.tx = cp.x + (Math.random() - 0.5) * cp.radius;
+                u.ty = cp.y + (Math.random() - 0.5) * cp.radius;
+            } else {
+                const a = Math.atan2(u.y - cp.y, u.x - cp.x) || 0;
+                u.tx = cp.x + Math.cos(a) * (cp.radius + 40);
+                u.ty = cp.y + Math.sin(a) * (cp.radius + 40);
+            }
             u.captureTarget = cp;
         }
     }
@@ -854,7 +864,12 @@ export class AI {
 
         squad.forEach((u, i) => {
             const angle = (i / squad.length) * Math.PI * 2;
-            const spread = target.radius * 0.5;
+            // Нейтральная точка или пробитая оборона — заходим внутрь зоны;
+            // иначе становимся у границы вражеской зоны (оборона цела —
+            // въезд заблокирован, приказ не должен тянуть юнит «в стену»).
+            const canEnter = target.owner === 'neutral' ||
+                this.G.isCityDefenseBroken(target);
+            const spread = canEnter ? target.radius * 0.5 : target.radius + 40;
             u.tx = target.x + Math.cos(angle) * spread;
             u.ty = target.y + Math.sin(angle) * spread;
             u.captureTarget = target;

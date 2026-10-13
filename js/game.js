@@ -111,6 +111,11 @@ export class Game {
 
         // Capture points
         this.updateCapturePoints();
+
+        // Аварийное выталкивание юнитов из зон вражеских городов с целой
+        // обороной (гарантия, что юнит не «залипнет» за блок-линией и не
+        // погибнет незаметно для игрока — «юнит попал на линию и исчез»)
+        this.enforceCityZoneBoundaries();
         
         // Mines
         this.updateMines();
@@ -157,10 +162,12 @@ export class Game {
         return integrity;
     }
 
-    // Вражеская техника не может заехать на территорию города, пока цела оборона
+    // Вражеская техника не может заехать на территорию города, пока цела оборона.
+    // НЕЙТРАЛЬНЫЙ городок проходим для любого юнита — там нет обороны.
+    // Во ВРАЖЕСКИЙ город можно въехать только после уничтожения всей обороны.
     isCityZoneBlockedFor(x, y, unit) {
-        if (unit.type === 'infantry') return false; // Пехота может проходить
         for (const cp of this.cps) {
+            // нейтральные и свои точки никогда не блокируют проезд
             if (cp.owner === 'neutral' || cp.owner === unit.faction) continue;
             const d = dist(x, y, cp.x, cp.y);
             if (d <= cp.radius && this.getCityDefenseIntegrity(cp) > 0) return true;
@@ -171,6 +178,31 @@ export class Game {
     // Захват возможен только если уничтожена вся оборона города
     isCityDefenseBroken(cp) {
         return this.getCityDefenseIntegrity(cp) <= 0;
+    }
+
+    // Аварийная «выручалка»: если юнит по какой-то причине всё же оказался
+    // внутри зоны вражеского города с целой обороной (например, его туда
+    // вытолкнула раздвигающая сепарация союзников или он перелетел границу
+    // за один шаг), мягко выталкиваем его к краю зоны — вместо того чтобы
+    // юнит «залип» там под огнём обороны и выглядело так, будто он исчез.
+    enforceCityZoneBoundaries() {
+        for (const u of this.units) {
+            if (u.hp <= 0) continue;
+            for (const cp of this.cps) {
+                if (cp.owner === 'neutral' || cp.owner === u.faction) continue;
+                if (this.getCityDefenseIntegrity(cp) <= 0) continue;
+                const dx = u.x - cp.x, dy = u.y - cp.y;
+                const d = Math.hypot(dx, dy);
+                if (d <= cp.radius) {
+                    // Стоим ровно в центре — выбираем любое направление наружу
+                    let nx = dx, ny = dy;
+                    if (d < 1) { nx = 1; ny = 0; }
+                    const push = cp.radius + 4;
+                    u.x = cp.x + (nx / d) * push;
+                    u.y = cp.y + (ny / d) * push;
+                }
+            }
+        }
     }
 
     updateUnits() {
@@ -660,7 +692,12 @@ export class Game {
             const push = (minGap - d) * 0.5;
             const nx = o.x + (dx / d) * push;
             const ny = o.y + (dy / d) * push;
-            if (!this.isBlockedForVehicle(nx, ny, o)) { o.x = nx; o.y = ny; }
+            // НЕ толкаем юнитов через линию обороны вражеского города —
+            // раньше сепарация могла «вытолкнуть» союзника за блок-границу
+            // прямо в зону обороны, где он моментально погибал («юнит попал
+            // на линию городка и исчез»).
+            if (!this.isBlockedForVehicle(nx, ny, o) &&
+                !this.isCityZoneBlockedFor(nx, ny, o)) { o.x = nx; o.y = ny; }
         }
     }
 
