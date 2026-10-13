@@ -193,11 +193,15 @@ export class Game {
 
             // Артиллерия сама не ездит кругами: без приказа она стоит на месте
             // (стрельба обрабатывается ниже по aoeTarget / автоатаке)
-            // Артиллерия: приказ движения (tx/ty) снимается ТОЛЬКО при реальном
-            // прибытии в точку. Раньше условие было перепутано (!retreatOrder),
-            // из-за чего приказ отъезда сбрасывался сразу, арта получала новый
-            // приказ каждый тик и «вечно ехала», пока не гибла — баг
-            // «артиллерия пропадает после начала движения».
+            // ИСПРАВЛЕНИЕ «арта крутится на месте и почти не едет»: раньше по
+            // пути к цели арта останавливалась у стены обороны города
+            // (isCityZoneBlockedFor) или у чужих юнитов, а детour-логика
+            // каждые ~30 тиков разворачивала её на ±60°, из-за чего она
+            // вращалась вокруг своей цели вместо движения. Теперь артиллерия
+            // игнорирует блокировку зоной обороны при движении (она всё равно
+            // не может стрелять в упор — minRange сам отодвинет её назад) и
+            // при застревании делает ОДИН плавный шаг в сторону, продолжая
+            // движение к цели.
             // Прибытие: снимаем отметку «отводится на базу», иначе юнит не сможет
             // получить новые приказы (см. defensiveReactions / expandAndCapture).
             if (u.retreatToBase && dist(u.x, u.y, u.tx, u.ty) <= 15) {
@@ -205,7 +209,7 @@ export class Game {
             }
             if (u.aoe && u.tx !== undefined) {
                 const dToOrder = dist(u.x, u.y, u.tx, u.ty);
-                if (dToOrder < 15) {
+                if (dToOrder < 10) {
                     u.tx = undefined;
                     u.ty = undefined;
                     u.stuckCounter = 0;
@@ -317,10 +321,17 @@ export class Game {
                     attackTarget = nearest;
                     canAttack = true;
                 } else if (targetDist < minRange && u.aoe) {
-                    // Artillery: цель слишком близко — отъезд ОДИН раз, без кругов.
-                    // holdPosition — ИИ решил держать позицию до конца.
-                    if (!u.retreatOrder && u.tx === undefined && !u.holdPosition) {
-                        const retreatAngle = Math.atan2(u.y - nearest.y, u.x - nearest.x);
+                    // Artillery: цель слишком близко. ИСПРАВЛЕНИЕ «крутится на
+                    // месте»: раньше арта при ЛЮБОМ движении автоматически
+                    // отъезжала от ближайшей цели (даже если игрок просто гнал
+                    // её через карту к точке X — она сворачивала с приказа и
+                    // начинала отъезжать/разворачиваться от каждого встречного
+                    // юнита). Теперь смещение для атаки не нужно: авто-отъезд
+                    // происходит ТОЛЬКО когда у артцели стоит явный приказ огня
+                    // (aoeTarget) или когда арта стоит без приказа движения.
+                    // Если едет по приказу — просто едет дальше.
+                    if (u.aoeTarget && !u.retreatOrder && u.tx === undefined && !u.holdPosition) {
+                        const retreatAngle = Math.atan2(u.y - u.aoeTarget.y, u.x - u.aoeTarget.y);
                         u.retreatOrder = { x: u.x + Math.cos(retreatAngle) * (minRange + 60), y: u.y + Math.sin(retreatAngle) * (minRange + 60) };
                         u.tx = u.retreatOrder.x;
                         u.ty = u.retreatOrder.y;
@@ -461,17 +472,23 @@ export class Game {
                         // Если застряли слишком долго - пробуем обход
                         if (u.stuckCounter > 30) {
                             if (u.aoe) {
-                                // ИСПРАВЛЕНИЕ: раньше арта при застревании полностью
-                                // теряла приказ (tx=undefined) и «оставалась стоять»
-                                // посреди карты — визуально это выглядело как исчезновение
-                                // после начала движения. Теперь она получает новый вектор
-                                // со смещением в сторону и доезжает до цели/огневой позиции.
-                                const angle = Math.atan2(u.ty - u.y, u.tx - u.x);
-                                const detourAngle = angle + (Math.random() > 0.5 ? Math.PI / 3 : -Math.PI / 3);
-                                const d = dist(u.x, u.y, u.tx, u.ty);
-                                const step = Math.min(60, Math.max(20, d));
+                                // ИСПРАВЛЕНИЕ «крутится на месте»: раньше детour
+                                // переставлял цель ARTILLERY-приказа на ±60° от
+                                // текущего курса каждые ~30 тиков — арта описывала
+                                // круги вокруг препятствия/цели и почти не ехала.
+                                // Теперь: смещаемся на короткий шаг В СТОРОНУ, а
+                                // следующую цель считаем ОТ ИСХОДНОЙ точки приказа
+                                // (originX/originY), так что курс к цели сохраняется.
+                                const ox = u.originX !== undefined ? u.originX : u.tx;
+                                const oy = u.originY !== undefined ? u.originY : u.ty;
+                                const toGoal = Math.atan2(oy - u.y, ox - u.x);
+                                const side = (Math.random() > 0.5 ? 1 : -1);
+                                const detourAngle = toGoal + side * Math.PI / 4;
+                                const step = 40;
                                 u.tx = u.x + Math.cos(detourAngle) * step;
                                 u.ty = u.y + Math.sin(detourAngle) * step;
+                                u.originX = ox;
+                                u.originY = oy;
                                 u.stuckCounter = 0;
                             } else {
                                 // Пытаемся обойти препятствие
@@ -510,8 +527,8 @@ export class Game {
                         const ny = u.y + (u.ty - u.y) * r;
                         // Check buildings (vehicles only)
                         const blockedByBuilding = this.isBlockedForVehicle(nx, ny, u);
-                        // Вражеская техника не может заехать на территорию города, пока цела оборона
-                        const blockedByDefense = this.isCityZoneBlockedFor(nx, ny, u);
+                        // Вражеская техника не может заехать на территорию города, пока цела оборона.
+                        const blockedByDefense = u.aoe ? false : this.isCityZoneBlockedFor(nx, ny, u);
                         
                         if (!blockedByBuilding && !blockedByDefense) {
                             // Update direction based on movement
@@ -526,17 +543,6 @@ export class Game {
                         } else {
                             // Если заблокировано - увеличиваем счётчик застревания
                             u.stuckCounter = (u.stuckCounter || 0) + 5;
-                            // ИСПРАВЛЕНИЕ «исчезновения артиллерии»: раньше при упоре в
-                            // стену обороны приказ снимался полностью (tx=undefined) — арта
-                            // вставала посреди карты и выглядела «пропавшей». Теперь она
-                            // смещается вдоль стены и обходит её, сохраняя цель движения.
-                            if (blockedByDefense && u.aoe) {
-                                const angle = Math.atan2(u.ty - u.y, u.tx - u.x);
-                                const slideAngle = angle + (Math.random() > 0.5 ? Math.PI / 2 : -Math.PI / 2);
-                                u.tx = u.x + Math.cos(slideAngle) * 80;
-                                u.ty = u.y + Math.sin(slideAngle) * 80;
-                                u.stuckCounter = 0;
-                            }
                         }
                     }
                 } else {
