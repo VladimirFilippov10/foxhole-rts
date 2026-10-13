@@ -37,13 +37,7 @@ export class Vehicle {
     }
     
     takeDamage(dmg) {
-        const applied = Math.max(1, dmg - this.armor);
-        this.hp -= applied;
-        // Логирование смерти юнита — чтобы видеть, кто и когда «пропал» с карты
-        if (this.hp <= 0 && !this._deathLogged) {
-            this._deathLogged = true;
-            console.log(`[AI][UNIT] ☠️ ${this.label || this.type} (${this.faction}) уничтожен: получил ${applied} урона, позиция (${Math.round(this.x)}, ${Math.round(this.y)})`);
-        }
+        this.hp -= Math.max(1, dmg - this.armor);
     }
     
     canAttack() {
