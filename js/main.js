@@ -282,10 +282,13 @@ function startGame() {
         
         console.log('✅ Игра инициализирована, запуск игрового цикла...');
         
-        // Start game loop
+        // Start game loop. ВАЖНО: передаём цикл через requestAnimationFrame,
+        // а не вызываем gameLoop() напрямую — иначе первый кадр выполняется
+        // без временной метки и с нулевым lastFrameTime, что сбивает
+        // фиксированный шаг логики (техника «дёргается»/ускоряется на старте).
         lastFrameTime = 0;
         logicAccumulator = 0;
-        gameLoop();
+        requestAnimationFrame(gameLoop);
     } catch (error) {
         console.error('❌ Ошибка при запуске игры:', error);
         alert('Ошибка при запуске игры: ' + error.message);
