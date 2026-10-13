@@ -107,10 +107,10 @@ export class MgGunner extends InfantryBase {
     constructor(faction, x, y) {
         super('mg_gunner', faction, x, y);
         this.hp = this.maxHp = 45;      // крепче стрелка — держит оборону
-        this.dmg = 5;                   // небольшой урон...
+        this.dmg = 10;                   // небольшой урон...
         this.range = 95;                // ...зато короткая дистанция
-        this.spd = 0.45;                // почти неподвижен — позиционная роль
-        this.cd = 25;                   // очень скорострельный пулемёт
+        this.spd = 0.2;                // почти неподвижен — позиционная роль
+        this.cd = 30;                   // очень скорострельный пулемёт
         this.antiInfantry = true;       // эффективен против пехоты
         this.infantryMultiplier = 2.0;  // x2 урона по пехоте
         this.label = 'Пулемётчик';
@@ -121,10 +121,10 @@ export class Sniper extends InfantryBase {
     constructor(faction, x, y) {
         super('sniper', faction, x, y);
         this.hp = this.maxHp = 25;      // хрупкий
-        this.dmg = 22;                  // высокий одиночный урон
+        this.dmg = 40;                  // высокий одиночный урон
         this.range = 260;               // стреляет с дальней дистанции
-        this.spd = 0.55;                // чуть быстрее обычной пехоты — доходит до позиции
-        this.cd = 170;                  // редкие, но точные выстрелы
+        this.spd = 0.5;                // чуть быстрее обычной пехоты — доходит до позиции
+        this.cd = 950;                  // редкие, но точные выстрелы
         this.label = 'Снайпер';
     }
 }
@@ -135,12 +135,12 @@ export class Grenadier extends InfantryBase {
     constructor(faction, x, y) {
         super('grenadier', faction, x, y);
         this.hp = this.maxHp = 40;
-        this.dmg = 45;
+        this.dmg = 60;
         this.range = 45;
         this.spd = 0.5;
-        this.cd = 130;
+        this.cd = 200;
         this.grenadeLauncher = true;    // AoE по пехоте вокруг цели (game.js)
-        this.grenadeRadius = 45;
+        this.grenadeRadius = 25;
         this.label = 'Гранатомётчик';
     }
 }

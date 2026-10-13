@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>War of the Continent — Deadlands</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -132,17 +132,347 @@
             background: rgba(251,191,36,0.1);
             padding: 0.25rem 0.5rem;
             border-radius: 4px;
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        width: 100%;
+        height: 100vh;
+        overflow: hidden;
+        background: #111827;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        color: white;
+        user-select: none;
+      }
+      canvas {
+        display: block;
+        cursor: crosshair;
+      }
+      .screen {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        background: linear-gradient(135deg, #1f2937, #111827);
+      }
+      .screen.hidden {
+        display: none;
+      }
+      .screen h1 {
+        font-size: 3.5rem;
+        letter-spacing: 0.1em;
+        margin-bottom: 0.5rem;
+      }
+      .screen .subtitle {
+        color: #9ca3af;
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+      }
+      .faction-row {
+        display: flex;
+        gap: 2rem;
+        margin-bottom: 2rem;
+      }
+      .faction-btn {
+        width: 240px;
+        height: 280px;
+        border: 2px solid;
+        border-radius: 12px;
+        padding: 1.5rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .faction-btn.wardens {
+        background: linear-gradient(135deg, #1e3a5f, #1e40af);
+        border-color: #3b82f6;
+      }
+      .faction-btn.colonials {
+        background: linear-gradient(135deg, #14532d, #15803d);
+        border-color: #22c55e;
+      }
+      .faction-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      }
+      .faction-btn .icon {
+        font-size: 3.5rem;
+        margin-bottom: 0.75rem;
+      }
+      .faction-btn h2 {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+      }
+      .faction-btn p {
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.7);
+        text-align: center;
+        line-height: 1.4;
+      }
+
+      .mode-row {
+        display: flex;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+      }
+      .mode-btn {
+        width: 220px;
+        padding: 1.5rem;
+        border: 2px solid #374151;
+        border-radius: 12px;
+        background: rgba(31, 41, 55, 0.8);
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        color: white;
+      }
+      .mode-btn:hover {
+        transform: translateY(-5px);
+        border-color: #60a5fa;
+        box-shadow: 0 10px 25px rgba(96, 165, 250, 0.3);
+      }
+      .mode-btn .mode-icon {
+        font-size: 3rem;
+        margin-bottom: 0.5rem;
+      }
+      .mode-btn h3 {
+        font-size: 1.3rem;
+        margin-bottom: 0.5rem;
+        color: #60a5fa;
+      }
+      .mode-btn p {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.7);
+        line-height: 1.4;
+        margin-bottom: 0.75rem;
+      }
+      .mode-btn .mode-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        font-size: 0.7rem;
+        color: #fbbf24;
+        border-top: 1px solid #374151;
+        padding-top: 0.5rem;
+        width: 100%;
+      }
+      .back-btn {
+        padding: 0.75rem 2rem;
+        background: rgba(31, 41, 55, 0.8);
+        border: 2px solid #374151;
+        border-radius: 8px;
+        color: white;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.3s;
+      }
+      .back-btn:hover {
+        background: rgba(55, 65, 81, 0.8);
+        border-color: #60a5fa;
+      }
+
+      .map-row {
+        display: flex;
+        gap: 2rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .map-btn {
+        width: 280px;
+        padding: 1.5rem;
+        border: 2px solid #374151;
+        border-radius: 12px;
+        background: rgba(31, 41, 55, 0.8);
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        color: white;
+        position: relative;
+        overflow: hidden;
+      }
+      .map-btn::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(
+          135deg,
+          rgba(96, 165, 250, 0.1),
+          rgba(139, 92, 246, 0.1)
+        );
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .map-btn:hover::before {
+        opacity: 1;
+      }
+      .map-btn:hover {
+        transform: translateY(-5px);
+        border-color: #60a5fa;
+        box-shadow: 0 10px 30px rgba(96, 165, 250, 0.3);
+      }
+      .map-btn.locked {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .map-btn.locked:hover {
+        transform: none;
+        border-color: #374151;
+        box-shadow: none;
+      }
+      .map-btn .map-icon {
+        font-size: 3.5rem;
+        margin-bottom: 0.75rem;
+      }
+      .map-btn h3 {
+        font-size: 1.4rem;
+        margin-bottom: 0.5rem;
+        color: #60a5fa;
+      }
+      .map-btn p {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.7);
+        line-height: 1.4;
+        margin-bottom: 0.75rem;
+      }
+      .map-btn .map-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+        font-size: 0.7rem;
+        color: #fbbf24;
+        border-top: 1px solid #374151;
+        padding-top: 0.75rem;
+        width: 100%;
+      }
+      .map-btn .map-stats span {
+        background: rgba(251, 191, 36, 0.1);
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+      }
+      .map-btn .locked-badge {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        padding: 0.25rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: bold;
+      }
+
+      .hud-top {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        padding: 0.5rem 1rem;
+        background: linear-gradient(
+          to bottom,
+          rgba(0, 0, 0, 0.85),
+          transparent
+        );
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 100;
+      }
+      .res-group {
+        display: flex;
+        gap: 1.2rem;
+      }
+      .res {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .res-icon {
+        font-size: 1.2rem;
+      }
+      .res-val {
+        font-family: monospace;
+        font-size: 0.9rem;
+      }
+      .res-lbl {
+        font-size: 0.65rem;
+        color: #9ca3af;
+      }
+      .faction-badge {
+        padding: 0.3rem 0.8rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: bold;
+      }
+      .faction-badge.wardens {
+        background: rgba(30, 58, 95, 0.8);
+        color: #60a5fa;
+      }
+      .faction-badge.colonials {
+        background: rgba(20, 83, 45, 0.8);
+        color: #4ade80;
+      }
+      .sel-info {
+        position: fixed;
+        bottom: 1rem;
+        left: 1rem;
+        background: rgba(17, 24, 39, 0.9);
+        border: 1px solid #374151;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        min-width: 180px;
+        z-index: 100;
+      }
+      .sel-info p {
+        font-size: 0.75rem;
+        color: #d1d5db;
+      }
+      .sel-info .sel-type {
+        font-size: 0.65rem;
+        color: #9ca3af;
+      }
+      .notif {
+        position: fixed;
+        top: 4rem;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(17, 24, 39, 0.95);
+        border: 1px solid #4b5563;
+        border-radius: 8px;
+        padding: 0.75rem 1.25rem;
+        z-index: 200;
+        font-size: 0.85rem;
+        animation: fadeIn 0.3s;
+      }
+      .notif.hidden {
+        display: none;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateX(-50%) translateY(-8px);
         }
-        .map-btn .locked-badge {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            background: rgba(239,68,68,0.2);
-            color: #ef4444;
-            padding: 0.25rem 0.75rem;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            font-weight: bold;
+        to {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
         }
         
         .hud-top { position: fixed; top: 0; left: 0; right: 0; padding: 0.5rem 1rem; background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent); display: flex; justify-content: space-between; align-items: center; z-index: 100; }
@@ -175,276 +505,612 @@
         .unit-card .unit-name { font-size: 0.75rem; font-weight: bold; margin-bottom: 0.25rem; }
         .unit-card .unit-stats { font-size: 0.6rem; color: #9ca3af; line-height: 1.3; }
         .unit-card .unit-cost { font-size: 0.6rem; color: #fbbf24; margin-top: 0.25rem; }
+      }
+      .controls-hint {
+        position: fixed;
+        top: 3.5rem;
+        right: 1rem;
+        font-size: 0.65rem;
+        color: #6b7280;
+        text-align: right;
+        line-height: 1.5;
+        z-index: 100;
+      }
+      .mode-indicator {
+        position: fixed;
+        top: 3.5rem;
+        left: 1rem;
+        background: rgba(251, 191, 36, 0.2);
+        border: 1px solid #fbbf24;
+        border-radius: 6px;
+        padding: 0.3rem 0.7rem;
+        font-size: 0.75rem;
+        color: #fbbf24;
+        z-index: 200;
+      }
+      .mode-indicator.hidden {
+        display: none;
+      }
+      .factory-menu {
+        position: fixed;
+        background: rgba(17, 24, 39, 0.95);
+        border: 2px solid #4b5563;
+        border-radius: 12px;
+        padding: 1rem;
+        z-index: 300;
+        min-width: 320px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      }
+      .factory-menu.hidden {
+        display: none;
+      }
+      .factory-menu h3 {
+        font-size: 1rem;
+        margin-bottom: 0.75rem;
+        color: #60a5fa;
+        border-bottom: 1px solid #374151;
+        padding-bottom: 0.5rem;
+      }
+      .factory-menu .close-btn {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        background: none;
+        border: none;
+        color: #9ca3af;
+        font-size: 1.5rem;
+        cursor: pointer;
+      }
+      .factory-menu .close-btn:hover {
+        color: white;
+      }
+      .unit-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+      }
+      .unit-card {
+        background: rgba(31, 41, 55, 0.8);
+        border: 1px solid #374151;
+        border-radius: 6px;
+        padding: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .unit-card:hover:not(.disabled) {
+        border-color: #60a5fa;
+        background: rgba(31, 41, 55, 1);
+        transform: translateY(-2px);
+      }
+      .unit-card.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .unit-card .unit-name {
+        font-size: 0.75rem;
+        font-weight: bold;
+        margin-bottom: 0.25rem;
+      }
+      .unit-card .unit-stats {
+        font-size: 0.6rem;
+        color: #9ca3af;
+        line-height: 1.3;
+      }
+      .unit-card .unit-cost {
+        font-size: 0.6rem;
+        color: #fbbf24;
+        margin-top: 0.25rem;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div id="menuScreen" class="screen">
-        <h1>⚔️ WAR OF THE CONTINENT</h1>
-        <p class="subtitle">2D RTS в стиле Foxhole</p>
-        <button class="mode-btn" onclick="showMapSelect()" style="margin-bottom: 1rem; width: 300px;">
-            <div class="mode-icon">🎮</div>
-            <h3>Начать игру</h3>
-            <p>Выберите карту, фракцию и режим</p>
-        </button>
-        <button class="mode-btn" onclick="showGameInfo()" style="width: 300px;">
-            <div class="mode-icon">ℹ️</div>
-            <h3>Информация об игре</h3>
-            <p>Правила, управление и советы</p>
-        </button>
+      <h1>⚔️ WAR OF THE CONTINENT</h1>
+      <p class="subtitle">2D RTS в стиле Foxhole</p>
+      <button
+        class="mode-btn"
+        onclick="showMapSelect()"
+        style="margin-bottom: 1rem; width: 300px"
+      >
+        <div class="mode-icon">🎮</div>
+        <h3>Начать игру</h3>
+        <p>Выберите карту, фракцию и режим</p>
+      </button>
+      <button class="mode-btn" onclick="showGameInfo()" style="width: 300px">
+        <div class="mode-icon">ℹ️</div>
+        <h3>Информация об игре</h3>
+        <p>Правила, управление и советы</p>
+      </button>
     </div>
 
     <div id="gameInfoScreen" class="screen hidden">
-        <div style="max-width: 900px; max-height: 80vh; overflow-y: auto; padding: 2rem;">
-            <h1 style="color: #60a5fa; margin-bottom: 1.5rem;">📖 Информация об игре</h1>
-            
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
-                <!-- Блок 1: Цель игры -->
-                <div style="background: rgba(31,41,55,0.8); border: 2px solid #374151; border-radius: 12px; padding: 1.5rem;">
-                    <h3 style="color: #fbbf24; margin-bottom: 0.75rem;">🎯 Цель игры</h3>
-                    <p style="color: #d1d5db; line-height: 1.6; margin-bottom: 0.5rem;">Захватите все территории противника!</p>
-                    <ul style="color: #9ca3af; padding-left: 1.5rem; line-height: 1.8;">
-                        <li>Захватывайте города и шахты</li>
-                        <li>Уничтожайте вражескую технику</li>
-                        <li>Улучшайте оборону территорий</li>
-                        <li>Если у вас не останется территорий - вы проиграете</li>
-                    </ul>
-                </div>
+      <div
+        style="
+          max-width: 900px;
+          max-height: 80vh;
+          overflow-y: auto;
+          padding: 2rem;
+        "
+      >
+        <h1 style="color: #60a5fa; margin-bottom: 1.5rem">
+          📖 Информация об игре
+        </h1>
 
-                <!-- Блок 2: Управление -->
-                <div style="background: rgba(31,41,55,0.8); border: 2px solid #374151; border-radius: 12px; padding: 1.5rem;">
-                    <h3 style="color: #fbbf24; margin-bottom: 0.75rem;">🎮 Управление</h3>
-                    <ul style="color: #d1d5db; padding-left: 1.5rem; line-height: 1.8;">
-                        <li><strong>WASD/Стрелки</strong> - камера</li>
-                        <li><strong>ЛКМ</strong> - выбор юнитов</li>
-                        <li><strong>Двойной клик</strong> - перемещение</li>
-                        <li><strong>Клик по заводу</strong> - производство</li>
-                        <li><strong>Клик по миникарте</strong> - быстрый переход</li>
-                        <li><strong>Кнопка BUILD</strong> - улучшение обороны</li>
-                        <li><strong>Кнопка AoE FIRE</strong> - обстрел площади</li>
-                    </ul>
-                </div>
+        <div
+          style="
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+          "
+        >
+          <!-- Блок 1: Цель игры -->
+          <div
+            style="
+              background: rgba(31, 41, 55, 0.8);
+              border: 2px solid #374151;
+              border-radius: 12px;
+              padding: 1.5rem;
+            "
+          >
+            <h3 style="color: #fbbf24; margin-bottom: 0.75rem">🎯 Цель игры</h3>
+            <p style="color: #d1d5db; line-height: 1.6; margin-bottom: 0.5rem">
+              Захватите все территории противника!
+            </p>
+            <ul style="color: #9ca3af; padding-left: 1.5rem; line-height: 1.8">
+              <li>Захватывайте города и шахты</li>
+              <li>Уничтожайте вражескую технику</li>
+              <li>Улучшайте оборону территорий</li>
+              <li>Если у вас не останется территорий - вы проиграете</li>
+            </ul>
+          </div>
 
-                <!-- Блок 3: Ресурсы -->
-                <div style="background: rgba(31,41,55,0.8); border: 2px solid #374151; border-radius: 12px; padding: 1.5rem;">
-                    <h3 style="color: #fbbf24; margin-bottom: 0.75rem;">💰 Ресурсы</h3>
-                    <ul style="color: #d1d5db; padding-left: 1.5rem; line-height: 1.8;">
-                        <li><strong>📦 Supplies</strong> - для пехоты и базовых юнитов</li>
-                        <li><strong>⚙️ Components</strong> - для техники и артиллерии</li>
-                        <li><strong>🪨 Materials</strong> - для строительства и улучшений</li>
-                    </ul>
-                    <p style="color: #9ca3af; margin-top: 0.75rem; font-size: 0.9rem;">Захватывайте шахты для бонусных ресурсов!</p>
-                </div>
+          <!-- Блок 2: Управление -->
+          <div
+            style="
+              background: rgba(31, 41, 55, 0.8);
+              border: 2px solid #374151;
+              border-radius: 12px;
+              padding: 1.5rem;
+            "
+          >
+            <h3 style="color: #fbbf24; margin-bottom: 0.75rem">
+              🎮 Управление
+            </h3>
+            <ul style="color: #d1d5db; padding-left: 1.5rem; line-height: 1.8">
+              <li><strong>WASD/Стрелки</strong> - камера</li>
+              <li><strong>ЛКМ</strong> - выбор юнитов</li>
+              <li><strong>Двойной клик</strong> - перемещение</li>
+              <li><strong>Клик по заводу</strong> - производство</li>
+              <li><strong>Клик по миникарте</strong> - быстрый переход</li>
+              <li><strong>Кнопка BUILD</strong> - улучшение обороны</li>
+              <li><strong>Кнопка AoE FIRE</strong> - обстрел площади</li>
+            </ul>
+          </div>
 
-                <!-- Блок 4: Техника -->
-                <div style="background: rgba(31,41,55,0.8); border: 2px solid #374151; border-radius: 12px; padding: 1.5rem;">
-                    <h3 style="color: #fbbf24; margin-bottom: 0.75rem;">🚗 Техника</h3>
-                    <p style="color: #9ca3af; margin-bottom: 0.5rem;">Каждая единица имеет БК и топливо:</p>
-                    <ul style="color: #d1d5db; padding-left: 1.5rem; line-height: 1.8;">
-                        <li>🔫 <strong>Пехота</strong> - медленная, но дешёвая</li>
-                        <li>🚗 <strong>Лёгкие танки</strong> - быстрые и манёвренные</li>
-                        <li>💥 <strong>Тяжёлые танки</strong> - мощные, но медленные</li>
-                        <li>🎯 <strong>Артиллерия</strong> - дальнобойная, AoE урон</li>
-                        <li>🚚 <strong>Логистика</strong> - пополняет БК/топливо</li>
-                    </ul>
-                </div>
+          <!-- Блок 3: Ресурсы -->
+          <div
+            style="
+              background: rgba(31, 41, 55, 0.8);
+              border: 2px solid #374151;
+              border-radius: 12px;
+              padding: 1.5rem;
+            "
+          >
+            <h3 style="color: #fbbf24; margin-bottom: 0.75rem">💰 Ресурсы</h3>
+            <ul style="color: #d1d5db; padding-left: 1.5rem; line-height: 1.8">
+              <li>
+                <strong>📦 Supplies</strong> - для пехоты и базовых юнитов
+              </li>
+              <li><strong>⚙️ Components</strong> - для техники и артиллерии</li>
+              <li>
+                <strong>🪨 Materials</strong> - для строительства и улучшений
+              </li>
+            </ul>
+            <p style="color: #9ca3af; margin-top: 0.75rem; font-size: 0.9rem">
+              Захватывайте шахты для бонусных ресурсов!
+            </p>
+          </div>
 
-                <!-- Блок 5: Оборона -->
-                <div style="background: rgba(31,41,55,0.8); border: 2px solid #374151; border-radius: 12px; padding: 1.5rem;">
-                    <h3 style="color: #fbbf24; margin-bottom: 0.75rem;">🛡️ Оборона территорий</h3>
-                    <p style="color: #9ca3af; margin-bottom: 0.5rem;">3 уровня улучшения:</p>
-                    <ul style="color: #d1d5db; padding-left: 1.5rem; line-height: 1.8;">
-                        <li><strong>Уровень 1:</strong> DMG:15, RNG:120</li>
-                        <li><strong>Уровень 2:</strong> DMG:25, RNG:150</li>
-                        <li><strong>Уровень 3:</strong> DMG:40, RNG:180 + защита от артиллерии</li>
-                    </ul>
-                    <p style="color: #9ca3af; margin-top: 0.75rem; font-size: 0.9rem;">Кликните по территории и нажмите BUILD</p>
-                </div>
+          <!-- Блок 4: Техника -->
+          <div
+            style="
+              background: rgba(31, 41, 55, 0.8);
+              border: 2px solid #374151;
+              border-radius: 12px;
+              padding: 1.5rem;
+            "
+          >
+            <h3 style="color: #fbbf24; margin-bottom: 0.75rem">🚗 Техника</h3>
+            <p style="color: #9ca3af; margin-bottom: 0.5rem">
+              Каждая единица имеет БК и топливо:
+            </p>
+            <ul style="color: #d1d5db; padding-left: 1.5rem; line-height: 1.8">
+              <li>🔫 <strong>Пехота</strong> - медленная, но дешёвая</li>
+              <li>🚗 <strong>Лёгкие танки</strong> - быстрые и манёвренные</li>
+              <li>💥 <strong>Тяжёлые танки</strong> - мощные, но медленные</li>
+              <li>🎯 <strong>Артиллерия</strong> - дальнобойная, AoE урон</li>
+              <li>🚚 <strong>Логистика</strong> - пополняет БК/топливо</li>
+            </ul>
+          </div>
 
-                <!-- Блок 6: Артиллерия -->
-                <div style="background: rgba(31,41,55,0.8); border: 2px solid #374151; border-radius: 12px; padding: 1.5rem;">
-                    <h3 style="color: #fbbf24; margin-bottom: 0.75rem;">🎯 Артиллерия</h3>
-                    <ul style="color: #d1d5db; padding-left: 1.5rem; line-height: 1.8;">
-                        <li>Делает <strong>5 выстрелов</strong> по цели</li>
-                        <li>Снаряды летят с <strong>разбросом</strong></li>
-                        <li>Не стреляет в упор (min range)</li>
-                        <li>Использует <strong>Flatbed</strong> для пополнения БК</li>
-                        <li>Уровень 3 обороны атакует артиллерию в ответ</li>
-                    </ul>
-                </div>
+          <!-- Блок 5: Оборона -->
+          <div
+            style="
+              background: rgba(31, 41, 55, 0.8);
+              border: 2px solid #374151;
+              border-radius: 12px;
+              padding: 1.5rem;
+            "
+          >
+            <h3 style="color: #fbbf24; margin-bottom: 0.75rem">
+              🛡️ Оборона территорий
+            </h3>
+            <p style="color: #9ca3af; margin-bottom: 0.5rem">
+              3 уровня улучшения:
+            </p>
+            <ul style="color: #d1d5db; padding-left: 1.5rem; line-height: 1.8">
+              <li><strong>Уровень 1:</strong> DMG:15, RNG:120</li>
+              <li><strong>Уровень 2:</strong> DMG:25, RNG:150</li>
+              <li>
+                <strong>Уровень 3:</strong> DMG:40, RNG:180 + защита от
+                артиллерии
+              </li>
+            </ul>
+            <p style="color: #9ca3af; margin-top: 0.75rem; font-size: 0.9rem">
+              Кликните по территории и нажмите BUILD
+            </p>
+          </div>
 
-                <!-- Блок 7: Режимы игры -->
-                <div style="background: rgba(31,41,55,0.8); border: 2px solid #374151; border-radius: 12px; padding: 1.5rem;">
-                    <h3 style="color: #fbbf24; margin-bottom: 0.75rem;">⚙️ Режимы игры</h3>
-                    <ul style="color: #d1d5db; padding-left: 1.5rem; line-height: 1.8;">
-                        <li><strong>🎯 Реализм</strong> - медленный фарм (×0.3)</li>
-                        <li><strong>⚖️ Обычный</strong> - стандартный темп (×1.0)</li>
-                        <li><strong>⚡ Быстрый бой</strong> - ускоренный фарм (×2.5)</li>
-                    </ul>
-                    <p style="color: #9ca3af; margin-top: 0.75rem; font-size: 0.9rem;">Захват >50% точек замедляет ИИ!</p>
-                </div>
+          <!-- Блок 6: Артиллерия -->
+          <div
+            style="
+              background: rgba(31, 41, 55, 0.8);
+              border: 2px solid #374151;
+              border-radius: 12px;
+              padding: 1.5rem;
+            "
+          >
+            <h3 style="color: #fbbf24; margin-bottom: 0.75rem">
+              🎯 Артиллерия
+            </h3>
+            <ul style="color: #d1d5db; padding-left: 1.5rem; line-height: 1.8">
+              <li>Делает <strong>5 выстрелов</strong> по цели</li>
+              <li>Снаряды летят с <strong>разбросом</strong></li>
+              <li>Не стреляет в упор (min range)</li>
+              <li>Использует <strong>Flatbed</strong> для пополнения БК</li>
+              <li>Уровень 3 обороны атакует артиллерию в ответ</li>
+            </ul>
+          </div>
 
-                <!-- Блок 8: Советы -->
-                <div style="background: rgba(31,41,55,0.8); border: 2px solid #374151; border-radius: 12px; padding: 1.5rem;">
-                    <h3 style="color: #fbbf24; margin-bottom: 0.75rem;">💡 Советы</h3>
-                    <ul style="color: #d1d5db; padding-left: 1.5rem; line-height: 1.8;">
-                        <li>Используйте логистику для пополнения БК/топлива</li>
-                        <li>Улучшайте оборону ключевых территорий</li>
-                        <li>Защищайте свою артиллерию от прорыва</li>
-                        <li>Уничтожайте вражескую артиллерию быстро</li>
-                        <li>Контролируйте шахты для ресурсов</li>
-                    </ul>
-                </div>
-            </div>
-            
-            <button onclick="hideGameInfo()" style="margin-top: 2rem; padding: 0.75rem 2rem; background: #2563eb; border: none; border-radius: 8px; color: white; cursor: pointer; font-size: 1rem;">
-                ← Назад в меню
-            </button>
+          <!-- Блок 7: Режимы игры -->
+          <div
+            style="
+              background: rgba(31, 41, 55, 0.8);
+              border: 2px solid #374151;
+              border-radius: 12px;
+              padding: 1.5rem;
+            "
+          >
+            <h3 style="color: #fbbf24; margin-bottom: 0.75rem">
+              ⚙️ Режимы игры
+            </h3>
+            <ul style="color: #d1d5db; padding-left: 1.5rem; line-height: 1.8">
+              <li><strong>🎯 Реализм</strong> - медленный фарм (×0.3)</li>
+              <li><strong>⚖️ Обычный</strong> - стандартный темп (×1.0)</li>
+              <li><strong>⚡ Быстрый бой</strong> - ускоренный фарм (×2.5)</li>
+            </ul>
+            <p style="color: #9ca3af; margin-top: 0.75rem; font-size: 0.9rem">
+              Захват >50% точек замедляет ИИ!
+            </p>
+          </div>
+
+          <!-- Блок 8: Советы -->
+          <div
+            style="
+              background: rgba(31, 41, 55, 0.8);
+              border: 2px solid #374151;
+              border-radius: 12px;
+              padding: 1.5rem;
+            "
+          >
+            <h3 style="color: #fbbf24; margin-bottom: 0.75rem">💡 Советы</h3>
+            <ul style="color: #d1d5db; padding-left: 1.5rem; line-height: 1.8">
+              <li>Используйте логистику для пополнения БК/топлива</li>
+              <li>Улучшайте оборону ключевых территорий</li>
+              <li>Защищайте свою артиллерию от прорыва</li>
+              <li>Уничтожайте вражескую артиллерию быстро</li>
+              <li>Контролируйте шахты для ресурсов</li>
+            </ul>
+          </div>
         </div>
+
+        <button
+          onclick="hideGameInfo()"
+          style="
+            margin-top: 2rem;
+            padding: 0.75rem 2rem;
+            background: #2563eb;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 1rem;
+          "
+        >
+          ← Назад в меню
+        </button>
+      </div>
     </div>
 
     <div id="mapSelectScreen" class="screen hidden">
-        <h1>🗺️ ВЫБОР КАРТЫ</h1>
-        <p class="subtitle">Выберите поле боя</p>
-        <div class="map-row">
-            <button class="map-btn" onclick="selectMap('deadlands')">
-                <div class="map-icon">🏔️</div>
-                <h3>Deadlands</h3>
-                <p>Центральный фронт с открытой местностью. 14 городов, 10 шахт ресурсов, расширенная сеть дорог.</p>
-                <div class="map-stats">
-                    <span>14 городов</span>
-                    <span>10 шахт</span>
-                    <span>Открытая местность</span>
-                </div>
-            </button>
-            <button class="map-btn locked" onclick="notify('Карта скоро будет доступна!')">
-                <div class="locked-badge">Скоро</div>
-                <div class="map-icon">🌊</div>
-                <h3>Howl County</h3>
-                <p>Лесистая местность с реками и мостами. Тактические переправы.</p>
-                <div class="map-stats">
-                    <span>12 городов</span>
-                    <span>8 шахт</span>
-                    <span>Реки и мосты</span>
-                </div>
-            </button>
-            <button class="map-btn locked" onclick="notify('Карта скоро будет доступна!')">
-                <div class="locked-badge">Скоро</div>
-                <div class="map-icon">🏜️</div>
-                <h3>Kingscain</h3>
-                <p>Пустынная карта с дюнами и оазисами. Ограниченные ресурсы.</p>
-                <div class="map-stats">
-                    <span>10 городов</span>
-                    <span>6 шахт</span>
-                    <span>Пустыня</span>
-                </div>
-            </button>
-        </div>
-        <button class="back-btn" onclick="backToMainMenu()">← Назад</button>
+      <h1>🗺️ ВЫБОР КАРТЫ</h1>
+      <p class="subtitle">Выберите поле боя</p>
+      <div class="map-row">
+        <button class="map-btn" onclick="selectMap('deadlands')">
+          <div class="map-icon">🏔️</div>
+          <h3>Deadlands</h3>
+          <p>
+            Центральный фронт с открытой местностью. 14 городов, 10 шахт
+            ресурсов, расширенная сеть дорог.
+          </p>
+          <div class="map-stats">
+            <span>14 городов</span>
+            <span>10 шахт</span>
+            <span>Открытая местность</span>
+          </div>
+        </button>
+        <button
+          class="map-btn locked"
+          onclick="notify('Карта скоро будет доступна!')"
+        >
+          <div class="locked-badge">Скоро</div>
+          <div class="map-icon">🌊</div>
+          <h3>Howl County</h3>
+          <p>Лесистая местность с реками и мостами. Тактические переправы.</p>
+          <div class="map-stats">
+            <span>12 городов</span>
+            <span>8 шахт</span>
+            <span>Реки и мосты</span>
+          </div>
+        </button>
+        <button
+          class="map-btn locked"
+          onclick="notify('Карта скоро будет доступна!')"
+        >
+          <div class="locked-badge">Скоро</div>
+          <div class="map-icon">🏜️</div>
+          <h3>Kingscain</h3>
+          <p>Пустынная карта с дюнами и оазисами. Ограниченные ресурсы.</p>
+          <div class="map-stats">
+            <span>10 городов</span>
+            <span>6 шахт</span>
+            <span>Пустыня</span>
+          </div>
+        </button>
+      </div>
+      <button class="back-btn" onclick="backToMainMenu()">← Назад</button>
     </div>
 
     <div id="factionScreen" class="screen hidden">
-        <h1>⚔️ ВЫБОР ФРАКЦИИ</h1>
-        <p class="subtitle">Выберите свою армию</p>
-        <div class="faction-row">
-            <button class="faction-btn wardens" onclick="selectFaction('wardens')">
-                <div class="icon">🛡️</div><h2>WARDENS</h2>
-                <p>Devitt • Gallagher 30mm • Niska APC<br>Тяжёлая бронетехника<br>Промышленное превосходство</p>
-            </button>
-            <button class="faction-btn colonials" onclick="selectFaction('colonials')">
-                <div class="icon">⚔️</div><h2>COLONIALS</h2>
-                <p>Hatchet • Falchion • Hoplite APC<br>Быстрые полугусеничники<br>Партизанская тактика</p>
-            </button>
-        </div>
-        <button class="back-btn" onclick="backToMapSelect()">← Назад к выбору карты</button>
+      <h1>⚔️ ВЫБОР ФРАКЦИИ</h1>
+      <p class="subtitle">Выберите свою армию</p>
+      <div class="faction-row">
+        <button class="faction-btn wardens" onclick="selectFaction('wardens')">
+          <div class="icon">🛡️</div>
+          <h2>WARDENS</h2>
+          <p>
+            Devitt • Gallagher 30mm • Niska APC<br />Тяжёлая бронетехника<br />Промышленное
+            превосходство
+          </p>
+        </button>
+        <button
+          class="faction-btn colonials"
+          onclick="selectFaction('colonials')"
+        >
+          <div class="icon">⚔️</div>
+          <h2>COLONIALS</h2>
+          <p>
+            Hatchet • Falchion • Hoplite APC<br />Быстрые полугусеничники<br />Партизанская
+            тактика
+          </p>
+        </button>
+      </div>
+      <button class="back-btn" onclick="backToMapSelect()">
+        ← Назад к выбору карты
+      </button>
     </div>
 
     <div id="settingsScreen" class="screen hidden">
-        <h1>⚙️ НАСТРОЙКИ ИГРЫ</h1>
-        <p class="subtitle">Выберите режим игры</p>
-        <div class="mode-row">
-            <button class="mode-btn" onclick="selectGameMode('realism')">
-                <div class="mode-icon">🎯</div>
-                <h3>Реализм</h3>
-                <p>Медленный фарм ресурсов<br>Долгая стратегическая игра<br>Каждая единица на счету</p>
-                <div class="mode-stats">
-                    <span>Фарм: ×0.3</span>
-                    <span>Ресурсы: 100/50/40</span>
-                </div>
-            </button>
-            <button class="mode-btn" onclick="selectGameMode('normal')">
-                <div class="mode-icon">⚖️</div>
-                <h3>Обычный</h3>
-                <p>Стандартный темп игры<br>Сбалансированный фарм<br>Оптимальный баланс</p>
-                <div class="mode-stats">
-                    <span>Фарм: ×1.0</span>
-                    <span>Ресурсы: 200/100/80</span>
-                </div>
-            </button>
-            <button class="mode-btn" onclick="selectGameMode('fast')">
-                <div class="mode-icon">⚡</div>
-                <h3>Быстрый бой</h3>
-                <p>Ускоренный фарм ресурсов<br>Быстрые сражения<br>Много техники сразу</p>
-                <div class="mode-stats">
-                    <span>Фарм: ×2.5</span>
-                    <span>Ресурсы: 400/200/150</span>
-                </div>
-            </button>
-        </div>
-        <button class="back-btn" onclick="backToMapSelect()">← Назад к выбору карты</button>
+      <h1>⚙️ НАСТРОЙКИ ИГРЫ</h1>
+      <p class="subtitle">Выберите режим игры</p>
+      <div class="mode-row">
+        <button class="mode-btn" onclick="selectGameMode('realism')">
+          <div class="mode-icon">🎯</div>
+          <h3>Реализм</h3>
+          <p>
+            Медленный фарм ресурсов<br />Долгая стратегическая игра<br />Каждая
+            единица на счету
+          </p>
+          <div class="mode-stats">
+            <span>Фарм: ×0.3</span>
+            <span>Ресурсы: 100/50/40</span>
+          </div>
+        </button>
+        <button class="mode-btn" onclick="selectGameMode('normal')">
+          <div class="mode-icon">⚖️</div>
+          <h3>Обычный</h3>
+          <p>
+            Стандартный темп игры<br />Сбалансированный фарм<br />Оптимальный
+            баланс
+          </p>
+          <div class="mode-stats">
+            <span>Фарм: ×1.0</span>
+            <span>Ресурсы: 200/100/80</span>
+          </div>
+        </button>
+        <button class="mode-btn" onclick="selectGameMode('fast')">
+          <div class="mode-icon">⚡</div>
+          <h3>Быстрый бой</h3>
+          <p>
+            Ускоренный фарм ресурсов<br />Быстрые сражения<br />Много техники
+            сразу
+          </p>
+          <div class="mode-stats">
+            <span>Фарм: ×2.5</span>
+            <span>Ресурсы: 400/200/150</span>
+          </div>
+        </button>
+      </div>
+      <button class="back-btn" onclick="backToMapSelect()">
+        ← Назад к выбору карты
+      </button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
-    <div id="hudTop" class="hud-top" style="display:none;">
-        <div class="res-group">
-            <div class="res"><span class="res-icon">📦</span><span class="res-val" id="rSup">200</span><span class="res-lbl">SUP</span></div>
-            <div class="res"><span class="res-icon">⚙️</span><span class="res-val" id="rComp">100</span><span class="res-lbl">COMP</span></div>
-            <div class="res"><span class="res-icon">🪨</span><span class="res-val" id="rMat">80</span><span class="res-lbl">MAT</span></div>
+    <div id="hudTop" class="hud-top" style="display: none">
+      <div class="res-group">
+        <div class="res">
+          <span class="res-icon">📦</span
+          ><span class="res-val" id="rSup">200</span
+          ><span class="res-lbl">SUP</span>
         </div>
-        <div style="display:flex;align-items:center;gap:1rem;">
-            <div id="unitLimits" style="font-family:monospace;font-size:0.7rem;color:#9ca3af;text-align:right;"></div>
-            <span style="font-family:monospace;font-size:0.8rem;color:#d1d5db;">Territories: <span id="tCount">1</span>/10</span>
-            <span id="gameModeInfo" style="font-family:monospace;font-size:0.8rem;color:#9ca3af;"></span>
-            <span id="factionBadge" class="faction-badge wardens">🛡️ WARDENS</span>
+        <div class="res">
+          <span class="res-icon">⚙️</span
+          ><span class="res-val" id="rComp">100</span
+          ><span class="res-lbl">COMP</span>
         </div>
+        <div class="res">
+          <span class="res-icon">🪨</span
+          ><span class="res-val" id="rMat">80</span
+          ><span class="res-lbl">MAT</span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 1rem">
+        <div
+          id="unitLimits"
+          style="
+            font-family: monospace;
+            font-size: 0.7rem;
+            color: #9ca3af;
+            text-align: right;
+          "
+        ></div>
+        <span style="font-family: monospace; font-size: 0.8rem; color: #d1d5db"
+          >Territories: <span id="tCount">1</span>/10</span
+        >
+        <span
+          id="gameModeInfo"
+          style="font-family: monospace; font-size: 0.8rem; color: #9ca3af"
+        ></span>
+        <span id="factionBadge" class="faction-badge wardens">🛡️ WARDENS</span>
+      </div>
     </div>
 
     <!-- Прогресс-бары производства (слева вверху) -->
-    <div id="productionQueue" style="position:fixed;top:4rem;left:1rem;background:rgba(17,24,39,0.9);border:1px solid #374151;border-radius:8px;padding:0.75rem;min-width:220px;z-index:100;display:none;">
-        <div id="productionQueueHeader" style="font-size:0.8rem;color:#60a5fa;margin-bottom:0.5rem;font-weight:bold;cursor:move;user-select:none;" title="Перетащите за заголовок, чтобы переместить окно">🏭 Производство ✋</div>
-        <div id="productionQueueContent"></div>
+    <div
+      id="productionQueue"
+      style="
+        position: fixed;
+        top: 4rem;
+        left: 1rem;
+        background: rgba(17, 24, 39, 0.9);
+        border: 1px solid #374151;
+        border-radius: 8px;
+        padding: 0.75rem;
+        min-width: 220px;
+        z-index: 100;
+        display: none;
+      "
+    >
+      <div
+        id="productionQueueHeader"
+        style="
+          font-size: 0.8rem;
+          color: #60a5fa;
+          margin-bottom: 0.5rem;
+          font-weight: bold;
+          cursor: move;
+          user-select: none;
+        "
+        title="Перетащите за заголовок, чтобы переместить окно"
+      >
+        🏭 Производство ✋
+      </div>
+      <div id="productionQueueContent"></div>
     </div>
 
-    <div id="selInfo" class="sel-info" style="display:none;"></div>
+    <div id="selInfo" class="sel-info" style="display: none"></div>
 
-    <div style="position:fixed;bottom:1rem;right:1rem;z-index:100;display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:flex-end;max-width:400px;">
-        <button id="moveBtn" onclick="toggleMoveMode()" style="padding:0.5rem 1rem;background:rgba(17,24,39,0.9);border:1px solid #374151;border-radius:6px;color:white;cursor:pointer;font-size:0.8rem;">
-            🎯 MOVE
-        </button>
-        <button id="aoeBtn" onclick="toggleAoEMode()" style="padding:0.5rem 1rem;background:rgba(17,24,39,0.9);border:1px solid #374151;border-radius:6px;color:white;cursor:pointer;font-size:0.8rem;">
-            💥 AoE FIRE
-        </button>
+    <div
+      style="
+        position: fixed;
+        bottom: 1rem;
+        right: 1rem;
+        z-index: 100;
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        max-width: 400px;
+      "
+    >
+      <button
+        id="moveBtn"
+        onclick="toggleMoveMode()"
+        style="
+          padding: 0.5rem 1rem;
+          background: rgba(17, 24, 39, 0.9);
+          border: 1px solid #374151;
+          border-radius: 6px;
+          color: white;
+          cursor: pointer;
+          font-size: 0.8rem;
+        "
+      >
+        🎯 MOVE
+      </button>
+      <button
+        id="aoeBtn"
+        onclick="toggleAoEMode()"
+        style="
+          padding: 0.5rem 1rem;
+          background: rgba(17, 24, 39, 0.9);
+          border: 1px solid #374151;
+          border-radius: 6px;
+          color: white;
+          cursor: pointer;
+          font-size: 0.8rem;
+        "
+      >
+        💥 AoE FIRE
+      </button>
     </div>
 
-    <div id="controlsHint" class="controls-hint" style="display:none;">
-        WASD — камера<br>Клик — выбор<br>Двойной клик — перемещение<br>Кнопка MOVE + клик — перемещение<br>Клик на завод — меню производства<br>Клик по миникарте — перемещение камеры
+    <div id="controlsHint" class="controls-hint" style="display: none">
+      WASD — камера<br />Клик — выбор<br />Двойной клик — перемещение<br />Кнопка
+      MOVE + клик — перемещение<br />Клик на завод — меню производства<br />Клик
+      по миникарте — перемещение камеры
     </div>
 
     <div id="modeIndicator" class="mode-indicator hidden">🎯 MOVE MODE</div>
     <div id="notif" class="notif hidden"></div>
     <div id="factoryMenu" class="factory-menu hidden">
-        <button class="close-btn" onclick="closeFactoryMenu()">×</button>
-        <h3>🏭 Производство</h3>
-        <div id="unitGrid" class="unit-grid"></div>
+      <button class="close-btn" onclick="closeFactoryMenu()">×</button>
+      <h3>🏭 Производство</h3>
+      <div id="unitGrid" class="unit-grid"></div>
     </div>
 
-    <div id="defensePanel" class="factory-menu hidden" style="min-width:350px;">
-        <button class="close-btn" onclick="closeDefensePanel()">×</button>
-        <h3>🛡️ Улучшение обороны</h3>
-        <div id="defenseInfo" style="color:#d1d5db;font-size:0.85rem;margin-bottom:1rem;"></div>
-        <div id="defenseLevels"></div>
+    <div id="defensePanel" class="factory-menu hidden" style="min-width: 350px">
+      <button class="close-btn" onclick="closeDefensePanel()">×</button>
+      <h3>🛡️ Улучшение обороны</h3>
+      <div
+        id="defenseInfo"
+        style="color: #d1d5db; font-size: 0.85rem; margin-bottom: 1rem"
+      ></div>
+      <div id="defenseLevels"></div>
     </div>
 
     <script type="module" src="js/main.js"></script>
-</body>
+  </body>
 </html>

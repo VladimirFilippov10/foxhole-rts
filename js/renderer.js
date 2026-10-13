@@ -1947,6 +1947,7 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
         ctx.fillText('★', x, y - sz * 0.5);
     } else if (u.type === 'colonial_artillery') {
         ctx.fillStyle = '#4ade80'; // зелёный маркер артиллерии колонистов
+        ctx.fillStyle = '#4ade80';
         ctx.beginPath();
         ctx.moveTo(x, y - sz * 0.6);
         ctx.lineTo(x - 4, y - sz * 0.45);
@@ -2046,6 +2047,8 @@ function drawMinimap(ctx, G, canvas) {
     // Cities on minimap (цвета фракций: Wardens — синий, Colonials — зелёный)
     G.cps.forEach(cp => {
         const col = cp.owner === 'neutral' ? COLORS.neutral.p : COLORS[cp.owner].p;
+        const col = cp.owner === 'neutral' ? '#6b7280' : cp.owner === 'wardens' ? '#2563eb' : '#dc2626';
+       
         ctx.fillStyle = col;
         ctx.beginPath();
         ctx.arc(mx + cp.x * sx, my + cp.y * sy, 3, 0, Math.PI * 2);
