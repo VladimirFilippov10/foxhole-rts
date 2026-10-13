@@ -40,6 +40,34 @@ export class AI {
             m: 60,
         };
         this.aiResourceRate = 0.6; // Множитель скорости фарма (60% от игрока)
+
+        // ===== КВОТА «1 ТЕХНИКА НА 5 ПЕХОТИНЦЕВ» =====
+        // Фикс краша: методы/поля squadSizeOf / infantrySpawned / vehicleDebtTarget /
+        // vehicleCount использовались в updateInner(), но НЕ были определены —
+        // весь цикл ИИ падал с TypeError и бот «не строил технику».
+        this.infantrySpawned = 0;   // сколько пехотинцев выпущено с момента последней техники
+        this.vehicleDebtTarget = 5; // нужно 5 пехоты -> 1 техника
+        this.vehicleCount = 0;      // всего произведено техники ИИ
+        this.infantryCount = 0;     // всего произведено пехотинцев ИИ
+    }
+
+    // Размер отряда пехоты по сложности
+    squadSizeOf(diff) {
+        return 2 + Math.floor((diff || this.difficulty) / 2);
+    }
+
+    // Текущее соотношение пехота:техника «на поле» (живые юниты ИИ).
+    // Используется для догоняющего производства техники: если пехоты больше
+    // чем 5x техники — ИИ наращивает технику, пока квота 1:5 не восстановится.
+    getLiveCounts() {
+        let inf = 0, veh = 0;
+        for (const u of this.G.units) {
+            if (u.faction !== this.G.ai || u.hp <= 0) continue;
+            if (u.type === 'infantry') inf++;
+            else if (u.type !== 'truck' && u.type !== 'fuel_truck' &&
+                     u.type !== 'engineer' && u.type !== 'flatbed') veh++;
+        }
+        return { inf, veh };
     }
 
     update() {
@@ -83,62 +111,63 @@ export class AI {
         const actualInfantryInterval = Math.round(baseInfantryInterval * spawnMultiplier);
         const actualVehicleInterval = Math.round(baseVehicleInterval * spawnMultiplier);
 
-        // Спавн пехоты (с учётом доминирования И лимита пехоты).
-        // ВАЖНО: лимит блокирует только производство, но НЕ вывод из строя всего ИИ.
-        // (раньше здесь был `return` — при достижении лимита пехоты ИИ полностью
-        //  замирал: переставал атаковать, управлять артиллерией и строить укрепления)
-        let spawnedThisTick = false;
-        if (this.timer % actualInfantryInterval === 0) {
-            if (this.G.canProduceUnit('infantry', this.G.ai) && this.canAffordInfantry()) {
-                this.spawnInfantrySquad();
-                this.infantrySpawned += squadSizeOf(this.difficulty);
-                this.accumulatedForces++;
-                spawnedThisTick = true;
-            } else {
-                aiLog(`[AI][SPAWN] т.${this.timer}: пехота НЕ произведена (лимит=${this.G.canProduceUnit('infantry', this.G.ai)}, ресурсы=${this.canAffordInfantry()})`);
-            }
-        }
-
-        // Спавн техники.
-        // ИСПРАВЛЕНИЕ ("в обороне не спавнит технику"): раньше производство
-        // техники было привязано к таймеру (timer % interval). В оборонительном
-        // режиме ИИ почти не терял технику в контратаках, её число быстро
-        // доходило до лимита — и таймерная проверка больше никогда не
-        // срабатывала в тот момент, когда слот освобождался. Техника в
-        // обороне фактически не производилась.
-        // Теперь правило: если ЕСТЬ возможность (свободный слот + ресурсы на
-        // самый дешёвый танк) — строим технику; если возможности нет — вместо
-        // техники строим пехоту (по обычному интервалу).
-        //
-        // ИСПРАВЛЕНИЕ СПАМА ПЕХОТОЙ («за эту цену он должен делать технику»):
-        // раньше техника ставилась безусловно при каждой возможности, а пехота
-        // сыпалась каждые N тиков — ресурсы улетали в пехоту. Теперь действует
-        // КВОТА 1 ТЕХНИКА / 5 ПЕХОТИНЫ: техника производится только когда на
-        // счётчике накопилось >=5 выпущенных пехотинцев ИЛИ когда копится на
-        // технику (не хватает ресурсов) — вместо пехоты мы копить не можем,
-        // поэтому ждём. Как только ресурс на технику появился и квота выполнена
-        // — сразу техника. Пехота же пропускает спавн, пока очередь техники
-        // не исчерпана (см. vehicleDebt ниже).
+        // ===== ПРОИЗВОДСТВО ИИ: КВОТА 1 ТЕХНИКА / 5 ПЕХОТЫ + ДОГОНЯЩЕЕ СТРОИТЕЛЬСТВО =====
+        // Правила:
+        //  1) На каждые выпущенных 5 пехотинцев ИИ обязан выпустить 1 технику.
+        //  2) Если техника ТЕРЯЕТСЯ в бою и живая пехота превышает 5x живую
+        //     технику — ИИ В ПРИОРИТЕТЕ наращивает технику, пока соотношение
+        //     1:5 не восстановится (фикс «бот спамит пехотой»).
+        //  3) Пока копятся ресурсы на технику — пехоту НЕ спавним вообще
+        //     (раньше именно это создавало спам: пехота сыпалась каждую
+        //     секунду и съедала весь бюджет).
         const INF_PER_VEHICLE = 5;
-        const canVehicleNow = this.G.canProduceUnit('vehicle', this.G.ai) && this.canAffordVehicle();
-        if (canVehicleNow && this.infantrySpawned >= this.vehicleDebtTarget) {
-            // Квота «5 пехоты → 1 техника» выполнена — выпускаем технику
+        let spawnedThisTick = false;
+
+        const liveInf = this.G.units.filter(u => u.faction === this.G.ai && u.type === 'infantry' && u.hp > 0).length;
+        const liveVeh = this.G.units.filter(u => u.faction === this.G.ai && u.hp > 0 &&
+            u.type !== 'infantry' && u.type !== 'truck' && u.type !== 'fuel_truck' &&
+            u.type !== 'engineer' && u.type !== 'flatbed').length;
+        // Соотношение «на поле»: пехоты больше 5x техники -> копим технику (debt)
+        const debtTarget = liveVeh * INF_PER_VEHICLE;
+        const needsCatchUp = liveInf > debtTarget;
+
+        const hasFactory = this.G.buildings.some(b => b.faction === this.G.ai && b.type === 'factory');
+        const canVehicleSlot = this.G.canProduceUnit('vehicle', this.G.ai);
+        const canAffordVeh = this.canAffordVehicle();
+        const quotaMet = this.infantrySpawned >= this.vehicleDebtTarget;
+        // Техника возможна только когда ЕСТЬ завод (иначе бот «копил» бы вечно
+        // без factory и не производил вообще ничего — фикс этого тупика):
+        const vehiclePossible = hasFactory && canVehicleSlot && canAffordVeh;
+
+        if (vehiclePossible && (quotaMet || needsCatchUp)) {
+            // Квота выполнена ИЛИ нужно догнать потери техники — выпускаем технику
+            const before = this.G.units.length;
             this.spawnVehicle();
-            this.vehicleCount++;
-            this.infantrySpawned = 0;               // сброс счётчика пехоты после техники
-            this.vehicleDebtTarget = INF_PER_VEHICLE;
-            this.accumulatedForces += 2;           // Техника ценнее
-            spawnedThisTick = true;
-        } else if (!canVehicleNow &&
-                   this.G.canProduceUnit('infantry', this.G.ai) && this.canAffordInfantry()) {
-            // Нет возможности для техники → компенсируем пехотой,
-            // НО не чаще чем раз в actualInfantryInterval (без спама)
-            if (this.timer % actualInfantryInterval !== 0) {
+            if (this.G.units.length > before) {
+                this.vehicleCount++;
+                this.infantrySpawned = 0;
+                this.accumulatedForces += 2;
+                spawnedThisTick = true;
+                aiLog(`[AI][SPAWN] т.${this.timer}: ТЕХНИКА (${this.vehicleCount} всего). На поле: пехота=${liveInf}, техника=${liveVeh} (квота 1:${INF_PER_VEHICLE}${needsCatchUp ? ', ДОГОНЯЕМ ПОТЕРИ' : ''})`);
+            }
+        } else if (hasFactory && canVehicleSlot && canAffordVeh) {
+            // Завод есть, техника доступна, но квота ещё не набрана — копим пехоту
+            if (this.timer % actualInfantryInterval === 0 &&
+                this.G.canProduceUnit('infantry', this.G.ai) && this.canAffordInfantry()) {
                 this.spawnInfantrySquad();
-                this.infantrySpawned += squadSizeOf(this.difficulty);
+                this.infantrySpawned += this.squadSizeOf(this.difficulty);
                 this.accumulatedForces++;
                 spawnedThisTick = true;
             }
+        } else if (!canVehicleSlot && canAffordVeh && needsCatchUp && hasFactory) {
+            // Догоняем потери, но слотов техники нет — ждём, пехоту НЕ спамим
+        } else if (this.timer % actualInfantryInterval === 0 &&
+                   this.G.canProduceUnit('infantry', this.G.ai) && this.canAffordInfantry()) {
+            // Нет завода / нет ресурсов на технику / лимит техники -> компенсируем пехотой
+            this.spawnInfantrySquad();
+            this.infantrySpawned += this.squadSizeOf(this.difficulty);
+            this.accumulatedForces++;
+            spawnedThisTick = true;
         }
 
         // Активное расширение: юниты без приказа сами идут на ближайшие

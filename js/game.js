@@ -210,8 +210,10 @@ export class Game {
             if (u.aoe && u.tx !== undefined) {
                 const dToOrder = dist(u.x, u.y, u.tx, u.ty);
                 if (dToOrder < 10) {
+                    // Прибыли к цели приказа — приказ выполнен
                     u.tx = undefined;
                     u.ty = undefined;
+                    u.detourSide = undefined;
                     u.stuckCounter = 0;
                     if (u.retreatOrder) {
                         aiLog(`[GAME][ARTILLERY] ${u.label}: отъехала на позицию (${Math.round(u.x)}, ${Math.round(u.y)})`);
@@ -471,24 +473,88 @@ export class Game {
                         
                         // Если застряли слишком долго - пробуем обход
                         if (u.stuckCounter > 30) {
+                            // ИСПРАВЛЕНИЕ «артиллерия крутится на месте и не едет»:
+                            // раньше детour ПЕРЕЗАПИСЫВАЛ цель приказа (tx/ty) коротким
+                            // шагом в сторону — приказ терялся, а попытка «вернуть» его
+                            // зацикливала арту между двумя точками. Теперь приказ при
+                            // застревании НЕ меняется вообще: делаем лишь короткий
+                            // боковой СДВИГ ПОЗИЦИИ (шаг в сторону), после чего юнит
+                            // продолжает движение к исходной точке приказа.
                             if (u.aoe) {
-                                // ИСПРАВЛЕНИЕ «крутится на месте»: раньше детour
-                                // переставлял цель ARTILLERY-приказа на ±60° от
-                                // текущего курса каждые ~30 тиков — арта описывала
-                                // круги вокруг препятствия/цели и почти не ехала.
-                                // Теперь: смещаемся на короткий шаг В СТОРОНУ, а
-                                // следующую цель считаем ОТ ИСХОДНОЙ точки приказа
-                                // (originX/originY), так что курс к цели сохраняется.
-                                const ox = u.originX !== undefined ? u.originX : u.tx;
-                                const oy = u.originY !== undefined ? u.originY : u.ty;
+                                const toGoal = Math.atan2(u.ty - u.y, u.tx - u.x);
+                                if (u.detourSide === undefined) {
+                                    u.detourSide = Math.random() > 0.5 ? 1 : -1;
+                                }
+                                const sideAngle = toGoal + u.detourSide * Math.PI / 2;
+                                const step = 30;
+                                const sx = u.x + Math.cos(sideAngle) * step;
+                                const sy = u.y + Math.sin(sideAngle) * step;
+                                if (!this.isBlockedForVehicle(sx, sy, u)) {
+                                    u.x = sx; u.y = sy;
+                                } else {
+                                    // в другую сторону
+                                    const sa2 = toGoal - u.detourSide * Math.PI / 2;
+                                    const bx = u.x + Math.cos(sa2) * step;
+                                    const by = u.y + Math.sin(sa2) * step;
+                                    if (!this.isBlockedForVehicle(bx, by, u)) { u.x = bx; u.y = by; }
+                                }
+                                u.stuckCounter = 0;
+                            } else {
+                                // Обычные юниты: классический обходной манёвр
+                                const angle = Math.atan2(u.ty - u.y, u.tx - u.x);
+                                const detourAngle = angle + (Math.random() > 0.5 ? Math.PI / 2 : -Math.PI / 2);
+                                const detourDist = 50;
+                                u.tx = u.x + Math.cos(detourAngle) * detourDist;
+                                u.ty = u.y + Math.sin(detourAngle) * detourDist;
+                                u.stuckCounter = 0;
+                            }
+                        }
+
+                        u.lastX = u.x;
+                            u.lastY = u.y;
+                        }
+                        
+                        // Проверка застревания
+                        const movedDist = dist(u.x, u.y, u.lastX, u.lastY);
+                        if (movedDist < 0.5) {
+                            u.stuckCounter++;
+                        } else {
+                            u.stuckCounter = 0;
+                        }
+                        
+                        // Если застряли слишком долго - пробуем обход
+                        if (u.stuckCounter > 30) {
+                            // СМЕНА ПРИКАЗА (пользователем или ИИ) — старый
+                            // orderOrigin недостижим: забываем детour-состояние,
+                            // иначе юнит «зацикливается» между временной точкой
+                            // и несуществующей старой целью (фикс «арта не едет
+                            // к новой точке и крутится на месте»).
+                            if (u.orderOrigin !== undefined &&
+                                dist(u.x, u.y, u.orderOrigin.x, u.orderOrigin.y) > 600) {
+                                u.orderOrigin = undefined;
+                                u.detourSide = undefined;
+                            }
+                            if (u.aoe) {
+                                // ИСПРАВЛЕНИЕ «артиллерия крутится на месте и почти
+                                // не едет»: раньше каждый «застрявший» детour
+                                // перезаписывал u.tx/u.ty коротким шагом в сторону —
+                                // приказ терялся, арта описывала circle-траектории и
+                                // топталась. Теперь: исходная точка приказа сохраняется
+                                // (orderOrigin) и ВСЕГДА восстанавливается после шага
+                                // в сторону — арта просто едет к цели, огибая помеху.
+                                if (u.orderOrigin === undefined) {
+                                    u.orderOrigin = { x: u.tx, y: u.ty };
+                                }
+                                const ox = u.orderOrigin.x, oy = u.orderOrigin.y;
                                 const toGoal = Math.atan2(oy - u.y, ox - u.x);
-                                const side = (Math.random() > 0.5 ? 1 : -1);
-                                const detourAngle = toGoal + side * Math.PI / 4;
-                                const step = 40;
+                                // сторона обхода фиксируется один раз на приказ
+                                if (u.detourSide === undefined) {
+                                    u.detourSide = Math.random() > 0.5 ? 1 : -1;
+                                }
+                                const detourAngle = toGoal + u.detourSide * Math.PI / 3;
+                                const step = 70;
                                 u.tx = u.x + Math.cos(detourAngle) * step;
                                 u.ty = u.y + Math.sin(detourAngle) * step;
-                                u.originX = ox;
-                                u.originY = oy;
                                 u.stuckCounter = 0;
                             } else {
                                 // Пытаемся обойти препятствие
@@ -548,6 +614,7 @@ export class Game {
                 } else {
                     u.tx = undefined;
                     u.ty = undefined;
+                    u.detourSide = undefined;
                     u.stuckCounter = 0;
                 }
             }
@@ -739,60 +806,47 @@ export class Game {
     }
     
     handleLogistics(unit) {
-        // Найти ближайшую дружественную технику
-        let nearestAlly = null;
-        let nearestDist = Infinity;
-        
+        // ИСПРАВЛЕНИЕ «чинит/пополняет один раз и не полностью»:
+        // 1) раньше цель выбиралась как «ближайший сосед на дистанции <50» —
+        //    инженер мог «чинить» уже целого юнита или самого себя косвенно,
+        //    а реально повреждённая техника оставалась без помощи;
+        // 2) пополнение шло одному ближайшему соседу и прекращалось, когда
+        //    у логиста кончался заряд (ёмкость была МЕНЬШЕ maxHp/maxAmmo
+        //    техники — даже одного полного ремонта не хватало).
+        // Теперь: цель = ближайший НУЖДАЮЩИЙСЯ союзник (именно в этом ресурсе),
+        // пополнение идёт НЕПРЕРЫВНО каждый тик, пока логист стоит рядом,
+        // ёмкости логистов увеличены (см. SUPPLY_SYSTEM).
+
+        const needsResource = (u) => {
+            switch (unit.type) {
+                case 'truck':      return u.ammo !== undefined && u.maxAmmo !== undefined && u.ammo < u.maxAmmo - 0.5;
+                case 'fuel_truck': return u.fuel !== undefined && u.maxFuel !== undefined && u.fuel < u.maxFuel - 0.5;
+                case 'engineer':   return u.hp < u.maxHp - 0.5;
+                case 'flatbed':    return !!u.aoe && u.ammo !== undefined && u.maxAmmo !== undefined && u.ammo < u.maxAmmo - 0.5;
+                default: return false;
+            }
+        };
+
+        let target = null, tDist = Infinity;
         this.units.forEach(u => {
-            if (u.faction === unit.faction && u.id !== unit.id && u.hp > 0) {
-                const d = dist(unit.x, unit.y, u.x, u.y);
-                if (d < nearestDist && d < 50) { // Радиус взаимодействия
-                    nearestDist = d;
-                    nearestAlly = u;
-                }
-            }
+            if (u.faction !== unit.faction || u.id === unit.id || u.hp <= 0) return;
+            if (!needsResource(u)) return;
+            const d = dist(unit.x, unit.y, u.x, u.y);
+            if (d < tDist) { tDist = d; target = u; }
         });
-        
-        if (!nearestAlly) return;
-        
-        // Грузовик пополняет БК
-        if (unit.type === 'truck' && unit.supplyAmmo) {
-            unit.supplyAmmo(nearestAlly);
-        }
-        
-        // Бензовоз пополняет топливо
-        if (unit.type === 'fuel_truck' && unit.supplyFuel) {
-            unit.supplyFuel(nearestAlly);
-        }
-        
-        // Инженерная машина ремонтирует
-        if (unit.type === 'engineer' && unit.repairUnit) {
-            if (dist(unit.x, unit.y, nearestAlly.x, nearestAlly.y) < unit.repairRange) {
-                unit.repairUnit(nearestAlly);
-            }
-        }
-        
-        // Flatbed пополняет БК артиллерии
-        if (unit.type === 'flatbed' && unit.supplyArtillery) {
-            // Ищем ближайшую артиллерию
-            let nearestArtillery = null;
-            let artilleryDist = Infinity;
-            this.units.forEach(u => {
-                if (u.faction === unit.faction && u.hp > 0 && 
-                    (u.type === 'warden_artillery' || u.type === 'colonial_artillery')) {
-                    const d = dist(unit.x, unit.y, u.x, u.y);
-                    if (d < artilleryDist && d < 60) {
-                        artilleryDist = d;
-                        nearestArtillery = u;
-                    }
-                }
-            });
-            if (nearestArtillery) {
-                unit.supplyArtillery(nearestArtillery);
-            }
-        }
+        if (!target) return;
+
+        // Радиус работы: инженер — repairRange, остальные — вплотную (60px)
+        const range = unit.type === 'engineer' ? (unit.repairRange || 100) : 60;
+        if (tDist > range) return; // ещё едет к цели — дистанционно не пополняем
+
+        // НЕПРЕРЫВНОЕ пополнение каждый тик, пока оба живы и рядом
+        if (unit.type === 'truck') unit.supplyAmmo(target);
+        else if (unit.type === 'fuel_truck') unit.supplyFuel(target);
+        else if (unit.type === 'engineer') unit.repairUnit(target);
+        else if (unit.type === 'flatbed') unit.supplyArtillery(target);
     }
-    
+
     // Система обороны территорий (улучшение занимает время)
     getDefenseUpgradeTime(targetLevel) {
         // Время улучшения в секундах для 1-2-3 уровней
