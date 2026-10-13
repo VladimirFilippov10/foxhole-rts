@@ -667,24 +667,36 @@ export class Game {
         // Базовые лимиты + 3 за каждую точку
         this.unitLimits.infantry = 20 + playerPoints * 3;
         this.unitLimits.vehicles = 10 + playerPoints * 2;
+        this.unitLimits.combatVehicles = this.unitLimits.vehicles;
+        this.unitLimits.logistics = 4;
         
-        // Лимиты для ИИ
+        // Лимиты для ИИ (combatVehicles — только боевая техника, без логистики)
         this.aiUnitLimits = {
             infantry: 20 + aiPoints * 3,
             vehicles: 10 + aiPoints * 2,
+            combatVehicles: 10 + aiPoints * 2,
+            logistics: 4,
         };
     }
     
     canProduceUnit(type, faction) {
         const limits = faction === this.faction ? this.unitLimits : this.aiUnitLimits;
-        const units = this.units.filter(u => u.faction === faction);
-        
+        const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed'];
+        const units = this.units.filter(u => u.faction === faction && u.hp > 0);
+
         if (type === 'infantry') {
             const infantryCount = units.filter(u => u.type === 'infantry').length;
             return infantryCount < limits.infantry;
         } else {
-            const vehicleCount = units.filter(u => u.type !== 'infantry').length;
-            return vehicleCount < limits.vehicles;
+            // ИСПРАВЛЕНИЕ: раньше в «технику» попадали ВСЕ не-пехотные юниты,
+            // включая логистику (ремонтники/бензовозы/грузовики БК/flatbed).
+            // Логистика набивала лимит vehicles (10 + 2*точки) — и бот физически
+            // не мог производить боевую технику («не спавнит технику»,
+            // «техника=1 при пехоте=23»). Теперь лимит считается только по
+            // БОЕВОЙ технике; логистика ограничена отдельным небольшим лимитом.
+            const combatVeh = units.filter(u => u.type !== 'infantry' && !LOGISTICS_TYPES.includes(u.type)).length;
+            if (limits.combatVehicles !== undefined) return combatVeh < limits.combatVehicles;
+            return combatVeh < limits.vehicles;
         }
     }
     
