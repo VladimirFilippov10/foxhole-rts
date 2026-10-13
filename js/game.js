@@ -69,7 +69,21 @@ export class Game {
 
     update() {
         if (this.over) return;
-        
+
+        // ===== ФИКС «ЮНИТЫ ПРОПАДАЮТ» №1 =====
+        // Раньше любое исключение внутри этого метода прерывало шаг логики
+        // ДО строки «Remove dead»: ИИ и движение замирали, юниты визуально
+        // «исчезали». Теперь весь шаг обёрнут в try/catch — ошибка
+        // логируется с полным стеком, но игровой цикл продолжает работать.
+        try {
+            this.updateInner();
+        } catch (err) {
+            console.error('[GAME][ERROR] Ошибка игрового цикла:', err);
+        }
+    }
+
+    updateInner() {
+        this.time++;
         this.time++;
         
         // Camera movement
@@ -214,6 +228,19 @@ export class Game {
         }
 
         this.units.forEach(u => {
+            // ===== ФИКС «ЮНИТЫ ПРОПАДАЮТ» №2 =====
+            // Каждый юнит обновляется изолированно: если у одного из них
+            // данные повреждены (undefined/NaN), это больше не роняет
+            // обновление ВСЕХ остальных юнитов в этом тике.
+            try {
+                this.updateUnit(u);
+            } catch (err) {
+                console.error('[GAME][ERROR] Ошибка обновления юнита ' + (u.type || '?') + '/' + (u.id || '?') + ':', err);
+            }
+        });
+    }
+
+    updateUnit(u) {
             // Update game time for reload calculation
             u.gameTime = this.time;
 
@@ -675,7 +702,7 @@ export class Game {
             // мягко расталкивает стоящих на его пути союзников в стороны —
             // они сходят с трассы, но свой приказ НЕ теряют.
             this.applySeparation(u);
-        });
+    }
     }
 
     applySeparation(u) {
