@@ -135,8 +135,8 @@ export class Grenadier extends InfantryBase {
     constructor(faction, x, y) {
         super('grenadier', faction, x, y);
         this.hp = this.maxHp = 40;
-        this.dmg = 9;
-        this.range = 130;
+        this.dmg = 45;
+        this.range = 45;
         this.spd = 0.5;
         this.cd = 130;
         this.grenadeLauncher = true;    // AoE по пехоте вокруг цели (game.js)
