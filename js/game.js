@@ -327,6 +327,14 @@ export class Game {
                             }
                         } else {
                             // Normal single target attack
+                            // Защита от падения: у построек (зданий) нет takeDamage —
+                            // раньше юниты, стреляющие по зданию, роняли весь игровой цикл
+                            // (TypeError), из-за чего игра «змирала»: ИИ переставал работать,
+                            // а артиллерия seemed to disappear.
+                            if (typeof attackTarget.takeDamage !== 'function') {
+                                canAttack = false;
+                                isAttacking = false;
+                            } else {
                             // Add tracer based on unit type
                             let tracerType = 'bullet';
                             if (u.type === 'warden_artillery' || u.type === 'colonial_artillery') {
@@ -375,6 +383,7 @@ export class Game {
                             
                             attackTarget.takeDamage(damage);
                             this.addParticles(attackTarget.x, attackTarget.y, '#ffcc00', 4);
+                            }
                         }
                     }
                 }
