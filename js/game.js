@@ -174,10 +174,23 @@ export class Game {
     }
 
     updateUnits() {
+        // Централизованные решения об отводе повреждённой техники ИИ.
+        // Раньше техника ИИ начинала отводиться даже после небольшого урона,
+        // теперь порог — 50% HP + шанс остаться на позиции (см. ai.shouldRetreat).
+        if (this.aiController && typeof this.aiController.makeRetreatDecisions === 'function') {
+            this.aiController.makeRetreatDecisions();
+        }
+
         this.units.forEach(u => {
             // Update game time for reload calculation
             u.gameTime = this.time;
-            
+
+            // Если юнит долечился выше порога — снимаем с него решение «держать позицию»
+            if (u.holdPosition && u.hp >= (u.maxHp || 100) * 0.5) {
+                u.holdPosition = false;
+                u.retreatDecisionAt = undefined;
+            }
+
             // Артиллерия сама не ездит кругами: без приказа она стоит на месте
             // (стрельба обрабатывается ниже по aoeTarget / автоатаке)
             // Артиллерия: приказ движения (tx/ty) снимается ТОЛЬКО при реальном
@@ -185,6 +198,11 @@ export class Game {
             // из-за чего приказ отъезда сбрасывался сразу, арта получала новый
             // приказ каждый тик и «вечно ехала», пока не гибла — баг
             // «артиллерия пропадает после начала движения».
+            // Прибытие: снимаем отметку «отводится на базу», иначе юнит не сможет
+            // получить новые приказы (см. defensiveReactions / expandAndCapture).
+            if (u.retreatToBase && dist(u.x, u.y, u.tx, u.ty) <= 15) {
+                u.retreatToBase = false;
+            }
             if (u.aoe && u.tx !== undefined) {
                 const dToOrder = dist(u.x, u.y, u.tx, u.ty);
                 if (dToOrder < 15) {
@@ -280,7 +298,8 @@ export class Game {
                     // Цель слишком близко — отъезжаем РОВНО ОДИН раз (пока нет
                     // активного приказа) и стоим. Раньше условие было инвертировано
                     // и приказ переставлялся каждый тик — арта «ехала на месте».
-                    if (!u.retreatOrder && u.tx === undefined) {
+                    // holdPosition: ИИ решил держать позицию до конца — не отъезжаем.
+                    if (!u.retreatOrder && u.tx === undefined && !u.holdPosition) {
                         const retreatAngle = Math.atan2(u.y - u.aoeTarget.y, u.x - u.aoeTarget.x);
                         u.retreatOrder = { x: u.x + Math.cos(retreatAngle) * (minRange + 60), y: u.y + Math.sin(retreatAngle) * (minRange + 60) };
                         u.tx = u.retreatOrder.x;
@@ -298,8 +317,9 @@ export class Game {
                     attackTarget = nearest;
                     canAttack = true;
                 } else if (targetDist < minRange && u.aoe) {
-                    // Artillery: цель слишком близко — отъезд ОДИН раз, без кругов
-                    if (!u.retreatOrder && u.tx === undefined) {
+                    // Artillery: цель слишком близко — отъезд ОДИН раз, без кругов.
+                    // holdPosition — ИИ решил держать позицию до конца.
+                    if (!u.retreatOrder && u.tx === undefined && !u.holdPosition) {
                         const retreatAngle = Math.atan2(u.y - nearest.y, u.x - nearest.x);
                         u.retreatOrder = { x: u.x + Math.cos(retreatAngle) * (minRange + 60), y: u.y + Math.sin(retreatAngle) * (minRange + 60) };
                         u.tx = u.retreatOrder.x;
