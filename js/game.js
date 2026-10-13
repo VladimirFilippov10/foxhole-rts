@@ -83,6 +83,14 @@ export class Game {
     }
 
     updateInner() {
+        // ===== ФИКС NaN-КООРДИНАТ =====
+        // Централизованная санация ВСЕХ юнитов и зданий в начале каждого тика,
+        // ДО любых расчётов движения/ИИ/сепарации. Раньше sanitizeUnitPosition
+        // вызывался только в конце updateUnit(), и NaN, появившийся вне этого
+        // метода (приказы ИИ, сепарация, трассеры), успевал «заразить» соседей
+        // и весь цикл движения до следующей санации.
+        this.sanitizeAllPositions();
+
         this.time++;
         this.time++;
         
@@ -290,6 +298,18 @@ export class Game {
                 u.retreatToBase = false;
             }
             if (u.aoe && u.tx !== undefined) {
+                // ===== ФИКС NaN-КООРДИНАТ: валидация целевых координат =====
+                // Приказ с tx/ty = NaN — главный источник повторяющихся
+                // повреждений: арифметика движения (nx = x + (tx-x)/d*step)
+                // мгновенно передавала NaN позиции юнита. Проверяем цель ДО
+                // движения и сбрасываем битый приказ.
+                if (!Number.isFinite(u.tx) || !Number.isFinite(u.ty)) {
+                    console.warn('[GAME][FIX] Битый приказ (tx/ty) у ' + (u.type || '?') + '/' + (u.id || '?') + ' — приказ снят');
+                    u.tx = undefined; u.ty = undefined;
+                    u.detourSide = undefined; u.detourTicks = undefined;
+                    u.orderOrigin = undefined;
+                    u.retreatOrder = null; u.moveOrder = null;
+                } else {
                 const dToOrder = dist(u.x, u.y, u.tx, u.ty);
                 if (dToOrder < 10) {
                     // Прибыли к цели приказа — приказ выполнен
@@ -307,6 +327,7 @@ export class Game {
                         u.moveOrder = null;
                     }
                 }
+                } // else (валидные tx/ty) — конец проверки приказа артиллерии
             }
             
             // Пополнение БК/топлива в базе (постепенное, с большим радиусом)
@@ -562,6 +583,12 @@ export class Game {
             // приоритетный прямой проход к цели приказа (она всё равно не может
             // стрелять ближе minRange — стрельба сама отодвинет её назад).
             if (!isAttacking && u.aoe && u.tx !== undefined) {
+                // ===== ФИКС NaN-КООРДИНАТ: валидация цели перед движением =====
+                if (!Number.isFinite(u.tx) || !Number.isFinite(u.ty)) {
+                    u.tx = undefined; u.ty = undefined;
+                    u.detourSide = undefined; u.detourTicks = undefined;
+                    u.orderOrigin = undefined;
+                } else {
                 // Если цель приказа ушла за пределы досягаемости огня (например,
                 // игрок отменил приказ AoE-огня) — арта просто едет к новой цели
                 // приказа обычным порядком, без «смещения для атаки».
@@ -608,9 +635,17 @@ export class Game {
                     u.orderOrigin = undefined;
                     u.moveOrder = null; u.retreatOrder = null;
                 }
+                } // else (валидные tx/ty) — конец прямого прохода артиллерии
             }
 
             if (!isAttacking && !u.aoe && u.tx !== undefined) {
+                // ===== ФИКС NaN-КООРДИНАТ: валидация цели перед движением =====
+                if (!Number.isFinite(u.tx) || !Number.isFinite(u.ty)) {
+                    console.warn('[GAME][FIX] Битый приказ движения (tx/ty) у ' + (u.type || '?') + '/' + (u.id || '?') + ' — приказ снят');
+                    u.tx = undefined; u.ty = undefined;
+                    u.detourSide = undefined; u.detourTicks = undefined;
+                    u.orderOrigin = undefined; u.stuckCounter = 0;
+                } else {
                 const d = dist(u.x, u.y, u.tx, u.ty);
                 if (d > 5) {
                     // Проверка топлива
@@ -733,6 +768,7 @@ export class Game {
                     u.orderOrigin = undefined;
                     u.stuckCounter = 0;
                 }
+                } // else (валидные tx/ty) — конец движения обычных юнитов
             }
 
             // ===== РАЗДВИГАЮЩАЯ СЕПАРАЦИЯ =====
@@ -773,14 +809,6 @@ export class Game {
         }
     }
 
-    /**
-     * Санация координат юнита. Если из-за любого бага (деление на 0, битые
-     * данные цели и т.п.) x/y превратились в NaN/Infinity, юнит переставал
-     * отрисовываться — визуально он «исчезал», хотя был жив и даже получал
-     * урон. Теперь такие координаты чинятся: юнит возвращается на последнюю
-     * валидную позицию (lastX/lastY), а если и она повреждена — к точке
-     * захвата рядом с ним или в центр карты.
-     */
     /**
      * Санация координат юнита. Если из-за любого бага (деление на 0, битые
      * данные цели и т.п.) x/y превратились в NaN/Infinity, юнит переставал

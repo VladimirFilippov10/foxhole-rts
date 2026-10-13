@@ -501,7 +501,15 @@ function handleMouseDown(e) {
         dist(b.x, b.y, worldX, worldY) < 30
     );
     
-    if (clickedFactory && !isDouble && !game.moveMode && !aoeMode) {
+    // ===== ФИКС ВЗАИМОДЕЙСТВИЯ С ЗАВОДАМИ =====
+    // Убрали проверку !game.moveMode из условия открытия меню: раньше, если
+    // игрок случайно включил режим перемещения (M), клики по заводу/флагу
+    // обрабатывались как приказ движения и UI вообще не открывался
+    // («меню завода не открывается», «панель обороны недоступна»).
+    // Теперь клики по объектам обрабатываются независимо от режима
+    // перемещения, а moveMode принудительно выключается при открытии меню.
+    if (clickedFactory && !isDouble && !aoeMode) {
+        exitMoveMode();
         openFactoryMenu(clickedFactory, e.clientX, e.clientY);
         return;
     }
@@ -530,7 +538,11 @@ function handleMouseDown(e) {
         return d <= 30 && cp.owner === game.faction;
     });
     
-    if (clickedFlag && !isDouble && !game.moveMode && !aoeMode) {
+    // ===== ФИКС ВЗАИМОДЕЙСТВИЯ С ОБОРОНОЙ =====
+    // Аналогично заводу: панель обороны точки открывается по клику даже
+    // когда активен режим перемещения (moveMode выключается принудительно).
+    if (clickedFlag && !isDouble && !aoeMode) {
+        exitMoveMode();
         selectedCapturePoint = clickedFlag;
         openDefensePanel(clickedFlag, e.clientX, e.clientY);
         return;
@@ -561,6 +573,22 @@ function handleMouseDown(e) {
             dist(u.x, u.y, worldX, worldY) < 60 && u.faction === game.faction
         ).map(u => u.id);
     }
+}
+
+// ===== ВЗАИМОДЕЙСТВИЕ С UI: принудительный выход из режима перемещения =====
+// Вызывается при открытии любого UI-меню (завод, панель обороны), чтобы
+// активный moveMode не «съедал» клик по объекту и не оставался включённым
+// после открытия окна. Синхронизирует состояние game.moveMode с кнопкой
+// и индикатором режима.
+function exitMoveMode() {
+    if (!game || !game.moveMode) return;
+    game.moveMode = false;
+    const btn = document.getElementById('moveBtn');
+    if (btn) {
+        btn.style.borderColor = '#374151';
+        btn.style.background = 'rgba(17,24,39,0.9)';
+    }
+    document.getElementById('modeIndicator')?.classList.add('hidden');
 }
 
 function handleMouseMove(e) {
