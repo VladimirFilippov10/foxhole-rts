@@ -38,7 +38,11 @@ export const GAME_MODES = {
 };
 
 export const VEHICLE_COSTS = {
-    infantry: { s: 10, c: 0, m: 0, buildTime: 5 },
+    infantry: { s: 10, c: 0, m: 0, buildTime: 5 },      // стрелки (базовая пехота)
+    rifleman: { s: 10, c: 0, m: 0, buildTime: 5 },      // то же, новое имя
+    mg_gunner: { s: 15, c: 2, m: 3, buildTime: 8 },     // пулемётчик — оборона
+    grenadier: { s: 18, c: 3, m: 5, buildTime: 10 },    // гранатомётчик — наступление
+    sniper: { s: 25, c: 5, m: 8, buildTime: 12 },       // снайпер — дальний бой
     
     // Wardens tanks
     king_spire: { s: 40, c: 30, m: 20, buildTime: 18 }, // Разведывательный танк

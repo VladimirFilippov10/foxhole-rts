@@ -1,6 +1,7 @@
 // ===== RENDERER =====
 import { COLORS, dist } from './constants.js';
 import { ROADS, CITY_ZONES, TREES, BUSHES, ROCKS, GRASS_PATCHES, LAKES } from './map.js';
+import { isInfUnit } from './vehicles.js';
 
 export function render(ctx, G, canvas) {
     const cam = G.cam;
@@ -1579,7 +1580,7 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
     ctx.translate(x, y);
     ctx.rotate(u.direction || 0);
     
-    if (u.type === 'infantry') {
+    if (isInfUnit(u)) {
         ctx.fillStyle = col.p;
         ctx.beginPath();
         ctx.arc(0, 0, sz / 2, 0, Math.PI * 2);
@@ -1587,6 +1588,26 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
         ctx.strokeStyle = col.a;
         ctx.lineWidth = 1.5;
         ctx.stroke();
+        // Маркеры вида пехоты: пулемётчик — короткий «ствол» спереди,
+        // снайпер — длинный ствол + прицел, стрелок — только указатель направления
+        if (u.type === 'mg_gunner') {
+            ctx.strokeStyle = col.s;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(sz / 2 + 4, 0);
+            ctx.stroke();
+        } else if (u.type === 'sniper') {
+            ctx.strokeStyle = col.s;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(sz / 2 + 8, 0);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(sz / 2 + 3, 0, 2.5, 0, Math.PI * 2);
+            ctx.stroke();
+        }
         // Direction indicator for infantry
         ctx.fillStyle = col.a;
         ctx.beginPath();
