@@ -832,7 +832,7 @@ export class Game {
     }
     
     // Система укреплений (старая - можно удалить)
-    buildFortification(type, x, y, faction) {
+    buildFortification(type, x, y, faction, aiResources = null) {
         const FORTIFICATION_COSTS = {
             bunker_light: { s: 30, c: 20, m: 25, hp: 300, defense: 10, range: 120, buildTime: 10 },
             bunker_medium: { s: 60, c: 40, m: 50, hp: 600, defense: 20, range: 150, buildTime: 15 },
@@ -845,8 +845,11 @@ export class Game {
             return null;
         }
         
-        // Проверка ресурсов
-        if (this.res.s < cost.s || this.res.c < cost.c || this.res.m < cost.m) {
+        // Проверка ресурсов. ИИ платит из своего отдельного пула (aiController.aiResources),
+        // иначе он тратил ресурсы игрока и никогда не мог позволить себе
+        // средние/тяжёлые бункеры (линия обороны у базы не строилась).
+        const payPool = aiResources || this.res;
+        if (payPool.s < cost.s || payPool.c < cost.c || payPool.m < cost.m) {
             console.log('⚠️ Недостаточно ресурсов для строительства');
             return null;
         }
@@ -866,10 +869,10 @@ export class Game {
             return null;
         }
         
-        // Списываем ресурсы
-        this.res.s -= cost.s;
-        this.res.c -= cost.c;
-        this.res.m -= cost.m;
+        // Списываем ресурсы (у ИИ — из его пула)
+        payPool.s -= cost.s;
+        payPool.c -= cost.c;
+        payPool.m -= cost.m;
         
         // Добавляем в очередь строительства (не строим мгновенно)
         const construction = {

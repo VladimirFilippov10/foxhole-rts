@@ -24,6 +24,14 @@ export class AI {
         this.accumulatedForces = 0; // Счётчик накопленных сил
         this.attackThreshold = 12; // Увеличен порог для начала атаки
         this.artilleryPositions = []; // Позиции для артиллерии
+
+        // ===== ЛОГИСТИКА ИИ =====
+        // Последняя точка, в которой был замечен враг (для решения «атакуют ли базу»)
+        this.lastEnemySighting = null;
+        // Логистика: max 5 «наборов» (engineer+truck+fuel_truck) и по 1 машине на точку
+        this.logistics = { sets: [], lastScanAt: -9999 };
+        // Garrison — сколько юнитов остаётся охранять каждую захваченную точку
+        this.garrison = new Map(); // cpId -> [unit,...]
         
         // Система ресурсов ИИ (медленнее чем у игрока)
         this.aiResources = {
@@ -64,15 +72,16 @@ export class AI {
         const totalPoints = this.G.cps.length;
         const playerDominance = playerPoints > totalPoints * 0.5;
         
-        // Базовые интервалы спавна
-        const baseInfantryInterval = 900;
-        const baseVehicleInterval = 1500;
-        
-        // До 50% точек: ИИ спавнит в 3 раза медленнее базового
-        // После 50% точек: ИИ спавнит в 2 раза медленнее базового
-        const spawnMultiplier = playerDominance ? 2 : 3;
-        const actualInfantryInterval = baseInfantryInterval * spawnMultiplier;
-        const actualVehicleInterval = baseVehicleInterval * spawnMultiplier;
+        // Базовые интервалы спавна (ИИ стал активнее: производство ускорено)
+        const baseInfantryInterval = 600;
+        const baseVehicleInterval = 1100;
+
+        // Раньше ИИ спавнил юнитов в 2-3 раза медленнее базового интервала —
+        // из-за этого он «сидел в обороне» и за 2 минуты не мог захватить ни одной точки.
+        // Теперь: до 50% точек у игрока — полная скорость, после — лишь 1.4x замедление.
+        const spawnMultiplier = playerDominance ? 1.4 : 1.0;
+        const actualInfantryInterval = Math.round(baseInfantryInterval * spawnMultiplier);
+        const actualVehicleInterval = Math.round(baseVehicleInterval * spawnMultiplier);
 
         // Спавн пехоты (с учётом доминирования И лимита пехоты).
         // ВАЖНО: лимит блокирует только производство, но НЕ вывод из строя всего ИИ.
@@ -100,13 +109,24 @@ export class AI {
             }
         }
 
+        // Активное расширение: юниты без приказа сами идут на ближайшие
+        // нейтральные/вражеские точки и захватывают их
+        this.expandAndCapture();
+
+        // Гарнизон: минимум 1 юнит охраны на каждой захваченной точке
+        this.maintainGarrisons();
+
         // Стратегическое поведение
         this.strategicBehavior();
         
         // Управление артиллерией
         this.manageArtillery();
+
+        // Логистика ИИ: ремонтники / грузовики БК / бензовозы к технике,
+        // flatbed (+ремонт+топливо) к артиллерии
+        this.manageLogistics();
         
-        // Строительство укреплений (медленнее чем игрок)
+        // Строительство укреплений (линия обороны: чем ближе к базе — тем плотнее)
         this.buildFortifications();
         // Оборонительные действия (не зависят от лимитов производства)
         if (!spawnedThisTick) this.defensiveReactions();
@@ -136,50 +156,105 @@ export class AI {
         });
     }
     
-    buildFortifications() {
-        // ИИ строит бункеры каждые 2000 тиков (медленнее чем игрок)
-        if (this.timer % 2000 !== 0) return;
-        
-        // Проверяем ресурсы на бункер
-        const bunkerCost = { s: 30, c: 20, m: 25 }; // Лёгкий бункер
-        if (this.aiResources.s < bunkerCost.s || 
-            this.aiResources.c < bunkerCost.c || 
-            this.aiResources.m < bunkerCost.m) {
-            return;
+    // Сколько бункеров должно стоять на точке — «линия обороны».
+    // Чем ближе точка к базе ИИ, тем сильнее линия обороны.
+    getDesiredBunkerCount(cp) {
+        const base = this.G.cps.find(c => c.owner === this.G.ai); // базовая точка ИИ
+        if (!base) return 1;
+        const dBase = dist(base.x, base.y, cp.x, cp.y);
+        const isMainBase = (cp === base);
+        const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai).length || 1;
+        const playerDominates = this.G.cps.filter(c => c.owner === this.G.faction).length > aiPoints;
+
+        let desired;
+        if (isMainBase) {
+            desired = 4;                       // главная база — самая плотная оборона
+        } else if (dBase < 700) {
+            desired = 3;                       // ближний пояс к базе
+        } else if (dBase < 1200) {
+            desired = 2;                       // средний пояс
+        } else {
+            desired = 1;                       // дальние/фронтовые точки
         }
-        
-        // Находим свои территории
+        // Под угрозой или при доминировании игрока — дополнительно укрепляем тылы
+        if ((playerDominates || this.isPointThreatened(cp)) && !isMainBase && desired < 3) desired += 1;
+        if (isMainBase && (playerDominates || this.isPointThreatened(cp))) desired = 5;
+        return desired;
+    }
+
+    // Тип бункера по приоритету: у базы — тяжёлые, дальше — легче
+    pickBunkerType(cp, index) {
+        const base = this.G.cps.find(c => c.owner === this.G.ai);
+        const dBase = base ? dist(base.x, base.y, cp.x, cp.y) : 99999;
+        const options = [];
+        if (cp === base || dBase < 700) options.push('bunker_heavy', 'bunker_medium', 'bunker_light');
+        else if (dBase < 1200) options.push('bunker_medium', 'bunker_light');
+        else options.push('bunker_light');
+        const costs = { bunker_light: { s: 30, c: 20, m: 25 }, bunker_medium: { s: 60, c: 40, m: 50 }, bunker_heavy: { s: 100, c: 70, m: 80 } };
+        for (const t of options) {
+            const c = costs[t];
+            if (this.aiResources.s >= c.s && this.aiResources.c >= c.c && this.aiResources.m >= c.m) return t;
+        }
+        return null;
+    }
+
+    buildFortifications() {
+        // Строим не чаще одного бункера в ~2 секунды (очередь из нескольких зданий)
+        if (this.timer % 120 !== 0) return;
+
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
         if (aiPoints.length === 0) return;
-        
-        // Выбираем случайную территорию для защиты
-        const targetPoint = aiPoints[Math.floor(Math.random() * aiPoints.length)];
-        
-        // Проверяем сколько уже бункеров рядом
-        const nearbyBunkers = this.G.buildings.filter(b => 
-            b.faction === this.G.ai && 
-            b.type && b.type.startsWith('bunker_') &&
-            dist(b.x, b.y, targetPoint.x, targetPoint.y) < targetPoint.radius + 80
-        );
-        
-        // Строим максимум 2 бункера на точку
-        if (nearbyBunkers.length >= 2) return;
-        
-        // Выбираем позицию для бункера
-        const angle = Math.random() * Math.PI * 2;
-        const distance = targetPoint.radius * 0.6;
-        const buildX = targetPoint.x + Math.cos(angle) * distance;
-        const buildY = targetPoint.y + Math.sin(angle) * distance;
-        
-        // Строим бункер (ИИ строит медленнее - увеличиваем время строительства)
-        const fortification = this.G.buildFortification('bunker_light', buildX, buildY, this.G.ai);
+
+        // Считаем существующие бункеры ИИ рядом с каждой точкой
+        const counts = new Map();
+        for (const cp of aiPoints) {
+            const n = this.G.buildings.filter(b =>
+                b.faction === this.G.ai && b.type && b.type.startsWith('bunker_') &&
+                dist(b.x, b.y, cp.x, cp.y) <= cp.radius + 80
+            ).length;
+            counts.set(cp.id || cp.name, n);
+        }
+
+        // Выбираем точку, где нехватка обороны максимальна (приоритет — близость к базе)
+        let best = null, bestScore = -Infinity;
+        for (const cp of aiPoints) {
+            const have = counts.get(cp.id || cp.name) || 0;
+            const need = this.getDesiredBunkerCount(cp);
+            const deficit = need - have;
+            if (deficit <= 0) continue;
+            const base = this.G.cps.find(c => c.owner === this.G.ai);
+            const dBase = base ? dist(base.x, base.y, cp.x, cp.y) : 0;
+            const score = deficit * 100 - dBase * 0.1; // ближе к базе = выше приоритет
+            if (score > bestScore) { bestScore = score; best = cp; }
+        }
+        if (!best) return;
+
+        const have = counts.get(best.id || best.name) || 0;
+        const type = this.pickBunkerType(best, have);
+        if (!type) return; // не хватает ресурсов — ждём
+
+        // Позиция: по кругу вокруг точки, на границе зоны (чтобы вражеская техника
+        // упиралась в оборону раньше), без наложения на уже стоящие бункеры
+        let placed = false, bx = 0, by = 0;
+        for (let attempt = 0; attempt < 10; attempt++) {
+            const angle = ((have + attempt) / Math.max(6, this.getDesiredBunkerCount(best))) * Math.PI * 2 + Math.random() * 0.4;
+            const r = best.radius * (0.75 + Math.random() * 0.2);
+            bx = best.x + Math.cos(angle) * r;
+            by = best.y + Math.sin(angle) * r;
+            const tooClose = this.G.buildings.some(b => b.hp > 0 && dist(b.x, b.y, bx, by) < 45);
+            if (!tooClose) { placed = true; break; }
+        }
+        if (!placed) return;
+
+        // ВАЖНО: ИИ платит из своего пула ресурсов (5-й аргумент) — иначе он тратил
+        // ресурсы игрока и не мог построить ничего дороже лёгкого бункера
+        const fortification = this.G.buildFortification(type, bx, by, this.G.ai, this.aiResources);
         if (fortification) {
-            // Увеличиваем время строительства для ИИ
-            fortification.buildTime *= 1.5; // ИИ строит в 1.5 раза медленнее
-            this.spendResources(bunkerCost);
+            fortification.buildTime *= 1.3; // ИИ строит чуть медленнее игрока
+            aiLog(`[AI][FORT] т.${this.timer}: линия обороны — ${type} у "${best.name}" (${have + 1}/${this.getDesiredBunkerCount(best)})`);
         }
     }
-    
+
     updateAIResources() {
         // ИИ получает ресурсы медленнее чем игрок
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai).length;
