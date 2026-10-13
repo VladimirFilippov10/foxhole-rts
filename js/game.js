@@ -781,6 +781,14 @@ export class Game {
      * валидную позицию (lastX/lastY), а если и она повреждена — к точке
      * захвата рядом с ним или в центр карты.
      */
+    /**
+     * Санация координат юнита. Если из-за любого бага (деление на 0, битые
+     * данные цели и т.п.) x/y превратились в NaN/Infinity, юнит переставал
+     * отрисовываться — визуально он «исчезал», хотя был жив и даже получал
+     * урон. Теперь такие координаты чинятся: юнит возвращается на последнюю
+     * валидную позицию (lastX/lastY), а если и она повреждена — к точке
+     * захвата рядом с ним или в центр карты.
+     */
     sanitizeUnitPosition(u) {
         const ok = (v) => Number.isFinite(v);
         if (ok(u.x) && ok(u.y)) {
@@ -801,9 +809,59 @@ export class Game {
             u.x = 1000;
             u.y = 1000;
         }
+        // ===== ФИКС ПРИЧИН ПОВРЕЖДЕНИЯ КООРДИНАТ (источник №1) =====
+        // Восстановление касалось только x/y, но сам «битный» приказ
+        // (tx/ty = NaN) оставался у юнита. В enforceCityZoneBoundaries была
+        // защита (!Number.isFinite(d)), а в главных циклах движения — НЕТ:
+        // dist(x,y,NaN,NaN) = NaN → NaN > 5 === false, и юнит каждый тик
+        // перезаписывал себе x = x + (NaN - x)/NaN * step = NaN. То есть
+        // один раз повредившись, юнит ПОЛУЧАЛ БЕСКОНЕЧНЫЙ ИСТОЧНИК новых
+        // повреждений — санация не лечила причину. Теперь при санации
+        // сбрасываются ВСЕ связанные с позицией данные: цель приказа,
+        // точка возврата на базу, AoE-цель, orders ИИ и детour-состояние.
         u.tx = undefined;
         u.ty = undefined;
+        u.orderOrigin = undefined;
+        u.detourSide = undefined;
+        u.detourTicks = undefined;
         u.stuckCounter = 0;
+        u.retreatOrder = null;
+        u.moveOrder = null;
+        u.retreatToBase = false;
+        u.supplyReturn = false;
+        u.captureTarget = undefined;
+        if (u.aoe && u.aoeTarget && (!ok(u.aoeTarget.x) || !ok(u.aoeTarget.y))) {
+            u.aoeTarget = null;
+            u.shotsFired = 0;
+        }
+        // lastX/lastY теперь гарантированно валидны — повторное повреждение
+        // не будет восстанавливаться в ту же битную точку.
+        u.lastX = u.x;
+        u.lastY = u.y;
+    }
+
+    // ===== ФИКС ПРИЧИН ПОВРЕЖДЕНИЯ КООРДИНАТ: ГЛОБАЛЬНАЯ САНЦИЯ =====
+    // Раньше sanitizeUnitPosition вызывался только внутри updateUnit() для
+    // живых юнитов в этом же тике. Но NaN мог прийти из кода вне updateUnit
+    // (сепарация, приказы ИИ, трассеры), и тогда:
+    //  1) applySeparation/enforceCityZoneBoundaries расталкивали соседей от
+    //     юнита с NaN — передавая NaN всей стоящей рядом группе (цепное
+    //     заражение: devitt получал NaN «в наследство» от соседей);
+    //  2) ИИ считал dist() от повреждённых координат и выдавал tx/ty = NaN;
+    //  3) мёртвые/снятые фильтром юниты вообще никогда не санировались.
+    // Теперь перед каждым тиком логики нормализуются позиции ВСЕХ юнитов и
+    // зданий — каналы заражения перекрываются централизованно.
+    sanitizeAllPositions() {
+        for (const u of this.units) this.sanitizeUnitPosition(u);
+        const ok = (v) => Number.isFinite(v);
+        for (const b of this.buildings) {
+            if (ok(b.x) && ok(b.y)) continue;
+            console.warn('[GAME][FIX] Повреждены координаты у здания ' +
+                (b.type || '?') + '/' + (b.id || '?') + ' — позиция восстановлена');
+            const anchor = (this.cps && this.cps[0]) || { x: 1000, y: 1000 };
+            b.x = ok(b.x) ? b.x : anchor.x;
+            b.y = ok(b.y) ? b.y : anchor.y;
+        }
     }
 
     getSpeedModifier(u) {

@@ -37,7 +37,16 @@ export class Vehicle {
     }
     
     takeDamage(dmg) {
-        this.hp -= Math.max(1, dmg - this.armor);
+        // ===== ФИКС ПРИЧИН ПОВРЕЖДЕНИЯ КООРДИНАТ (источник №2) =====
+        // Если урон/броня пришли повреждёнными (NaN/undefined), HP юнита
+        // превращался в NaN — дальше по цепочке (сепарация расталкивала
+        // «мёртвых» с NaN-координатами, ИИ выдавал приказы к ним) x/y тоже
+        // становились NaN и юнит «исчезал» (в консоли: [GAME][FIX]
+        // Повреждены координаты). Теперь HP не может стать NaN.
+        const d = Number(dmg);
+        if (!Number.isFinite(d)) return;
+        const a = Number(this.armor);
+        this.hp -= Math.max(1, d - (Number.isFinite(a) ? a : 0));
     }
     
     canAttack() {
