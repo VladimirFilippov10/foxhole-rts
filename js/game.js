@@ -202,11 +202,17 @@ export class Game {
     enforceCityZoneBoundaries() {
         for (const u of this.units) {
             if (u.hp <= 0) continue;
+            // ===== ФИКС «ЮНИТЫ ПРОПАДАЮТ» №5 =====
+            // Пехота может законно находиться в любой зоне (ей defence-линия
+            // проезда не запрещает), а выталкивание каждый тик утаскивало её
+            // телепортом за край зоны — визуально юнит «исчезал» с поля зрения.
+            if (isInfUnit(u)) continue;
             for (const cp of this.cps) {
                 if (cp.owner === 'neutral' || cp.owner === u.faction) continue;
                 if (this.getCityDefenseIntegrity(cp) <= 0) continue;
                 const dx = u.x - cp.x, dy = u.y - cp.y;
                 const d = Math.hypot(dx, dy);
+                if (!Number.isFinite(d)) break; // повреждённые координаты — санация разберётся
                 if (d <= cp.radius) {
                     // Стоим ровно в центре — выбираем любое направление наружу
                     let nx = dx, ny = dy;
@@ -214,6 +220,9 @@ export class Game {
                     const push = cp.radius + 4;
                     u.x = cp.x + (nx / d) * push;
                     u.y = cp.y + (ny / d) * push;
+                    // Вытолкнули — выходим, иначе при нескольких зонах юнита
+                    // мотало бы между ними туда-сюда каждый тик.
+                    break;
                 }
             }
         }
@@ -241,6 +250,24 @@ export class Game {
     }
 
     updateUnit(u) {
+            // ===== ФИКС «ЮНИТЫ ПРОПАДАЮТ» №6 =====
+            // Если у юнита кончились БК или топливо, а снабжения нет рядом,
+            // он раньше просто останавливался навсегда: без приказа его не
+            // видно в бою, но формально он жив — выглядело как «юниты
+            // исчезают с карты». Теперь такой юнит самостоятельно возвращается
+            // на базу (town_hall) своей фракции за БК/топливом.
+            if (!u.aoe && !u.retreatToBase && u.tx === undefined &&
+                u.canAttack && u.canMove &&
+                (!u.canAttack() || !u.canMove())) {
+                const home = this.buildings.find(b =>
+                    b.faction === u.faction && b.type === 'town_hall' && b.hp > 0);
+                if (home) {
+                    u.tx = home.x + (Math.random() - 0.5) * 80;
+                    u.ty = home.y + (Math.random() - 0.5) * 80;
+                    u.supplyReturn = true;
+                }
+            }
+
             // Update game time for reload calculation
             u.gameTime = this.time;
 
@@ -296,6 +323,14 @@ export class Game {
                 // Пополнение логистики на базе
                 if (u.replenishAtBase) {
                     u.replenishAtBase();
+                }
+                // Юнит доехал до базы за БК/топливом — пополнение выполнен,
+                // снимаем приказ возврата, чтобы он снова мог получать бои.
+                if (u.supplyReturn && u.canAttack && u.canMove &&
+                    u.canAttack() && u.canMove()) {
+                    u.supplyReturn = false;
+                    u.tx = undefined;
+                    u.ty = undefined;
                 }
             }
             
@@ -472,8 +507,13 @@ export class Game {
                             if (u.dualGun) {
                                 attackTarget.takeDamage(damage);
                                 // Second shot with slight delay effect
+                                // ===== ФИКС «ЮНИТЫ ПРОПАДАЮТ» №4 =====
+                                // Проверка, что цель ещё жива И всё ещё в списке
+                                // юнитов (не удалена фильтром hp > 0), иначе
+                                // takeDamage применяется к «призраку» — визуально
+                                // юнит исчезает, но продолжает существовать в памяти.
                                 setTimeout(() => {
-                                    if (attackTarget.hp > 0) {
+                                    if (attackTarget.hp > 0 && this.units.includes(attackTarget)) {
                                         attackTarget.takeDamage(Math.floor(damage * 0.7)); // Second gun does 70% damage
                                     }
                                 }, 100);
@@ -702,7 +742,12 @@ export class Game {
             // мягко расталкивает стоящих на его пути союзников в стороны —
             // они сходят с трассы, но свой приказ НЕ теряют.
             this.applySeparation(u);
-    }
+
+            // ===== ФИКС «ЮНИТЫ ПРОПАДАЮТ» №3 =====
+            // Если координаты повредились (NaN/Infinity) — юнит перестаёт
+            // отрисовываться и выглядит «исчезнувшим». Восстанавливаем его
+            // на последнюю валидную позицию.
+            this.sanitizeUnitPosition(u);
     }
 
     applySeparation(u) {
@@ -726,6 +771,39 @@ export class Game {
             if (!this.isBlockedForVehicle(nx, ny, o) &&
                 !this.isCityZoneBlockedFor(nx, ny, o)) { o.x = nx; o.y = ny; }
         }
+    }
+
+    /**
+     * Санация координат юнита. Если из-за любого бага (деление на 0, битые
+     * данные цели и т.п.) x/y превратились в NaN/Infinity, юнит переставал
+     * отрисовываться — визуально он «исчезал», хотя был жив и даже получал
+     * урон. Теперь такие координаты чинятся: юнит возвращается на последнюю
+     * валидную позицию (lastX/lastY), а если и она повреждена — к точке
+     * захвата рядом с ним или в центр карты.
+     */
+    sanitizeUnitPosition(u) {
+        const ok = (v) => Number.isFinite(v);
+        if (ok(u.x) && ok(u.y)) {
+            // Запоминаем последнюю хорошую позицию для восстановления
+            u.lastX = u.x;
+            u.lastY = u.y;
+            return;
+        }
+        console.warn('[GAME][FIX] Повреждены координаты у ' + (u.type || '?') + '/' + (u.id || '?') + ' — позиция восстановлена');
+        if (ok(u.lastX) && ok(u.lastY)) {
+            u.x = u.lastX;
+            u.y = u.lastY;
+        } else if (this.cps && this.cps.length) {
+            const cp = this.cps[0];
+            u.x = cp.x;
+            u.y = cp.y;
+        } else {
+            u.x = 1000;
+            u.y = 1000;
+        }
+        u.tx = undefined;
+        u.ty = undefined;
+        u.stuckCounter = 0;
     }
 
     getSpeedModifier(u) {
