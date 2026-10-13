@@ -137,7 +137,11 @@ export class AI {
         // Логистика ИИ: ремонтники / грузовики БК / бензовозы к технике,
         // flatbed (+ремонт+топливо) к артиллерии
         this.manageLogistics();
-        
+
+        // Отвод повреждённой техники: порог 50% HP + шанс удержать позицию.
+        // Чем меньше точек у ИИ относительно игрока — тем крепче он держится.
+        this.handleDamagedVehicles();
+
         // Строительство укреплений (линия обороны: чем ближе к базе — тем плотнее)
         this.buildFortifications();
         // Оборонительные действия (не зависят от лимитов производства)
@@ -283,6 +287,106 @@ export class AI {
         sendToNeedy('flatbed', u => !!u.aoe);
     }
 
+    // ===== ОТВОД ПОВРЕЖДЁННОЙ ТЕХНИКИ =====
+    // Шанс НЕ отступать: чем меньше точек у ИИ по сравнению с игроком,
+    // тем крепче он держится за то, что есть.
+    //  - точки равны / у ИИ больше            -> 20% (базовый шанс)
+    //  - точек ИИ в 2 раза меньше, чем у игрока -> 80%
+    //  - ещё меньше                            -> до 95%
+    getHoldGroundChance() {
+        const aiPts = this.G.cps.filter(c => c.owner === this.G.ai).length;
+        const plPts = this.G.cps.filter(c => c.owner === this.G.faction).length;
+        const BASE = 0.2;   // 20% при равенстве точек
+        const MAXHOLD = 0.95;
+        if (plPts <= 0) return Math.min(MAXHOLD, BASE + 0.4); // игрок без точек — держим намертво
+        const ratio = aiPts / plPts;      // 1.0 — паритет, 0.5 — в 2 раза меньше
+        if (ratio >= 1) return BASE;
+        // линейная прогрессия от ratio=1 (20%) до ratio=0.5 (80%)
+        const slope = (0.8 - BASE) / (1 - 0.5); // 1.2
+        const chance = BASE + (1 - ratio) * slope;
+        return Math.max(BASE, Math.min(MAXHOLD, chance));
+    }
+
+    // Принять решение об отводе повреждённой техники. Вызывается из game.js
+    // раз в ~2 секунды, чтобы решения не «мигали» каждый кадр.
+    makeRetreatDecisions() {
+        if (this.timer % 120 !== 0) return;
+        const holdChance = this.getHoldGroundChance();
+        const vehicles = this.G.units.filter(u =>
+            u.faction === this.G.ai && u.hp > 0 &&
+            u.type !== 'infantry' && u.type !== 'truck' &&
+            u.type !== 'fuel_truck' && u.type !== 'engineer' && u.type !== 'flatbed'
+        );
+        for (const v of vehicles) {
+            const maxHp = v.maxHp || 100;
+            if (v.hp >= maxHp * 0.5) {
+                // долечился выше порога — забываем прошлое решение
+                v.holdPosition = false;
+                v.retreatDecisionAt = undefined;
+                continue;
+            }
+            if (v.holdPosition !== undefined && v.retreatDecisionAt !== undefined) continue;
+            const stay = Math.random() < holdChance;
+            v.holdPosition = stay;
+            v.retreatDecisionAt = this.timer;
+            aiLog(`[AI][RETREAT] т.${this.timer}: ${v.label} HP=${Math.round(v.hp)}/${maxHp} → ${stay ? 'ДЕРЖИТ ПОЗИЦИЮ до конца' : 'отводится в тыл'} (шанс удержать=${Math.round(holdChance * 100)}%)`);
+        }
+    }
+
+    handleDamagedVehicles() {
+        const base = this.getAIMainBase();
+        if (!base) return;
+
+        const damaged = this.G.units.filter(u =>
+            u.faction === this.G.ai && u.hp > 0 &&
+            u.type !== 'infantry' && u.type !== 'truck' &&
+            u.type !== 'fuel_truck' && u.type !== 'engineer' && u.type !== 'flatbed' &&
+            u.hp < (u.maxHp || 100) * 0.5
+        );
+        if (damaged.length === 0) return;
+
+        // Если у главной базы стоит вражеская техника — её нужно уничтожить
+        // всей доступной техникой и пехотой ИИ (независимо от режима).
+        const enemyVehiclesAtBase = this.G.units.filter(u =>
+            u.faction === this.G.faction && u.hp > 0 && u.type !== 'infantry' &&
+            dist(u.x, u.y, base.x, base.y) <= base.radius + 150
+        );
+        if (enemyVehiclesAtBase.length > 0) {
+            const focus = enemyVehiclesAtBase.reduce((best, e) =>
+                dist(e.x, e.y, base.x, base.y) < dist(best.x, best.y, base.x, base.y) ? e : best);
+            const attackers = this.G.units.filter(u =>
+                u.faction === this.G.ai && u.hp > 0 && !u.aoe &&
+                u.type !== 'truck' && u.type !== 'fuel_truck' &&
+                u.type !== 'engineer' && u.type !== 'flatbed' &&
+                dist(u.x, u.y, base.x, base.y) < 1600
+            );
+            attackers.forEach(u => {
+                u.tx = focus.x + (Math.random() - 0.5) * 70;
+                u.ty = focus.y + (Math.random() - 0.5) * 70;
+                u.holdPosition = true; // при контратаке базу не покидаем
+                u.retreatDecisionAt = this.timer;
+            });
+            aiLog(`[AI][BASE-DEF] т.${this.timer}: техника игрока у главной базы (${enemyVehiclesAtBase.length} шт.) — в атаку ${attackers.length} юнитов`);
+        }
+
+        for (const v of damaged) {
+            if (v.holdPosition === true) continue;           // решил стоять до конца
+            if (v.holdPosition === undefined) continue;      // решение ещё не принято
+            if (v.isScout) continue;                         // разведка не отводится
+            // уже отведён/в тылу — не трогаем
+            if (dist(v.x, v.y, base.x, base.y) <= base.radius + 120) continue;
+            // уже есть приказ движения в тыл — не переставляем
+            if (v.tx !== undefined) continue;
+
+            const angle = Math.atan2(base.y - v.y, base.x - v.x);
+            const stopDist = base.radius * 0.5;
+            v.tx = base.x - Math.cos(angle) * stopDist;
+            v.ty = base.y - Math.sin(angle) * stopDist;
+            v.retreatToBase = true;
+            aiLog(`[AI][RETREAT] т.${this.timer}: ${v.label} HP=${Math.round(v.hp)}/${v.maxHp || 100} отводится на базу (${Math.round(v.tx)}, ${Math.round(v.ty)})`);
+        }
+    }
+
     defensiveReactions() {
         // Если свои территории под угрозой - отправляем свободных юнитов защищать
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
@@ -299,7 +403,8 @@ export class AI {
         
         const target = threatened[0];
         const idle = this.G.units.filter(u =>
-            u.faction === this.G.ai && u.hp > 0 && u.tx === undefined && !u.aoe
+            u.faction === this.G.ai && u.hp > 0 && u.tx === undefined && !u.aoe &&
+            !u.retreatToBase // не дёргаем технику, которую отводим в тыл на ремонт
         );
         idle.slice(0, 4).forEach(u => {
             u.tx = target.x + (Math.random() - 0.5) * 60;
