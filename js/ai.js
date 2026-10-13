@@ -23,16 +23,28 @@ export class AI {
     }
 
     update() {
+        try {
+            this.updateInner();
+        } catch (err) {
+            // Критическая защита: если в логике ИИ возникает ошибка (например,
+            // вызов несуществующего метода), она НЕ должна прерывать игровой цикл,
+            // иначе юниты перестают обновляться и "исчезают" из игры.
+            console.error('[AI] Ошибка в update() бота:', err);
+        }
+    }
+
+    updateInner() {
         this.timer++;
         this.difficulty = Math.min(3, 1 + Math.floor(this.timer / 4000)); // Ещё медленнее растёт
         
         // Генерация ресурсов ИИ (медленнее чем у игрока)
         this.updateAIResources();
 
-        // Проверка лимитов перед производством
-        if (!this.G.canProduceUnit('infantry', this.G.ai)) {
-            return; // Пропускаем производство если достигнут лимит
-        }
+        // Проверка лимита пехоты влияет только на производство пехоты.
+        // Раньше при достижении лимита выходил весь update(), из-за чего
+        // бот полностью замирал: не двигал юниты, не строил укрепления,
+        // не атаковал оборону игрока.
+        const canProduceInfantry = this.G.canProduceUnit('infantry', this.G.ai);
 
         // Проверка доминирования игрока (больше 50% точек)
         const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction).length;
@@ -50,7 +62,7 @@ export class AI {
         const actualVehicleInterval = baseVehicleInterval * spawnMultiplier;
 
         // Спавн пехоты (с учётом доминирования)
-        if (this.timer % actualInfantryInterval === 0) {
+        if (canProduceInfantry && this.timer % actualInfantryInterval === 0) {
             if (this.canAffordInfantry()) {
                 this.spawnInfantrySquad();
                 this.accumulatedForces++;
