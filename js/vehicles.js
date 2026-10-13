@@ -77,11 +77,11 @@ export class Vehicle {
 export class Infantry extends Vehicle {
     constructor(faction, x, y) {
         super('infantry', faction, x, y);
-        this.hp = this.maxHp = 50;
-        this.dmg = 8;
-        this.range = 120;
-        this.spd = 0.6; // Очень медленно
-        this.cd = 50;
+        this.hp = this.maxHp = 35;
+        this.dmg = 6;
+        this.range = 110;
+        this.spd = 0.5; // Очень медленно
+        this.cd = 90;
         this.size = 8;
         this.label = 'Пехота';
     }
