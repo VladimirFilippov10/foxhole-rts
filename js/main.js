@@ -7,6 +7,8 @@ import { render } from './renderer.js';
 
 let canvas, ctx;
 let game = null;
+// Глобальное состояние клавиш — не зависит от того, создана ли уже игра.
+const globalKeys = {};
 let selectedMap = 'deadlands';
 let selectedFaction = 'wardens';
 let selectedGameMode = 'normal';
@@ -14,6 +16,44 @@ let lastClickTime = 0;
 let factoryMenuOpen = false;
 let aoeMode = false;
 let selectedCapturePoint = null;
+let factoryMenuFactory = null;
+
+// ===== Перемещаемые окна (drag за заголовок) =====
+function initDraggableWindow(el, handleSelector) {
+    if (el._draggableInit) return;
+    el._draggableInit = true;
+    const handle = handleSelector ? el.querySelector(handleSelector) : el.querySelector('h3');
+    if (!handle) return;
+    handle.style.cursor = 'move';
+    handle.style.userSelect = 'none';
+    let startX = 0, startY = 0, origLeft = 0, origTop = 0, dragging = false;
+
+    handle.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        dragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        origLeft = el.offsetLeft;
+        origTop = el.offsetTop;
+
+        const onMove = ev => {
+            if (!dragging) return;
+            const maxLeft = window.innerWidth - el.offsetWidth;
+            const maxTop = window.innerHeight - el.offsetHeight;
+            el.style.left = Math.max(0, Math.min(maxLeft, origLeft + ev.clientX - startX)) + 'px';
+            el.style.top = Math.max(0, Math.min(maxTop, origTop + ev.clientY - startY)) + 'px';
+        };
+        const onUp = () => {
+            dragging = false;
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+}
 
 // Vehicle info for factory menu
 const VEHICLE_INFO = {
@@ -49,20 +89,52 @@ const DEFENSE_UPGRADE_INFO = [
     { level: 3, name: 'Оборона Уровень 3', icon: '🛡️🛡️🛡️', stats: 'DMG:40 RNG:180', cost: { s: 150, c: 90, m: 120 } },
 ];
 
+// ===== ИСПРАВЛЕНИЕ "showMapSelect is not defined" =====
+// main.js грузится как ES-модуль (<script type="module">). Если ЛЮБОЙ модуль
+// (constants/map/vehicles/game/renderer/ai) падает с синтаксической ошибкой или
+// выбрасывает исключение на верхнем уровне, main.js не выполняется вообще —
+// все onclick-обработчики из index.html падают с "is not defined".
+// Ставим «страховочные заглушки» НА ПЕРВОЙ СТРОКЕ модуля: они гарантируют,
+// что кнопки меню работают даже если основной код позже не смог загрузиться
+// (заглушки будут перезаписаны реальными функциями ниже по ходу выполнения).
+['showMapSelect', 'showGameInfo', 'hideGameInfo', 'selectMap', 'selectFaction',
+ 'selectGameMode', 'backToMainMenu', 'backToMapSelect', 'notify',
+ 'toggleMoveMode', 'toggleAoEMode', 'closeFactoryMenu', 'closeDefensePanel',
+ 'upgradeDefense'].forEach(fn => {
+    if (typeof window[fn] !== 'function') {
+        window[fn] = function() {
+            console.error('[Loader] Функция ' + fn + ' ещё не готова: ошибка загрузки модулей. См. консоль.');
+        };
+    }
+});
+
 // Initialize
 window.addEventListener('load', () => {
     try {
         canvas = document.getElementById('gameCanvas');
+        if (!canvas) throw new Error('Не найден элемент #gameCanvas');
         ctx = canvas.getContext('2d');
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
         
         // Input handlers
-        window.addEventListener('keydown', e => { if (game) game.keys = game.keys || {}; game.keys[e.key.toLowerCase()] = true; });
-        window.addEventListener('keyup', e => { if (game) game.keys = game.keys || {}; game.keys[e.key.toLowerCase()] = false; });
+        // Исправлено: раньше при `game === null` (например, на экране меню) происходило
+        // обращение к game.keys и падало "Uncaught TypeError: Cannot read properties of null".
+        // Теперь ключи хранятся в независимом объекте globalKeys и передаются в игру.
+        window.addEventListener('keydown', e => {
+            globalKeys[e.key.toLowerCase()] = true;
+            if (game) game.keys = globalKeys;
+        });
+        window.addEventListener('keyup', e => {
+            globalKeys[e.key.toLowerCase()] = false;
+            if (game) game.keys = globalKeys;
+        });
         canvas.addEventListener('mousedown', handleMouseDown);
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Окно очереди производства юнитов — перемещаемое (drag за заголовок)
+        initDraggableWindow(document.getElementById('productionQueue'), '#productionQueueHeader');
         
         console.log('✅ Игра инициализирована успешно');
     } catch (error) {
@@ -140,6 +212,8 @@ function startGame() {
         
         // Create game with selected mode
         game = new Game(selectedFaction, selectedGameMode);
+        // Передаём текущее состояние клавиш в игру (см. globalKeys выше)
+        game.keys = globalKeys;
         
         // Set starting resources based on game mode
         const startRes = GAME_MODES[selectedGameMode].startingResources;
@@ -310,6 +384,45 @@ function updateSelInfo() {
     }
 }
 
+// ===== Приказ движения (ПКМ / двойной клик / режим движения) =====
+// ИСПРАВЛЕНИЕ БАГА «артиллерия игрока исчезает после начала движения»:
+// раньше всем юнитам (включая арту) выдавалось построение со смещением
+// (col - cols/2)*25. Для ОДНОГО выбранного юнита смещение = -12.5px — цель
+// оказывалась почти под ногами, и арта с её логикой отъезда (retreatOrder)
+// бесконечно переставляла приказ, «ехала на месте» и в итоге останавливалась
+// у стены обороны, где её расстреливали — визуально она «пропадала».
+// Теперь: одиночные юниты и артиллерия идут ТОЧНО в точку клика (смещение 0),
+// при получении приказа игроком старые AI-приказы отъезда/выдвижения сбрасываются.
+function issueMoveOrder(selUnits, worldX, worldY) {
+    const cols = Math.ceil(Math.sqrt(selUnits.length));
+    selUnits.forEach((u, i) => {
+        const row = Math.floor(i / cols);
+        const col = i % cols;
+        // Строй только для группы НЕ-артиллерии; одиночный юнит и арта — точно в клик
+        const offset = (selUnits.length > 1 && !u.aoe) ? 25 : 0;
+        u.tx = worldX + (col - cols / 2) * offset;
+        u.ty = worldY + (row - cols / 2) * offset;
+        // ===== ФИКС «юниты едут в сторону от приказа» =====
+        // 1) Сохраняем ЭТАЛОННУЮ точку приказа: обходные манёвры при застревании
+        //    больше никогда не перезаписывают цель — юнит всегда возвращается к ней.
+        u.orderOrigin = { x: u.tx, y: u.ty };
+        // 2) Сбрасываем остатки старых приказов/решений, которые могли тянуть
+        //    юнит в другую сторону (отъезд ИИ, AoE-огонь, удержание позиции).
+        u.stuckCounter = 0;
+        u.detourSide = undefined;
+        u.retreatOrder = null;
+        u.moveOrder = null;
+        u.retreatToBase = false;
+        if (u.aoe) {
+            // Артиллерия идёт ТОЧНО в точку клика, без смещения для атаки,
+            // без авто-отъезда по пути — просто едет.
+            u.aoeTarget = null;
+            u.holdPosition = undefined;
+            u.retreatDecisionAt = undefined;
+        }
+    });
+}
+
 // Input handlers
 function handleMouseDown(e) {
     if (!game) return;
@@ -326,13 +439,7 @@ function handleMouseDown(e) {
     if (e.button === 2) {
         if (game.selected.length > 0) {
             const selUnits = game.units.filter(u => game.selected.includes(u.id));
-            const cols = Math.ceil(Math.sqrt(selUnits.length));
-            selUnits.forEach((u, i) => {
-                const row = Math.floor(i / cols);
-                const col = i % cols;
-                u.tx = worldX + (col - cols / 2) * 25;
-                u.ty = worldY + (row - cols / 2) * 25;
-            });
+            issueMoveOrder(selUnits, worldX, worldY);
             // Add move indicator particles
             game.addParticles(worldX, worldY, '#22c55e', 5);
         }
@@ -396,17 +503,11 @@ function handleMouseDown(e) {
     if (isDouble || game.moveMode) {
         if (game.selected.length > 0) {
             const selUnits = game.units.filter(u => game.selected.includes(u.id));
-            const cols = Math.ceil(Math.sqrt(selUnits.length));
-            selUnits.forEach((u, i) => {
-                const row = Math.floor(i / cols);
-                const col = i % cols;
-                u.tx = worldX + (col - cols / 2) * 25;
-                u.ty = worldY + (row - cols / 2) * 25;
-            });
-            if (game.moveMode) {
-                game.moveMode = false;
-                document.getElementById('modeIndicator').classList.add('hidden');
-            }
+            issueMoveOrder(selUnits, worldX, worldY);
+        }
+        if (game.moveMode) {
+            game.moveMode = false;
+            document.getElementById('modeIndicator').classList.add('hidden');
         }
         return;
     }
@@ -444,20 +545,77 @@ window.toggleMoveMode = function() {
     document.getElementById('modeIndicator').classList.toggle('hidden', !game.moveMode);
 };
 
+// ===== Вкладки производства: Пехота / Техника / Снабжение / Поддержка =====
+const PRODUCTION_TABS = [
+    { id: 'infantry',   label: '🔫 Пехота' },
+    { id: 'vehicles',   label: '🚗 Техника' },
+    { id: 'supply',     label: '📦 Снабжение' },
+    { id: 'support',    label: '🎯 Поддержка' },
+];
+
+// Раскладка типов юнитов по вкладкам (для обеих фракций)
+const TAB_TYPES = {
+    infantry: ['infantry'],
+    vehicles: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska',
+               'hatchet', 'scorpion', 'nemesis', 'falchion', 'hoplite'],
+    supply:   ['truck', 'fuel_truck', 'engineer', 'flatbed'],
+    support:  ['warden_artillery', 'colonial_artillery'], // пока только арта
+};
+
+let factoryTab = 'infantry';
+
 function openFactoryMenu(factory, mx, my) {
     factoryMenuOpen = true;
     const menu = document.getElementById('factoryMenu');
     menu.classList.remove('hidden');
     menu.style.left = Math.min(mx, window.innerWidth - 340) + 'px';
     menu.style.top = Math.min(my, window.innerHeight - 400) + 'px';
-    
+
+    // Запоминаем текущий завод и делаем заголовок окна перетаскиваемым
+    factoryMenuFactory = factory;
+    initDraggableWindow(menu);
+
+    // Контейнер вкладок создаём один раз
     const grid = document.getElementById('unitGrid');
+    let tabsEl = document.getElementById('factoryTabs');
+    if (!tabsEl) {
+        tabsEl = document.createElement('div');
+        tabsEl.id = 'factoryTabs';
+        tabsEl.style.cssText = 'display:flex;gap:4px;margin-bottom:0.6rem;flex-wrap:wrap;';
+        menu.insertBefore(tabsEl, grid);
+    }
+    renderFactoryTabs(tabsEl, factory, grid);
+}
+
+function renderFactoryTabs(tabsEl, factory, grid) {
+    tabsEl.innerHTML = '';
+    PRODUCTION_TABS.forEach(tab => {
+        const btn = document.createElement('button');
+        btn.textContent = tab.label;
+        const active = tab.id === factoryTab;
+        btn.style.cssText = `padding:4px 10px;border-radius:6px;font-size:0.72rem;cursor:pointer;` +
+            (active ? 'background:#2563eb;color:#fff;border:1px solid #60a5fa;'
+                    : 'background:rgba(17,24,39,0.9);color:#d1d5db;border:1px solid #374151;');
+        btn.onclick = () => {
+            factoryTab = tab.id;
+            renderFactoryTabs(tabsEl, factory, grid);
+        };
+        tabsEl.appendChild(btn);
+    });
+    renderTabUnits(grid, factory);
+}
+
+function renderTabUnits(grid, factory) {
     grid.innerHTML = '';
-    
-    // Add infantry first
-    const allUnits = ['infantry', ...FACTION_VEHICLES[game.faction]];
-    
-    allUnits.forEach(type => {
+    const factionPool = ['infantry', ...FACTION_VEHICLES[game.faction]];
+    const types = (TAB_TYPES[factoryTab] || []).filter(t => factionPool.includes(t));
+
+    if (types.length === 0) {
+        grid.innerHTML = '<div style="color:#9ca3af;font-size:0.75rem;">Нет доступных юнитов в этой вкладке</div>';
+        return;
+    }
+
+    types.forEach(type => {
         const info = VEHICLE_INFO[type];
         const canAfford = game.res.s >= info.cost.s && game.res.c >= info.cost.c && game.res.m >= info.cost.m;
         const card = document.createElement('div');
@@ -608,11 +766,38 @@ function openDefensePanel(cp, mx, my) {
     panel.classList.remove('hidden');
     panel.style.left = Math.min(mx, window.innerWidth - 380) + 'px';
     panel.style.top = Math.min(my, window.innerHeight - 400) + 'px';
-    
+
+    // Окно улучшения обороны тоже можно перемещать за заголовок
+    initDraggableWindow(panel);
+
     const info = document.getElementById('defenseInfo');
+    let extra = '';
+    // Прочность обороны города (очки прочности)
+    if (typeof game.getCityDefenseDisplayInfo === 'function') {
+        const dinfo = game.getCityDefenseDisplayInfo(cp);
+        if (dinfo) {
+            extra += `<div>Прочность обороны: <strong style="color:${dinfo.broken ? '#ef4444' : '#22c55e'};">${dinfo.integrity}</strong>${dinfo.broken ? ' <span style="color:#ef4444;font-size:0.7rem;">(оборона сломлена — город можно захватить)</span>' : ' <span style="color:#9ca3af;font-size:0.7rem;">(вражеская техника не может въехать в город)</span>'}</div>`;
+        }
+    }
+    // Время улучшения обороны (прогресс)
+    const upg = typeof game.getDefenseUpgradeProgress === 'function' ? game.getDefenseUpgradeProgress(cp) : null;
+    if (upg) {
+        extra += `
+            <div style="margin-top:0.5rem;">
+                <div style="font-size:0.75rem;color:#fbbf24;">Улучшение до уровня ${upg.targetLevel}: ${Math.floor(upg.percent)}% (${upg.remaining}с)</div>
+                <div style="background:#1f2937;height:6px;border-radius:3px;overflow:hidden;margin-top:3px;border:1px solid #374151;">
+                    <div style="background:linear-gradient(90deg,#fbbf24,#f59e0b);height:100%;width:${upg.percent}%;"></div>
+                </div>
+            </div>`;
+    } else {
+        const nextTime = cp.defenseLevel < 3 ? game.getDefenseUpgradeTime(cp.defenseLevel + 1) : null;
+        if (nextTime) extra += `<div style="font-size:0.7rem;color:#9ca3af;margin-top:0.25rem;">Следующее улучшение займёт ${nextTime}с</div>`;
+    }
+
     info.innerHTML = `
         <div style="font-weight:bold;color:#60a5fa;margin-bottom:0.5rem;">${cp.name}</div>
         <div>Текущий уровень обороны: <strong style="color:#fbbf24;">${cp.defenseLevel}/3</strong></div>
+        ${extra}
     `;
     
     const levels = document.getElementById('defenseLevels');
@@ -628,11 +813,15 @@ function openDefensePanel(cp, mx, my) {
         const isCurrent = currentLevel === d.level;
         const isPast = currentLevel > d.level;
         const canAfford = game.res.s >= d.cost.s && game.res.c >= d.cost.c && game.res.m >= d.cost.m;
-        
+        const upgTime = game.getDefenseUpgradeTime ? game.getDefenseUpgradeTime(d.level) : null;
+
         let status = '';
         let cardClass = 'unit-card';
-        
-        if (isCurrent) {
+
+        if (cp.upgrading) {
+            cardClass += ' disabled';
+            status = '<div style="color:#fbbf24;font-size:0.6rem;margin-top:0.25rem;">Улучшение уже идёт...</div>';
+        } else if (isCurrent) {
             status = '<div style="color:#22c55e;font-weight:bold;margin-top:0.25rem;">✓ Текущий уровень</div>';
         } else if (isPast) {
             status = '<div style="color:#6b7280;font-size:0.6rem;margin-top:0.25rem;">✓ Улучшено</div>';
@@ -645,16 +834,27 @@ function openDefensePanel(cp, mx, my) {
         }
         
         return `
-            <div class="${cardClass}" style="margin-bottom:0.5rem;${canUpgrade && canAfford ? 'cursor:pointer;' : ''}" 
-                 ${canUpgrade && canAfford ? `onclick="upgradeDefense(${d.level})"` : ''}>
+            <div class="${cardClass}" style="margin-bottom:0.5rem;${canUpgrade && canAfford && !cp.upgrading ? 'cursor:pointer;' : ''}" 
+                 ${canUpgrade && canAfford && !cp.upgrading ? `onclick="upgradeDefense(${d.level})"` : ''}>
                 <div class="unit-name">${d.icon} ${d.name}</div>
                 <div class="unit-stats">${d.stats}</div>
-                <div class="unit-cost">S:${d.cost.s} C:${d.cost.c} M:${d.cost.m}</div>
+                <div class="unit-cost">S:${d.cost.s} C:${d.cost.c} M:${d.cost.m}${upgTime ? ` | Время: ${upgTime}с` : ''}</div>
                 ${status}
             </div>
         `;
     }).join('');
 }
+
+// Периодическое обновление панели обороны (прогресс улучшения занимает время)
+setInterval(() => {
+    if (!game || game.over) return;
+    const panel = document.getElementById('defensePanel');
+    if (panel && !panel.classList.contains('hidden') && selectedCapturePoint) {
+        openDefensePanel(selectedCapturePoint,
+            parseInt(panel.style.left) || 0,
+            parseInt(panel.style.top) || 0);
+    }
+}, 1000);
 
 window.closeDefensePanel = function() {
     document.getElementById('defensePanel').classList.add('hidden');
@@ -668,7 +868,8 @@ window.upgradeDefense = function(level) {
     const result = game.upgradeTerritoryDefense(cpIndex);
     
     if (result) {
-        notify(`${selectedCapturePoint.name}: оборона улучшена до уровня ${selectedCapturePoint.defenseLevel}!`);
+        const time = game.getDefenseUpgradeTime ? game.getDefenseUpgradeTime(level) : 0;
+        notify(`${selectedCapturePoint.name}: улучшение обороны до уровня ${level} — ${time}с`);
         // Обновляем панель
         openDefensePanel(selectedCapturePoint, 
             parseInt(document.getElementById('defensePanel').style.left),

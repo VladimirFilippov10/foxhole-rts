@@ -38,7 +38,11 @@ export const GAME_MODES = {
 };
 
 export const VEHICLE_COSTS = {
-    infantry: { s: 10, c: 0, m: 0, buildTime: 5 },
+    infantry: { s: 10, c: 0, m: 0, buildTime: 5 },      // стрелки (базовая пехота)
+    rifleman: { s: 10, c: 0, m: 0, buildTime: 5 },      // то же, новое имя
+    mg_gunner: { s: 15, c: 2, m: 3, buildTime: 8 },     // пулемётчик — оборона
+    grenadier: { s: 18, c: 3, m: 5, buildTime: 10 },    // гранатомётчик — наступление
+    sniper: { s: 25, c: 5, m: 8, buildTime: 12 },       // снайпер — дальний бой
     
     // Wardens tanks
     king_spire: { s: 40, c: 30, m: 20, buildTime: 18 }, // Разведывательный танк
@@ -85,13 +89,16 @@ export const SUPPLY_SYSTEM = {
     ammoRegenRate: 0.02, // Скорость восстановления БК в базе (постепенное)
     fuelRegenRate: 0.05, // Скорость восстановления топлива в базе (быстрее чем БК)
     baseSupplyRadius: 200, // Радиус пополнения в базе (увеличен со 100)
-    truckCapacity: 50, // Вместимость грузовика (ограниченный запас БК)
-    fuelTruckCapacity: 60, // Вместимость бензовоза (ограниченный запас топлива)
-    engineerRepairRate: 0.2, // Скорость ремонта инженерной машиной
-    engineerCapacity: 80, // Вместимость инженерной машины (ограниченный запас материалов)
-    flatbedCapacity: 100, // Вместимость flatbed для артиллерии
+    // ВАЖНО (фикс «пополняет один раз и не полностью»): ёмкости должны быть
+    // БОЛЬШЕ, чем maxHp/maxAmmo/maxFuel техники — иначе инженеру/грузовику
+    // физически не хватало «заряда» даже на один полный ремонт/пополнение.
+    truckCapacity: 400, // Вместимость грузовика (запас БК на несколько танков)
+    fuelTruckCapacity: 400, // Вместимость бензовоза
+    engineerRepairRate: 0.5, // HP/тик скорости ремонта
+    engineerCapacity: 500, // Материалы: больше макс. HP самой прочной техники (480)
+    flatbedCapacity: 300, // Вместимость flatbed для артиллерии
     artilleryAmmoConsumption: 5, // Расход БК артиллерией за выстрел
-    logisticsReplenishRate: 0.5, // Скорость пополнения логистики на базе
+    logisticsReplenishRate: 2, // Скорость пополнения логистики на базе (было 0.5 — вечный возврат)
 };
 
 export function gridToPos(col, row) {
