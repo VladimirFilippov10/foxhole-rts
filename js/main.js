@@ -97,7 +97,7 @@ const DEFENSE_UPGRADE_INFO = [
 // Ставим «страховочные заглушки» НА ПЕРВОЙ СТРОКЕ модуля: они гарантируют,
 // что кнопки меню работают даже если основной код позже не смог загрузиться
 // (заглушки будут перезаписаны реальными функциями ниже по ходу выполнения).
-['showMapSelect', 'showGameInfo', 'hideGameInfo', 'selectMap', 'selectFaction',
+['showMapSelect', 'showGameInfo', 'hideGameInfo', 'showInfoTab', 'selectMap', 'selectFaction',
  'selectGameMode', 'backToMainMenu', 'backToMapSelect', 'notify',
  'toggleMoveMode', 'toggleAoEMode', 'closeFactoryMenu', 'closeDefensePanel',
  'upgradeDefense'].forEach(fn => {
@@ -161,6 +161,21 @@ window.showGameInfo = function() {
 window.hideGameInfo = function() {
     document.getElementById('gameInfoScreen').classList.add('hidden');
     document.getElementById('menuScreen').classList.remove('hidden');
+};
+
+// Переключение вкладок на экране «Информация об игре»
+window.showInfoTab = function(btn) {
+    const screen = document.getElementById('gameInfoScreen');
+    if (!screen || !btn) return;
+    screen.querySelectorAll('.info-tab').forEach(t => t.classList.remove('active'));
+    screen.querySelectorAll('.info-page').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const page = document.getElementById(btn.dataset.page);
+    if (page) {
+        page.classList.add('active');
+        const body = screen.querySelector('.info-body');
+        if (body) body.scrollTop = 0;
+    }
 };
 
 window.selectMap = function(map) {
