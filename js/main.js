@@ -7,6 +7,8 @@ import { render } from './renderer.js';
 
 let canvas, ctx;
 let game = null;
+// Глобальное состояние клавиш — не зависит от того, создана ли уже игра.
+const globalKeys = {};
 let selectedMap = 'deadlands';
 let selectedFaction = 'wardens';
 let selectedGameMode = 'normal';
@@ -96,8 +98,17 @@ window.addEventListener('load', () => {
         window.addEventListener('resize', resizeCanvas);
         
         // Input handlers
-        window.addEventListener('keydown', e => { if (game) game.keys = game.keys || {}; game.keys[e.key.toLowerCase()] = true; });
-        window.addEventListener('keyup', e => { if (game) game.keys = game.keys || {}; game.keys[e.key.toLowerCase()] = false; });
+        // Исправлено: раньше при `game === null` (например, на экране меню) происходило
+        // обращение к game.keys и падало "Uncaught TypeError: Cannot read properties of null".
+        // Теперь ключи хранятся в независимом объекте globalKeys и передаются в игру.
+        window.addEventListener('keydown', e => {
+            globalKeys[e.key.toLowerCase()] = true;
+            if (game) game.keys = globalKeys;
+        });
+        window.addEventListener('keyup', e => {
+            globalKeys[e.key.toLowerCase()] = false;
+            if (game) game.keys = globalKeys;
+        });
         canvas.addEventListener('mousedown', handleMouseDown);
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -181,6 +192,8 @@ function startGame() {
         
         // Create game with selected mode
         game = new Game(selectedFaction, selectedGameMode);
+        // Передаём текущее состояние клавиш в игру (см. globalKeys выше)
+        game.keys = globalKeys;
         
         // Set starting resources based on game mode
         const startRes = GAME_MODES[selectedGameMode].startingResources;
