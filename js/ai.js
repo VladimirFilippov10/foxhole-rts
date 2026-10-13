@@ -166,22 +166,9 @@ export class AI {
         const debtTarget = liveVeh * INF_PER_VEHICLE;
         const needsCatchUp = liveInf > debtTarget;
 
-        // ===== ФИКС КРАША "SyntaxError / manageSnipers is not a function" =====
-        // Раньше весь блок производства был обёрнут в условие
-        // `if (canProduceInfantry && this.timer % actualInfantryInterval === 0)`
-        // с незакрытой фигурной скобкой. Из-за этого:
-        //   1) синтаксис файла был сломан — модуль ai.js вообще не загружался
-        //      в браузере (а значит, НЕ СУЩЕСТВОВАЛО ни manageSnipers, ни
-        //      expandAndCapture — отсюда TypeError в updateInner() и полная
-        //      остановка обновлений юнитов: юниты «внезапно пропадали», а
-        //      артиллерия без приказов ИИ носилась по карте);
-        //   2) логика движения/снайперов/артиллерии была заперта внутри
-        //      блока производства и выполнялась лишь раз в ~10 секунд.
-        // Теперь это плоский код updateInner(): производство проверяет
-        // интервалы само, а поведение юнитов выполняется КАЖДЫЙ тик.
-        const spawnTick = this.timer % actualInfantryInterval === 0;
-        const vehTick = this.timer % actualVehicleInterval === 0;
-
+        // Спавн пехоты (с учётом доминирования)
+        if (canProduceInfantry && this.timer % actualInfantryInterval === 0) {
+            if (this.canAffordInfantry()) {
         const hasFactory = this.G.buildings.some(b => b.faction === this.G.ai && b.type === 'factory');
         const canVehicleSlot = this.G.canProduceUnit('vehicle', this.G.ai);
         const canAffordVeh = this.canAffordVehicle();
@@ -190,7 +177,7 @@ export class AI {
         // без factory и не производил вообще ничего — фикс этого тупика):
         const vehiclePossible = hasFactory && canVehicleSlot && canAffordVeh;
 
-        if (vehTick && vehiclePossible && (quotaMet || needsCatchUp)) {
+        if (vehiclePossible && (quotaMet || needsCatchUp)) {
             // Квота выполнена ИЛИ нужно догнать потери техники — выпускаем технику
             const before = this.G.units.length;
             this.spawnVehicle();
@@ -201,22 +188,24 @@ export class AI {
                 spawnedThisTick = true;
                 aiLog(`[AI][SPAWN] т.${this.timer}: ТЕХНИКА (${this.vehicleCount} всего). На поле: пехота=${liveInf}, техника=${liveVeh} (квота 1:${INF_PER_VEHICLE}${needsCatchUp ? ', ДОГОНЯЕМ ПОТЕРИ' : ''})`);
             }
-        } else if (spawnTick && canProduceInfantry && this.canAffordInfantry()) {
-            if (hasFactory && canVehicleSlot && canAffordVeh) {
-                // Завод есть, техника доступна, но квота ещё не набрана — копим пехоту
-                this.spawnInfantrySquad();
-                this.infantrySpawned += this.squadSizeOf(this.difficulty);
-                this.accumulatedForces++;
-                spawnedThisTick = true;
-            } else if (!canVehicleSlot && canAffordVeh && needsCatchUp && hasFactory) {
-                // Догоняем потери, но слотов техники нет — ждём, пехоту НЕ спамим
-            } else {
-                // Нет завода / нет ресурсов на технику / лимит техники -> компенсируем пехотой
+        } else if (hasFactory && canVehicleSlot && canAffordVeh) {
+            // Завод есть, техника доступна, но квота ещё не набрана — копим пехоту
+            if (this.timer % actualInfantryInterval === 0 &&
+                this.G.canProduceUnit('infantry', this.G.ai) && this.canAffordInfantry()) {
                 this.spawnInfantrySquad();
                 this.infantrySpawned += this.squadSizeOf(this.difficulty);
                 this.accumulatedForces++;
                 spawnedThisTick = true;
             }
+        } else if (!canVehicleSlot && canAffordVeh && needsCatchUp && hasFactory) {
+            // Догоняем потери, но слотов техники нет — ждём, пехоту НЕ спамим
+        } else if (this.timer % actualInfantryInterval === 0 &&
+                   this.G.canProduceUnit('infantry', this.G.ai) && this.canAffordInfantry()) {
+            // Нет завода / нет ресурсов на технику / лимит техники -> компенсируем пехотой
+            this.spawnInfantrySquad();
+            this.infantrySpawned += this.squadSizeOf(this.difficulty);
+            this.accumulatedForces++;
+            spawnedThisTick = true;
         }
 
         // Активное расширение: юниты без приказа сами идут на ближайшие
