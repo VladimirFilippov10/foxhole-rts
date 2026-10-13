@@ -56,13 +56,20 @@ export class Vehicle {
         return this.fuel > 0;
     }
     
+    // Пополнение БК и топлива в НАШЕЙ базе.
+    // ИСПРАВЛЕНИЕ: раньше пополнялись только ammo/fuel, но НЕ HP — подбитая
+    // техника на базе никогда не чинилась («ремонты работают один раз»).
+    // Теперь база также плавно восстанавливает HP (медленнее, чем инженер).
     regenerateAtBase() {
-        // Автоматическое пополнение в базе
+        const baseHpRegen = 0.15; // HP/тик
+        if (this.hp < this.maxHp) {
+            this.hp = Math.min(this.maxHp, this.hp + baseHpRegen);
+        }
         if (this.ammo < this.maxAmmo) {
-            this.ammo = Math.min(this.maxAmmo, this.ammo + SUPPLY_SYSTEM.ammoRegenRate);
+            this.ammo = Math.min(this.maxAmmo, this.ammo + SUPPLY_SYSTEM.ammoRegenRate * 4);
         }
         if (this.fuel < this.maxFuel) {
-            this.fuel = Math.min(this.maxFuel, this.fuel + SUPPLY_SYSTEM.fuelRegenRate);
+            this.fuel = Math.min(this.maxFuel, this.fuel + SUPPLY_SYSTEM.fuelRegenRate * 4);
         }
     }
 }
@@ -336,10 +343,12 @@ export class Truck extends Vehicle {
     // Пополнение БК у другой техники
     supplyAmmo(targetUnit) {
         if (this.currentCargo > 0 && targetUnit.ammo < targetUnit.maxAmmo) {
+            // ИСПРАВЛЕНИЕ: скорость за тик поднята (20 -> 40), пополнение
+            // вызывается непрерывно каждым тиком — цель наполняется ДО КОНЦА
             const amount = Math.min(
                 this.currentCargo,
                 targetUnit.maxAmmo - targetUnit.ammo,
-                20 // Скорость пополнения
+                40 // Скорость пополнения (за тик)
             );
             targetUnit.ammo += amount;
             this.currentCargo -= amount;
@@ -381,7 +390,7 @@ export class FuelTruck extends Vehicle {
             const amount = Math.min(
                 this.currentCargo,
                 targetUnit.maxFuel - targetUnit.fuel,
-                40 // Скорость пополнения
+                60 // Скорость пополнения (за тик) — бак наполняется полностью
             );
             targetUnit.fuel += amount;
             this.currentCargo -= amount;
@@ -421,6 +430,9 @@ export class Engineer extends Vehicle {
     // Ремонт другой техники
     repairUnit(targetUnit) {
         if (this.currentCargo > 0 && targetUnit.hp < targetUnit.maxHp) {
+            // ИСПРАВЛЕНИЕ «чинит один раз и не полностью»: ёмкость инженера
+            // теперь 500 (> maxHp любой техники 480) + ремонт идёт каждый тик,
+            // пока цель в радиусе — техника починится ДО конца.
             const amount = Math.min(
                 SUPPLY_SYSTEM.engineerRepairRate,
                 targetUnit.maxHp - targetUnit.hp,
