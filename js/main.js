@@ -1,5 +1,5 @@
 // ===== MAIN ENTRY POINT =====
-import { VEHICLE_COSTS, dist, GAME_MODES } from './constants.js';
+import { VEHICLE_COSTS, dist, GAME_MODES, FIXED_STEP_MS, MAX_STEPS_PER_FRAME } from './constants.js';
 import { createVehicle, FACTION_VEHICLES } from './vehicles.js';
 import { getCapturePointsInWorld, getResourcePointsInWorld } from './map.js';
 import { Game } from './game.js';
@@ -283,6 +283,8 @@ function startGame() {
         console.log('✅ Игра инициализирована, запуск игрового цикла...');
         
         // Start game loop
+        lastFrameTime = 0;
+        logicAccumulator = 0;
         gameLoop();
     } catch (error) {
         console.error('❌ Ошибка при запуске игры:', error);
@@ -290,11 +292,46 @@ function startGame() {
     }
 }
 
-function gameLoop() {
+// ===== ИГРОВОЙ ЦИКЛ С ФИКСИРОВАННЫМ ШАГОМ (FIXSS) =====
+// Раньше game.update() вызывался ровно один раз на каждый кадр
+// requestAnimationFrame. Вся игровая логика (скорость техники, перезарядка
+// орудий, фарм ресурсов) была привязана к тикам, поэтому на мониторах с
+// высоким FPS (144/240 Гц) танки и артиллерия «летали» по карте в 2-4 раза
+// быстрее задуманного. Теперь логика всегда выполняется 60 раз в секунду
+// (фиксированный шаг FIXED_STEP_MS), сколько бы кадров ни рисовал браузер.
+let lastFrameTime = 0;
+let logicAccumulator = 0;
+
+function gameLoop(now) {
     if (!game) return;
-    
+
+    const frameStart = (typeof now === 'number' && now > 0) ? now : performance.now();
+
+    // Первый кадр — просто запоминаем время, без шага логики
+    if (lastFrameTime === 0) {
+        lastFrameTime = frameStart;
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+
+    let elapsed = frameStart - lastFrameTime;
+    lastFrameTime = frameStart;
+
+    // Защита от «догонания» после сворачивания вкладки / долгого лага:
+    // не более MAX_STEPS_PER_FRAME шагов логики за один кадр.
+    if (elapsed > FIXED_STEP_MS * MAX_STEPS_PER_FRAME) {
+        elapsed = FIXED_STEP_MS * MAX_STEPS_PER_FRAME;
+    }
+
     try {
-        game.update();
+        // Накопленное время прокручиваем фиксированными шагами по ~16.67 мс
+        logicAccumulator += elapsed;
+        while (logicAccumulator >= FIXED_STEP_MS) {
+            game.update();
+            logicAccumulator -= FIXED_STEP_MS;
+            if (game.over) break;
+        }
+
         render(ctx, game, canvas);
         
         // Update HUD
