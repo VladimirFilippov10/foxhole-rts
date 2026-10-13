@@ -402,13 +402,20 @@ function issueMoveOrder(selUnits, worldX, worldY) {
         const offset = (selUnits.length > 1 && !u.aoe) ? 25 : 0;
         u.tx = worldX + (col - cols / 2) * offset;
         u.ty = worldY + (row - cols / 2) * offset;
+        // ===== ФИКС «юниты едут в сторону от приказа» =====
+        // 1) Сохраняем ЭТАЛОННУЮ точку приказа: обходные манёвры при застревании
+        //    больше никогда не перезаписывают цель — юнит всегда возвращается к ней.
+        u.orderOrigin = { x: u.tx, y: u.ty };
+        // 2) Сбрасываем остатки старых приказов/решений, которые могли тянуть
+        //    юнит в другую сторону (отъезд ИИ, AoE-огонь, удержание позиции).
+        u.stuckCounter = 0;
+        u.detourSide = undefined;
+        u.retreatOrder = null;
+        u.moveOrder = null;
+        u.retreatToBase = false;
         if (u.aoe) {
-            // Сбрасываем прежние приказы отъезда/выдвижения (в т.ч. выданные ИИ-логикой)
-            u.retreatOrder = null;
-            u.moveOrder = null;
-            u.stuckCounter = 0;
-            // ИСПРАВЛЕНИЕ «арта крутится на месте»: арта едет ТОЧНО в точку клика,
-            // без смещения для атаки и без авто-отъезда по пути — просто едет.
+            // Артиллерия идёт ТОЧНО в точку клика, без смещения для атаки,
+            // без авто-отъезда по пути — просто едет.
             u.aoeTarget = null;
             u.holdPosition = undefined;
             u.retreatDecisionAt = undefined;

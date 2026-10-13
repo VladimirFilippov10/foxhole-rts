@@ -466,6 +466,16 @@ export class Game {
             // приоритетный прямой проход к цели приказа (она всё равно не может
             // стрелять ближе minRange — стрельба сама отодвинет её назад).
             if (!isAttacking && u.aoe && u.tx !== undefined) {
+                // Если цель приказа ушла за пределы досягаемости огня (например,
+                // игрок отменил приказ AoE-огня) — арта просто едет к новой цели
+                // приказа обычным порядком, без «смещения для атаки».
+                if (u.aoeTarget) {
+                    const dShot = dist(u.x, u.y, u.aoeTarget.x, u.aoeTarget.y);
+                    if (dShot < (u.minRange || 100) - 10 || dShot > u.range) {
+                        u.aoeTarget = null;
+                        u.retreatOrder = null;
+                    }
+                }
                 const dA = dist(u.x, u.y, u.tx, u.ty);
                 if (dA > 5) {
                     if (u.canMove && !u.canMove()) {
@@ -489,6 +499,7 @@ export class Game {
                     // Прибыли на позицию — приказ выполнен, снимаем его полностью,
                     // чтобы manageArtillery мог next тик выдать огонь/новый манёвр.
                     u.tx = undefined; u.ty = undefined; u.detourSide = undefined;
+                    u.orderOrigin = undefined;
                     u.moveOrder = null; u.retreatOrder = null;
                 }
             }
@@ -517,42 +528,42 @@ export class Game {
                         }
                         
                         // Если застряли слишком долго - пробуем обход
+                        // ===== ФИКС «юниты едут хрен пойми куда, в сторону от приказа» =====
+                        // Раньше при застревании детour ПЕРЕЗАПИСЫВАЛ цель приказа
+                        // (u.tx/u.ty = точка в 50px сбоку). Приказ игрока терялся,
+                        // юнит доедал до «обхода», сбрасывал tx/ty как выполненную
+                        // цель и останавливался совсем не там, куда его посылали.
+                        // Теперь приказ НЕ меняется никогда: делаем только боковой
+                        // сдвиг ПОЗИЦИИ вокруг исходной цели (сохранённой в
+                        // orderOrigin) и продолжаем путь туда же.
                         if (u.stuckCounter > 30) {
-                            // ИСПРАВЛЕНИЕ «артиллерия крутится на месте и не едет»:
-                            // раньше детour ПЕРЕЗАПИСЫВАЛ цель приказа (tx/ty) коротким
-                            // шагом в сторону — приказ терялся, а попытка «вернуть» его
-                            // зацикливала арту между двумя точками. Теперь приказ при
-                            // застревании НЕ меняется вообще: делаем лишь короткий
-                            // боковой СДВИГ ПОЗИЦИИ (шаг в сторону), после чего юнит
-                            // продолжает движение к исходной точке приказа.
-                            if (u.aoe) {
-                                const toGoal = Math.atan2(u.ty - u.y, u.tx - u.x);
-                                if (u.detourSide === undefined) {
-                                    u.detourSide = Math.random() > 0.5 ? 1 : -1;
-                                }
-                                const sideAngle = toGoal + u.detourSide * Math.PI / 2;
-                                const step = 30;
-                                const sx = u.x + Math.cos(sideAngle) * step;
-                                const sy = u.y + Math.sin(sideAngle) * step;
-                                if (!this.isBlockedForVehicle(sx, sy, u)) {
-                                    u.x = sx; u.y = sy;
-                                } else {
-                                    // в другую сторону
-                                    const sa2 = toGoal - u.detourSide * Math.PI / 2;
-                                    const bx = u.x + Math.cos(sa2) * step;
-                                    const by = u.y + Math.sin(sa2) * step;
-                                    if (!this.isBlockedForVehicle(bx, by, u)) { u.x = bx; u.y = by; }
-                                }
-                                u.stuckCounter = 0;
-                            } else {
-                                // Обычные юниты: классический обходной манёвр
-                                const angle = Math.atan2(u.ty - u.y, u.tx - u.x);
-                                const detourAngle = angle + (Math.random() > 0.5 ? Math.PI / 2 : -Math.PI / 2);
-                                const detourDist = 50;
-                                u.tx = u.x + Math.cos(detourAngle) * detourDist;
-                                u.ty = u.y + Math.sin(detourAngle) * detourDist;
-                                u.stuckCounter = 0;
+                            // Помним исходную точку приказа (выдаётся один раз)
+                            if (u.orderOrigin === undefined) {
+                                u.orderOrigin = { x: u.tx, y: u.ty };
                             }
+                            // Стабильная сторона обхода для этого приказа
+                            if (u.detourSide === undefined) {
+                                u.detourSide = ((u.id || '').toString().charCodeAt(0) % 2) ? 1 : -1;
+                            }
+                            const toGoal = Math.atan2(u.orderOrigin.y - u.y, u.orderOrigin.x - u.x);
+                            const step = u.aoe ? 30 : 40;
+                            let moved = false;
+                            for (const s of [u.detourSide, -u.detourSide]) {
+                                const a = toGoal + s * Math.PI / 2;
+                                const bx = u.x + Math.cos(a) * step;
+                                const by = u.y + Math.sin(a) * step;
+                                if (!this.isBlockedForVehicle(bx, by, u) &&
+                                    !(u.aoe ? false : this.isCityZoneBlockedFor(bx, by, u))) {
+                                    u.x = bx; u.y = by; moved = true; break;
+                                }
+                            }
+                            // Совсем в тупике — шаг назад вдоль приказа
+                            if (!moved) {
+                                const bx = u.x - Math.cos(toGoal) * step;
+                                const by = u.y - Math.sin(toGoal) * step;
+                                if (!this.isBlockedForVehicle(bx, by, u)) { u.x = bx; u.y = by; }
+                            }
+                            u.stuckCounter = 0;
                         }
 
                         // Движение к цели приказа
@@ -590,7 +601,33 @@ export class Game {
                     u.stuckCounter = 0;
                 }
             }
+
+            // ===== РАЗДВИГАЮЩАЯ СЕПАРАЦИЯ =====
+            // Юниты (особенно техника) раньше буквально вставали друг в друга:
+            // приказы «перетягивали» соседей, из-за чего колонна расходилась
+            // черт знает куда. Теперь каждый юнит, имеющий приказ движения,
+            // мягко расталкивает стоящих на его пути союзников в стороны —
+            // они сходят с трассы, но свой приказ НЕ теряют.
+            this.applySeparation(u);
         });
+    }
+
+    applySeparation(u) {
+        if (u.hp <= 0) return;
+        const hasOrder = (u.tx !== undefined) || !!u.retreatOrder || !!u.moveOrder;
+        if (!hasOrder) return;
+        const minGap = (u.aoe || u.type === 'infantry') ? 16 : 24;
+        for (const o of this.units) {
+            if (o === u || o.hp <= 0 || o.faction !== u.faction) continue;
+            const dx = o.x - u.x, dy = o.y - u.y;
+            const d = Math.hypot(dx, dy);
+            if (d >= minGap || d < 0.001) continue;
+            // Толкаем соседа вдоль линии от нас к нему
+            const push = (minGap - d) * 0.5;
+            const nx = o.x + (dx / d) * push;
+            const ny = o.y + (dy / d) * push;
+            if (!this.isBlockedForVehicle(nx, ny, o)) { o.x = nx; o.y = ny; }
+        }
     }
 
     getSpeedModifier(u) {
