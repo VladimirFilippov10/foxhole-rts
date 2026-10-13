@@ -1438,11 +1438,9 @@ function drawBuilding(ctx, b, cam) {
     if (b.type && b.type.startsWith('bunker_')) {
         const sz = b.type === 'bunker_light' ? 30 : b.type === 'bunker_medium' ? 38 : 46;
         
-        // Отладка
-        if (!b._debugLogged) {
-            console.log(`🏗️ Рендеринг бункера: ${b.type}, позиция: (${Math.floor(x)}, ${Math.floor(y)}), строительство: ${b.isBuilding}, прогресс: ${b.buildProgress || 0}%`);
-            b._debugLogged = true;
-        }
+        // ===== УБРАНА ОТЛАДКА («красная/последняя строчка» в консоли) =====
+        // Этот console.log на каждый бункер засорял лог и выглядел как
+        // «висящая ошибка» в конце консоли. Рендерер не должен логировать.
         
         // Если бункер строится - показываем процесс строительства
         if (b.isBuilding) {
