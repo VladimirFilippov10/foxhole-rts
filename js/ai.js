@@ -22,7 +22,7 @@ export class AI {
         this.defenseMode = true; // Начинаем в оборонительном режиме
         this.lastAttackTime = 0;
         this.accumulatedForces = 0; // Счётчик накопленных сил
-        this.attackThreshold = 12; // Увеличен порог для начала атаки
+        this.attackThreshold = 6; // Порог накопления сил для атаки (был 12 — ИИ был пассивным)
         this.artilleryPositions = []; // Позиции для артиллерии
 
         // ===== ЛОГИСТИКА ИИ =====
@@ -132,6 +132,145 @@ export class AI {
         if (!spawnedThisTick) this.defensiveReactions();
     }
     
+    // ===== Активное расширение: юниты ИИ без приказа сами идут захватывать точки =====
+    // Раньше этих методов НЕ СУЩЕСТВОВАЛО, хотя они вызывались в updateInner().
+    // Это роняло весь цикл ИИ (TypeError: this.expandAndCapture is not a function),
+    // из-за чего бот «строил технику, но не захватывал точки».
+    expandAndCapture() {
+        // Каждые ~2 секунды отправляем свободных юнитов на ближайшие
+        // нейтральные или вражеские точки
+        if (this.timer % 120 !== 0) return;
+
+        const targets = this.G.cps.filter(c => c.owner !== this.G.ai);
+        if (targets.length === 0) return;
+
+        const idle = this.G.units.filter(u =>
+            u.faction === this.G.ai && u.hp > 0 &&
+            u.tx === undefined && !u.aoe &&
+            u.type !== 'truck' && u.type !== 'fuel_truck' &&
+            u.type !== 'engineer' && u.type !== 'flatbed'
+        );
+        if (idle.length === 0) return;
+
+        // Сортируем цели: нейтральные ближе всего — приоритет, затем слабые вражеские
+        const sorted = targets.slice().sort((a, b) => {
+            const na = (a.owner === 'neutral' ? -1000 : 0);
+            const nb = (b.owner === 'neutral' ? -1000 : 0);
+            return na - nb;
+        });
+
+        // Отправляем до 6 свободных юнитов за раз, распределяя по точкам
+        const squadSize = Math.min(6, idle.length);
+        for (let i = 0; i < squadSize; i++) {
+            const u = idle[i];
+            const cp = sorted[i % Math.min(sorted.length, 3)]; // делим на 2-3 ближайшие точки
+            u.tx = cp.x + (Math.random() - 0.5) * cp.radius;
+            u.ty = cp.y + (Math.random() - 0.5) * cp.radius;
+            u.captureTarget = cp;
+        }
+    }
+
+    // Угрожает ли точке враг (юниты рядом или в приближении)?
+    isPointThreatened(cp) {
+        return this.G.units.some(u =>
+            u.faction === this.G.faction && u.hp > 0 &&
+            dist(u.x, u.y, cp.x, cp.y) < cp.radius + 180
+        );
+    }
+
+    // ===== Гарнизон: держим минимум 1 юнита на каждой важной захваченной точке =====
+    maintainGarrisons() {
+        if (this.timer % 300 !== 0) return; // пересмотр раз в 5 секунд
+
+        const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
+
+        // Освобождаем юнитов, чья точка больше не принадлежит ИИ
+        for (const [cpId, units] of this.garrison.entries()) {
+            const cp = this.G.cps.find(c => (c.id || c.name) === cpId);
+            if (!cp || cp.owner !== this.G.ai) {
+                units.forEach(u => { u.garrisonedAt = null; });
+                this.garrison.delete(cpId);
+            }
+        }
+
+        for (const cp of aiPoints) {
+            const key = cp.id || cp.name;
+            const current = (this.garrison.get(key) || []).filter(u =>
+                u.hp > 0 && u.faction === this.G.ai && dist(u.x, u.y, cp.x, cp.y) <= cp.radius + 40
+            );
+            this.garrison.set(key, current);
+
+            const base = this.G.cps.find(c => c.owner === this.G.ai);
+            const dBase = base ? dist(base.x, base.y, cp.x, cp.y) : 0;
+            const desired = (cp === base) ? 2 : (dBase < 700 ? 1 : 1);
+
+            if (current.length >= desired) continue;
+
+            // Кого послать в гарнизон?
+            const candidates = this.G.units.filter(u =>
+                u.faction === this.G.ai && u.hp > 0 && !u.aoe &&
+                u.type !== 'truck' && u.type !== 'fuel_truck' &&
+                u.type !== 'engineer' && u.type !== 'flatbed' &&
+                !u.garrisonedAt && u.isScout !== true
+            ).sort((a, b) => dist(a.x, a.y, cp.x, cp.y) - dist(b.x, b.y, cp.x, cp.y));
+
+            const need = desired - current.length;
+            for (let i = 0; i < need && i < candidates.length; i++) {
+                const u = candidates[i];
+                u.garrisonedAt = key;
+                u.tx = cp.x + (Math.random() - 0.5) * cp.radius * 0.6;
+                u.ty = cp.y + (Math.random() - 0.5) * cp.radius * 0.6;
+                current.push(u);
+            }
+            if (need > 0) this.garrison.set(key, current);
+        }
+
+        // Гарнизонные юниты без приказа — возвращаем на свою точку
+        for (const [key, units] of this.garrison.entries()) {
+            const cp = this.G.cps.find(c => (c.id || c.name) === key);
+            if (!cp || cp.owner !== this.G.ai) continue;
+            units.forEach(u => {
+                if (u.hp > 0 && u.tx === undefined && dist(u.x, u.y, cp.x, cp.y) > cp.radius + 60) {
+                    u.tx = cp.x + (Math.random() - 0.5) * cp.radius * 0.6;
+                    u.ty = cp.y + (Math.random() - 0.5) * cp.radius * 0.6;
+                }
+            });
+        }
+    }
+
+    // ===== Логистика ИИ: ремонтники / БК / топливо к нуждающейся технике =====
+    manageLogistics() {
+        if (this.timer % 90 !== 0) return; // приказ раз в 1.5 секунды
+
+        const sendToNeedy = (logType, predicate) => {
+            const vehicles = this.G.units.filter(u =>
+                u.faction === this.G.ai && u.hp > 0 && u.type !== 'infantry' &&
+                u.type !== logType && predicate(u)
+            ).sort((a, b) => a.hp / (a.maxHp || 1) - b.hp / (b.maxHp || 1));
+            if (vehicles.length === 0) return;
+
+            const needy = vehicles[0];
+            const helpers = this.G.units.filter(u =>
+                u.faction === this.G.ai && u.type === logType && u.hp > 0
+            ).sort((a, b) => dist(a.x, a.y, needy.x, needy.y) - dist(b.x, b.y, needy.x, needy.y));
+            if (helpers.length === 0) return;
+
+            const h = helpers[0];
+            if (h.tx !== undefined && dist(h.x, h.y, needy.x, needy.y) < 60) return; // уже рядом
+            h.tx = needy.x + (Math.random() - 0.5) * 20;
+            h.ty = needy.y + (Math.random() - 0.5) * 20;
+        };
+
+        // Инженер — к технике с низким HP
+        sendToNeedy('engineer', u => u.hp < (u.maxHp || 100) * 0.6);
+        // Грузовик — к технике с кончающимся БК
+        sendToNeedy('truck', u => u.ammo !== undefined && u.maxAmmo !== undefined && u.ammo < u.maxAmmo * 0.3);
+        // Бензовоз — к технике с кончающимся топливом
+        sendToNeedy('fuel_truck', u => u.fuel !== undefined && u.maxFuel !== undefined && u.fuel < u.maxFuel * 0.3);
+        // Flatbed — к артиллерии (снаряды)
+        sendToNeedy('flatbed', u => !!u.aoe);
+    }
+
     defensiveReactions() {
         // Если свои территории под угрозой - отправляем свободных юнитов защищать
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
@@ -461,8 +600,8 @@ export class AI {
     }
 
     strategicBehavior() {
-        // Переключение между режимами каждые 3000 тиков (было 2000)
-        if (this.timer % 3000 === 0) {
+        // Переключение между режимами каждые 1500 тиков (~25 сек; было 3000 — ИИ засиживался в обороне)
+        if (this.timer % 1500 === 0) {
             this.defenseMode = !this.defenseMode;
             aiLog(`[AI][MODE] т.${this.timer}: переключение режима -> ${this.defenseMode ? 'ОБОРОНА' : 'АТАКА'} (по таймеру)`);
         }
@@ -471,26 +610,40 @@ export class AI {
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai).length;
         const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction).length;
         
-        // Если у игрока больше точек - переходим в оборону
-        if (playerPoints > aiPoints + 2 && !this.defenseMode) {
+        // Если у игрока ЗНАЧИТЕЛЬНО больше точек - переходим в оборону
+        // (раньше порог был +2 — ИИ уходил в оборону слишком рано и «не захватывал точки»)
+        if (playerPoints > aiPoints + 4 && !this.defenseMode) {
             this.defenseMode = true;
             aiLog(`[AI][MODE] т.${this.timer}: принудительная ОБОРОНА (точки ИИ=${aiPoints}, игрока=${playerPoints})`);
         }
+
+        // Активность: если есть численное превосходство свободных боёв над гарнизонами —
+        // сами ищем цель и атакуем, не дожидаясь накопления по таймеру
+        const idleAttackers = this.G.units.filter(u =>
+            u.faction === this.G.ai && u.hp > 0 && !u.aoe && u.tx === undefined &&
+            u.type !== 'truck' && u.type !== 'fuel_truck' &&
+            u.type !== 'engineer' && u.type !== 'flatbed'
+        ).length;
+        if (!this.defenseMode && idleAttackers >= 4 && this.timer - this.lastAttackTime > 1800) {
+            this.lastAttackTime = this.timer;
+            this.launchAttack();
+        }
         
-        // Стратегия накопления сил и атаки (более консервативная)
-        if (this.accumulatedForces >= this.attackThreshold && this.timer - this.lastAttackTime > 6000) {
+        // Стратегия накопления сил и атаки
+        if (this.accumulatedForces >= this.attackThreshold && this.timer - this.lastAttackTime > 3600) {
             this.defenseMode = false;
             this.lastAttackTime = this.timer;
             this.accumulatedForces = 0; // Сбрасываем счётчик после атаки
             this.launchAttack();
         } else if (this.accumulatedForces >= this.attackThreshold) {
-            aiLog(`[AI][ATTACK] т.${this.timer}: силы накоплены (${this.accumulatedForces}), но атака отложена — перезарядка после прошлой атаки ${this.timer - this.lastAttackTime}/6000 тиков`);
+            aiLog(`[AI][ATTACK] т.${this.timer}: силы накоплены (${this.accumulatedForces}), но атака отложена — перезарядка после прошлой атаки ${this.timer - this.lastAttackTime}/3600 тиков`);
         }
         
-        // Если у нас больше точек и прошло достаточно времени - атакуем (реже)
-        if (aiPoints > playerPoints + 3 && this.timer - this.lastAttackTime > 5000) {
+        // Если у нас больше точек и прошло достаточно времени - атакуем
+        if (aiPoints > playerPoints + 1 && this.timer - this.lastAttackTime > 3000) {
             this.defenseMode = false;
             this.lastAttackTime = this.timer;
+            this.launchAttack();
         }
     }
     
@@ -589,6 +742,27 @@ export class AI {
                 }
             }
         });
+
+        // Агрессивная артиллерия: если у ИИ нет ни одной точки-цели игрока в зоне
+        // досягаемости (например, игрок ещё не захватил нейтральные точки), арта
+        // сама выдвигается к ближайшей нейтральной/вражеской точке, чтобы начать
+        // обстрел, а не стоит вечно на базе.
+        const anyTargetable = playerPoints.length > 0;
+        if (!anyTargetable) {
+            const pushTargets = this.G.cps.filter(c => c.owner !== this.G.ai);
+            if (pushTargets.length > 0) {
+                artillery.forEach(art => {
+                    if (art.tx !== undefined || art.moveOrder) return; // уже едет
+                    const near = pushTargets.reduce((best, cp) =>
+                        dist(art.x, art.y, cp.x, cp.y) < dist(art.x, art.y, best.x, best.y) ? cp : best);
+                    const a = Math.atan2(near.y - art.y, near.x - art.x);
+                    const parkDist = Math.max(near.radius + 40, art.range - 80);
+                    art.moveOrder = { x: near.x - Math.cos(a) * parkDist, y: near.y - Math.sin(a) * parkDist };
+                    art.tx = art.moveOrder.x;
+                    art.ty = art.moveOrder.y;
+                });
+            }
+        }
     }
 
     sendEscortToArtillery(artillery) {

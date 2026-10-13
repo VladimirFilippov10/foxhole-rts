@@ -364,6 +364,33 @@ function updateSelInfo() {
     }
 }
 
+// ===== Приказ движения (ПКМ / двойной клик / режим движения) =====
+// ИСПРАВЛЕНИЕ БАГА «артиллерия игрока исчезает после начала движения»:
+// раньше всем юнитам (включая арту) выдавалось построение со смещением
+// (col - cols/2)*25. Для ОДНОГО выбранного юнита смещение = -12.5px — цель
+// оказывалась почти под ногами, и арта с её логикой отъезда (retreatOrder)
+// бесконечно переставляла приказ, «ехала на месте» и в итоге останавливалась
+// у стены обороны, где её расстреливали — визуально она «пропадала».
+// Теперь: одиночные юниты и артиллерия идут ТОЧНО в точку клика (смещение 0),
+// при получении приказа игроком старые AI-приказы отъезда/выдвижения сбрасываются.
+function issueMoveOrder(selUnits, worldX, worldY) {
+    const cols = Math.ceil(Math.sqrt(selUnits.length));
+    selUnits.forEach((u, i) => {
+        const row = Math.floor(i / cols);
+        const col = i % cols;
+        // Строй только для группы НЕ-артиллерии; одиночный юнит и арта — точно в клик
+        const offset = (selUnits.length > 1 && !u.aoe) ? 25 : 0;
+        u.tx = worldX + (col - cols / 2) * offset;
+        u.ty = worldY + (row - cols / 2) * offset;
+        if (u.aoe) {
+            // Сбрасываем прежние приказы отъезда/выдвижения (в т.ч. выданные ИИ-логикой)
+            u.retreatOrder = null;
+            u.moveOrder = null;
+            u.stuckCounter = 0;
+        }
+    });
+}
+
 // Input handlers
 function handleMouseDown(e) {
     if (!game) return;
@@ -380,13 +407,7 @@ function handleMouseDown(e) {
     if (e.button === 2) {
         if (game.selected.length > 0) {
             const selUnits = game.units.filter(u => game.selected.includes(u.id));
-            const cols = Math.ceil(Math.sqrt(selUnits.length));
-            selUnits.forEach((u, i) => {
-                const row = Math.floor(i / cols);
-                const col = i % cols;
-                u.tx = worldX + (col - cols / 2) * 25;
-                u.ty = worldY + (row - cols / 2) * 25;
-            });
+            issueMoveOrder(selUnits, worldX, worldY);
             // Add move indicator particles
             game.addParticles(worldX, worldY, '#22c55e', 5);
         }
@@ -450,17 +471,11 @@ function handleMouseDown(e) {
     if (isDouble || game.moveMode) {
         if (game.selected.length > 0) {
             const selUnits = game.units.filter(u => game.selected.includes(u.id));
-            const cols = Math.ceil(Math.sqrt(selUnits.length));
-            selUnits.forEach((u, i) => {
-                const row = Math.floor(i / cols);
-                const col = i % cols;
-                u.tx = worldX + (col - cols / 2) * 25;
-                u.ty = worldY + (row - cols / 2) * 25;
-            });
-            if (game.moveMode) {
-                game.moveMode = false;
-                document.getElementById('modeIndicator').classList.add('hidden');
-            }
+            issueMoveOrder(selUnits, worldX, worldY);
+        }
+        if (game.moveMode) {
+            game.moveMode = false;
+            document.getElementById('modeIndicator').classList.add('hidden');
         }
         return;
     }
@@ -498,6 +513,25 @@ window.toggleMoveMode = function() {
     document.getElementById('modeIndicator').classList.toggle('hidden', !game.moveMode);
 };
 
+// ===== Вкладки производства: Пехота / Техника / Снабжение / Поддержка =====
+const PRODUCTION_TABS = [
+    { id: 'infantry',   label: '🔫 Пехота' },
+    { id: 'vehicles',   label: '🚗 Техника' },
+    { id: 'supply',     label: '📦 Снабжение' },
+    { id: 'support',    label: '🎯 Поддержка' },
+];
+
+// Раскладка типов юнитов по вкладкам (для обеих фракций)
+const TAB_TYPES = {
+    infantry: ['infantry'],
+    vehicles: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska',
+               'hatchet', 'scorpion', 'nemesis', 'falchion', 'hoplite'],
+    supply:   ['truck', 'fuel_truck', 'engineer', 'flatbed'],
+    support:  ['warden_artillery', 'colonial_artillery'], // пока только арта
+};
+
+let factoryTab = 'infantry';
+
 function openFactoryMenu(factory, mx, my) {
     factoryMenuOpen = true;
     const menu = document.getElementById('factoryMenu');
@@ -508,14 +542,48 @@ function openFactoryMenu(factory, mx, my) {
     // Запоминаем текущий завод и делаем заголовок окна перетаскиваемым
     factoryMenuFactory = factory;
     initDraggableWindow(menu);
-    
+
+    // Контейнер вкладок создаём один раз
     const grid = document.getElementById('unitGrid');
+    let tabsEl = document.getElementById('factoryTabs');
+    if (!tabsEl) {
+        tabsEl = document.createElement('div');
+        tabsEl.id = 'factoryTabs';
+        tabsEl.style.cssText = 'display:flex;gap:4px;margin-bottom:0.6rem;flex-wrap:wrap;';
+        menu.insertBefore(tabsEl, grid);
+    }
+    renderFactoryTabs(tabsEl, factory, grid);
+}
+
+function renderFactoryTabs(tabsEl, factory, grid) {
+    tabsEl.innerHTML = '';
+    PRODUCTION_TABS.forEach(tab => {
+        const btn = document.createElement('button');
+        btn.textContent = tab.label;
+        const active = tab.id === factoryTab;
+        btn.style.cssText = `padding:4px 10px;border-radius:6px;font-size:0.72rem;cursor:pointer;` +
+            (active ? 'background:#2563eb;color:#fff;border:1px solid #60a5fa;'
+                    : 'background:rgba(17,24,39,0.9);color:#d1d5db;border:1px solid #374151;');
+        btn.onclick = () => {
+            factoryTab = tab.id;
+            renderFactoryTabs(tabsEl, factory, grid);
+        };
+        tabsEl.appendChild(btn);
+    });
+    renderTabUnits(grid, factory);
+}
+
+function renderTabUnits(grid, factory) {
     grid.innerHTML = '';
-    
-    // Add infantry first
-    const allUnits = ['infantry', ...FACTION_VEHICLES[game.faction]];
-    
-    allUnits.forEach(type => {
+    const factionPool = ['infantry', ...FACTION_VEHICLES[game.faction]];
+    const types = (TAB_TYPES[factoryTab] || []).filter(t => factionPool.includes(t));
+
+    if (types.length === 0) {
+        grid.innerHTML = '<div style="color:#9ca3af;font-size:0.75rem;">Нет доступных юнитов в этой вкладке</div>';
+        return;
+    }
+
+    types.forEach(type => {
         const info = VEHICLE_INFO[type];
         const canAfford = game.res.s >= info.cost.s && game.res.c >= info.cost.c && game.res.m >= info.cost.m;
         const card = document.createElement('div');

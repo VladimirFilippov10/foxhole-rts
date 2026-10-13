@@ -3,6 +3,16 @@ import { dist, distToSeg, GAME_MODES, SUPPLY_SYSTEM } from './constants.js';
 import { AI } from './ai.js';
 import { createVehicle } from './vehicles.js';
 
+// Логирование (console.log) — используется и здесь, и в ai.js.
+// ИСПРАВЛЕНИЕ: раньше game.js вызывал aiLog(...), который был определён только
+// внутри модуля ai.js как локальная функция (не экспортировался). Это давало
+// "ReferenceError: aiLog is not defined" ровно в тот момент, когда артиллерия
+// прибывала на позицию после движения — игровой цикл падал, и юнит «пропадал».
+function aiLog(...args) {
+    if (typeof window !== 'undefined' && window.AI_LOG === false) return;
+    console.log(...args);
+}
+
 export class Game {
     constructor(faction, gameMode = 'normal') {
         this.faction = faction;
@@ -431,11 +441,17 @@ export class Game {
                         // Если застряли слишком долго - пробуем обход
                         if (u.stuckCounter > 30) {
                             if (u.aoe) {
-                                // Артиллерия не ездит кругами — при застревании она
-                                // просто останавливается и продолжает стрелять с места
-                                u.tx = undefined;
-                                u.ty = undefined;
-                                u.retreatOrder = null;
+                                // ИСПРАВЛЕНИЕ: раньше арта при застревании полностью
+                                // теряла приказ (tx=undefined) и «оставалась стоять»
+                                // посреди карты — визуально это выглядело как исчезновение
+                                // после начала движения. Теперь она получает новый вектор
+                                // со смещением в сторону и доезжает до цели/огневой позиции.
+                                const angle = Math.atan2(u.ty - u.y, u.tx - u.x);
+                                const detourAngle = angle + (Math.random() > 0.5 ? Math.PI / 3 : -Math.PI / 3);
+                                const d = dist(u.x, u.y, u.tx, u.ty);
+                                const step = Math.min(60, Math.max(20, d));
+                                u.tx = u.x + Math.cos(detourAngle) * step;
+                                u.ty = u.y + Math.sin(detourAngle) * step;
                                 u.stuckCounter = 0;
                             } else {
                                 // Пытаемся обойти препятствие
@@ -490,11 +506,15 @@ export class Game {
                         } else {
                             // Если заблокировано - увеличиваем счётчик застревания
                             u.stuckCounter = (u.stuckCounter || 0) + 5;
-                            // Артиллерия не кружит у стены обороны — встаёт на место
+                            // ИСПРАВЛЕНИЕ «исчезновения артиллерии»: раньше при упоре в
+                            // стену обороны приказ снимался полностью (tx=undefined) — арта
+                            // вставала посреди карты и выглядела «пропавшей». Теперь она
+                            // смещается вдоль стены и обходит её, сохраняя цель движения.
                             if (blockedByDefense && u.aoe) {
-                                u.tx = undefined;
-                                u.ty = undefined;
-                                u.retreatOrder = null;
+                                const angle = Math.atan2(u.ty - u.y, u.tx - u.x);
+                                const slideAngle = angle + (Math.random() > 0.5 ? Math.PI / 2 : -Math.PI / 2);
+                                u.tx = u.x + Math.cos(slideAngle) * 80;
+                                u.ty = u.y + Math.sin(slideAngle) * 80;
                                 u.stuckCounter = 0;
                             }
                         }
