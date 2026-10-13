@@ -191,17 +191,13 @@ export class Game {
                 u.retreatDecisionAt = undefined;
             }
 
-            // Артиллерия сама не ездит кругами: без приказа она стоит на месте
-            // (стрельба обрабатывается ниже по aoeTarget / автоатаке)
-            // ИСПРАВЛЕНИЕ «арта крутится на месте и почти не едет»: раньше по
-            // пути к цели арта останавливалась у стены обороны города
-            // (isCityZoneBlockedFor) или у чужих юнитов, а детour-логика
-            // каждые ~30 тиков разворачивала её на ±60°, из-за чего она
-            // вращалась вокруг своей цели вместо движения. Теперь артиллерия
-            // игнорирует блокировку зоной обороны при движении (она всё равно
-            // не может стрелять в упор — minRange сам отодвинет её назад) и
-            // при застревании делает ОДИН плавный шаг в сторону, продолжая
-            // движение к цели.
+            // ===== ФИКС «ЮНИТЫ ПРЫГАЮТ ВЛЕВО-ВПРАВО, А НЕ ЕДУТ» =====
+            // Раньше боковые обходы (прыжки влево-вправо каждые ~30 тиков)
+            // выполнялись скачком на 30-40 px за один кадр, тогда как обычный
+            // шаг движения составлял всего ~1-2 px/тик. Визуально это
+            // выглядело как «зигзаг прыжками». Теперь обход — это тоже
+            // обычный ПЛАВНЫЙ ШАГ с нормальной скоростью: позиция никогда не
+            // телепортируется, юнит просто плавно огибает препятствие дугой.
             // Прибытие: снимаем отметку «отводится на базу», иначе юнит не сможет
             // получить новые приказы (см. defensiveReactions / expandAndCapture).
             if (u.retreatToBase && dist(u.x, u.y, u.tx, u.ty) <= 15) {
@@ -214,6 +210,7 @@ export class Game {
                     u.tx = undefined;
                     u.ty = undefined;
                     u.detourSide = undefined;
+                    u.detourTicks = undefined;
                     u.stuckCounter = 0;
                     if (u.retreatOrder) {
                         aiLog(`[GAME][ARTILLERY] ${u.label}: отъехала на позицию (${Math.round(u.x)}, ${Math.round(u.y)})`);
@@ -481,6 +478,8 @@ export class Game {
                     if (u.canMove && !u.canMove()) {
                         u.tx = undefined; u.ty = undefined;
                     } else {
+                        // ФИКС «прыжков»: шаг обхода теперь такой же величины,
+                        // как обычный шаг движения — без телепортации вбок.
                         const step = Math.min(dA, (u.spd || 1) * 2);
                         const nx = u.x + (u.tx - u.x) / dA * step;
                         const ny = u.y + (u.ty - u.y) / dA * step;
@@ -490,15 +489,23 @@ export class Game {
                             if (u.useFuel) u.useFuel();
                         } else {
                             const side = u.detourSide ?? (u.detourSide = Math.random() > 0.5 ? 1 : -1);
-                            const a = Math.atan2(u.ty - u.y, u.tx - u.x) + side * Math.PI / 2;
+                            // Плавное огибание: направление = цель + 45° в сторону
+                            // обхода (было 90° чистым боком), шаг = обычный.
+                            const toGoal = Math.atan2(u.ty - u.y, u.tx - u.x);
+                            const a = toGoal + side * Math.PI / 4;
                             const bx = u.x + Math.cos(a) * step, by = u.y + Math.sin(a) * step;
-                            if (!this.isBlockedForVehicle(bx, by, u)) { u.x = bx; u.y = by; }
+                            if (!this.isBlockedForVehicle(bx, by, u)) {
+                                u.direction = a;
+                                u.x = bx; u.y = by;
+                                if (u.useFuel) u.useFuel();
+                            }
                         }
                     }
                 } else {
                     // Прибыли на позицию — приказ выполнен, снимаем его полностью,
                     // чтобы manageArtillery мог next тик выдать огонь/новый манёвр.
                     u.tx = undefined; u.ty = undefined; u.detourSide = undefined;
+                    u.detourTicks = undefined;
                     u.orderOrigin = undefined;
                     u.moveOrder = null; u.retreatOrder = null;
                 }
@@ -528,14 +535,13 @@ export class Game {
                         }
                         
                         // Если застряли слишком долго - пробуем обход
-                        // ===== ФИКС «юниты едут хрен пойми куда, в сторону от приказа» =====
-                        // Раньше при застревании детour ПЕРЕЗАПИСЫВАЛ цель приказа
-                        // (u.tx/u.ty = точка в 50px сбоку). Приказ игрока терялся,
-                        // юнит доедал до «обхода», сбрасывал tx/ty как выполненную
-                        // цель и останавливался совсем не там, куда его посылали.
-                        // Теперь приказ НЕ меняется никогда: делаем только боковой
-                        // сдвиг ПОЗИЦИИ вокруг исходной цели (сохранённой в
-                        // orderOrigin) и продолжаем путь туда же.
+                        // ===== ФИКС «ЮНИТЫ ПРЫГАЮТ ВЛЕВО-ВПРАВО» =====
+                        // Раньше здесь выполнялся МГНОВЕННЫЙ боковой телепорт на
+                        // 30-40 px каждые ~30 тиков — юнит «прыгал» влево-вправо.
+                        // Теперь вместо телепорта включается режим плавного
+                        // огибания (detourTicks): следующие ~90 тиков юнит шагает
+                        // под углом 45° к цели с ОБЫЧНОЙ скоростью, затем сам
+                        // возвращается на прямую к приказу. Приказ не меняется.
                         if (u.stuckCounter > 30) {
                             // Помним исходную точку приказа (выдаётся один раз)
                             if (u.orderOrigin === undefined) {
@@ -545,38 +551,68 @@ export class Game {
                             if (u.detourSide === undefined) {
                                 u.detourSide = ((u.id || '').toString().charCodeAt(0) % 2) ? 1 : -1;
                             }
-                            const toGoal = Math.atan2(u.orderOrigin.y - u.y, u.orderOrigin.x - u.x);
-                            const step = u.aoe ? 30 : 40;
-                            let moved = false;
-                            for (const s of [u.detourSide, -u.detourSide]) {
-                                const a = toGoal + s * Math.PI / 2;
-                                const bx = u.x + Math.cos(a) * step;
-                                const by = u.y + Math.sin(a) * step;
-                                if (!this.isBlockedForVehicle(bx, by, u) &&
-                                    !(u.aoe ? false : this.isCityZoneBlockedFor(bx, by, u))) {
-                                    u.x = bx; u.y = by; moved = true; break;
-                                }
-                            }
-                            // Совсем в тупике — шаг назад вдоль приказа
-                            if (!moved) {
-                                const bx = u.x - Math.cos(toGoal) * step;
-                                const by = u.y - Math.sin(toGoal) * step;
-                                if (!this.isBlockedForVehicle(bx, by, u)) { u.x = bx; u.y = by; }
-                            }
+                            u.detourTicks = 90; // ~1.5 секунды плавной дуги
                             u.stuckCounter = 0;
                         }
 
                         // Движение к цели приказа
                         const effectiveSpeed = u.spd * this.getSpeedModifier(u);
                         const r = effectiveSpeed / d;
-                        const nx = u.x + (u.tx - u.x) * r;
-                        const ny = u.y + (u.ty - u.y) * r;
-                        // Check buildings (vehicles only)
-                        const blockedByBuilding = this.isBlockedForVehicle(nx, ny, u);
-                        // Вражеская техника не может заехать на территорию города, пока цела оборона.
-                        const blockedByDefense = u.aoe ? false : this.isCityZoneBlockedFor(nx, ny, u);
+                        let nx = u.x + (u.tx - u.x) * r;
+                        let ny = u.y + (u.ty - u.y) * r;
 
-                        if (!blockedByBuilding && !blockedByDefense) {
+                        // Активный режим плавного обхода (после «застревания»)
+                        if (u.detourTicks && u.detourTicks > 0) {
+                            u.detourTicks--;
+                            const toGoalA = Math.atan2(u.ty - u.y, u.tx - u.x);
+                            const a = toGoalA + u.detourSide * Math.PI / 4;
+                            const ox = u.x + Math.cos(a) * effectiveSpeed;
+                            const oy = u.y + Math.sin(a) * effectiveSpeed;
+                            if (!this.isBlockedForVehicle(ox, oy, u) &&
+                                !(u.aoe ? false : this.isCityZoneBlockedFor(ox, oy, u))) {
+                                nx = ox; ny = oy;
+                            } else {
+                                // и в эту сторону нельзя — пробуем зеркальную
+                                const a2 = toGoalA - u.detourSide * Math.PI / 4;
+                                const ox2 = u.x + Math.cos(a2) * effectiveSpeed;
+                                const oy2 = u.y + Math.sin(a2) * effectiveSpeed;
+                                if (!this.isBlockedForVehicle(ox2, oy2, u) &&
+                                    !(u.aoe ? false : this.isCityZoneBlockedFor(ox2, oy2, u))) {
+                                    nx = ox2; ny = oy2;
+                                }
+                            }
+                        }
+
+                        // ===== ФИКС «ЮНИТЫ ПРЫГАЮТ ВЛЕВО-ВПРАВО» =====
+                        // Прямой шаг заблокирован (препятствие/оборона города) —
+                        // плавно огибаем: направление поворачиваем на 45° в сторону
+                        // обхода, но ШАГ остаётся обычным (effectiveSpeed). Никаких
+                        // боковых телепортаций на 30-40 px — юнит едет дугой.
+                        const blockedAhead = this.isBlockedForVehicle(nx, ny, u) ||
+                            (u.aoe ? false : this.isCityZoneBlockedFor(nx, ny, u));
+                        if (blockedAhead && !(u.detourTicks && u.detourTicks > 0)) {
+                            if (u.detourSide === undefined) {
+                                u.detourSide = ((u.id || '').toString().charCodeAt(0) % 2) ? 1 : -1;
+                            }
+                            const toGoalA = Math.atan2(u.ty - u.y, u.tx - u.x);
+                            let found = false;
+                            for (const s of [u.detourSide, -u.detourSide]) {
+                                const a = toGoalA + s * Math.PI / 4;
+                                const ox = u.x + Math.cos(a) * effectiveSpeed;
+                                const oy = u.y + Math.sin(a) * effectiveSpeed;
+                                if (!this.isBlockedForVehicle(ox, oy, u) &&
+                                    !(u.aoe ? false : this.isCityZoneBlockedFor(ox, oy, u))) {
+                                    nx = ox; ny = oy; found = true; break;
+                                }
+                            }
+                            if (!found) {
+                                // Оба варианта вбок тоже заблокированы — стоим,
+                                // счётчик застревания продолпит поиск обхода выше.
+                                u.stuckCounter = (u.stuckCounter || 0) + 5;
+                            }
+                        }
+
+                        if (nx !== u.x || ny !== u.y) {
                             u.direction = Math.atan2(ny - u.y, nx - u.x);
                             u.x = nx;
                             u.y = ny;
@@ -584,9 +620,6 @@ export class Game {
                             if (u.useFuel) {
                                 u.useFuel();
                             }
-                        } else {
-                            // Если заблокировано - увеличиваем счётчик застревания
-                            u.stuckCounter = (u.stuckCounter || 0) + 5;
                         }
 
                         u.lastX = u.x;
@@ -597,6 +630,7 @@ export class Game {
                     u.tx = undefined;
                     u.ty = undefined;
                     u.detourSide = undefined;
+                    u.detourTicks = undefined;
                     u.orderOrigin = undefined;
                     u.stuckCounter = 0;
                 }
