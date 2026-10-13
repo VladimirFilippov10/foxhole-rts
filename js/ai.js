@@ -98,15 +98,27 @@ export class AI {
             }
         }
 
-        // Спавн техники (с учётом доминирования)
-        if (this.timer % actualVehicleInterval === 0) {
-            if (this.G.canProduceUnit('vehicle', this.G.ai) && this.canAffordVehicle()) {
-                this.spawnVehicle();
-                this.accumulatedForces += 2; // Техника ценнее
-                spawnedThisTick = true;
-            } else {
-                aiLog(`[AI][SPAWN] т.${this.timer}: техника НЕ произведена (лимит=${this.G.canProduceUnit('vehicle', this.G.ai)}, ресурсы=${this.canAffordVehicle()})`);
-            }
+        // Спавн техники.
+        // ИСПРАВЛЕНИЕ ("в обороне не спавнит технику"): раньше производство
+        // техники было привязано к таймеру (timer % interval). В оборонительном
+        // режиме ИИ почти не терял технику в контратаках, её число быстро
+        // доходило до лимита — и таймерная проверка больше никогда не
+        // срабатывала в тот момент, когда слот освобождался. Техника в
+        // обороне фактически не производилась.
+        // Теперь правило: если ЕСТЬ возможность (свободный слот + ресурсы на
+        // самый дешёвый танк) — строим технику; если возможности нет — вместо
+        // техники строим пехоту (по обычному интервалу).
+        const canVehicleNow = this.G.canProduceUnit('vehicle', this.G.ai) && this.canAffordVehicle();
+        if (canVehicleNow) {
+            this.spawnVehicle();
+            this.accumulatedForces += 2; // Техника ценнее
+            spawnedThisTick = true;
+        } else if (this.timer % actualInfantryInterval !== 0 &&
+                   this.G.canProduceUnit('infantry', this.G.ai) && this.canAffordInfantry()) {
+            // Нет возможности для техники → компенсируем пехотой
+            this.spawnInfantrySquad();
+            this.accumulatedForces++;
+            spawnedThisTick = true;
         }
 
         // Активное расширение: юниты без приказа сами идут на ближайшие
@@ -200,7 +212,7 @@ export class AI {
             );
             this.garrison.set(key, current);
 
-            const base = this.G.cps.find(c => c.owner === this.G.ai);
+            const base = this.getAIMainBase();
             const dBase = base ? dist(base.x, base.y, cp.x, cp.y) : 0;
             const desired = (cp === base) ? 2 : (dBase < 700 ? 1 : 1);
 
@@ -295,10 +307,37 @@ export class AI {
         });
     }
     
+    // Категории юнитов (вместо отсутствующего поля category):
+    // 'infantry' | 'tank' | 'apc' | 'artillery' | 'supply' | 'engineer'
+    unitCategory(u) {
+        if (!u || !u.type) return 'other';
+        const t = u.type;
+        if (t === 'infantry') return 'infantry';
+        if (t.includes('artillery')) return 'artillery';
+        if (t === 'truck' || t === 'fuel_truck' || t === 'flatbed') return 'supply';
+        if (t === 'engineer') return 'engineer';
+        if (t === 'niska' || t === 'hoplite') return 'apc';
+        return 'tank';
+    }
+
+    // Главная база ИИ — точка захвата, рядом с которой стоит его town_hall.
+    getAIMainBase() {
+        const hall = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'town_hall');
+        if (hall) {
+            let best = null, bd = Infinity;
+            for (const cp of this.G.cps) {
+                const d = dist(hall.x, hall.y, cp.x, cp.y);
+                if (d < bd) { bd = d; best = cp; }
+            }
+            if (best && bd <= 250) return best;
+        }
+        return this.G.cps.find(c => c.owner === this.G.ai) || null;
+    }
+
     // Сколько бункеров должно стоять на точке — «линия обороны».
     // Чем ближе точка к базе ИИ, тем сильнее линия обороны.
     getDesiredBunkerCount(cp) {
-        const base = this.G.cps.find(c => c.owner === this.G.ai); // базовая точка ИИ
+        const base = this.getAIMainBase(); // ГЛАВНАЯ база ИИ (не первая попавшаяся его точка!)
         if (!base) return 1;
         const dBase = dist(base.x, base.y, cp.x, cp.y);
         const isMainBase = (cp === base);
@@ -323,7 +362,7 @@ export class AI {
 
     // Тип бункера по приоритету: у базы — тяжёлые, дальше — легче
     pickBunkerType(cp, index) {
-        const base = this.G.cps.find(c => c.owner === this.G.ai);
+        const base = this.getAIMainBase();
         const dBase = base ? dist(base.x, base.y, cp.x, cp.y) : 99999;
         const options = [];
         if (cp === base || dBase < 700) options.push('bunker_heavy', 'bunker_medium', 'bunker_light');
@@ -344,7 +383,14 @@ export class AI {
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
         if (aiPoints.length === 0) return;
 
-        // Считаем существующие бункеры ИИ рядом с каждой точкой
+        // Идентификация ГЛАВНОЙ базы ИИ: точка, рядом с которой стоит его town_hall.
+        // (cps в начале массива — обе главные базы, поэтому нельзя брать просто
+        //  первую точку ИИ из списка — иначе оборона строилась не у своей базы)
+        const aiMainBase = this.getAIMainBase();
+
+        // Считаем существующие бункеры ИИ рядом с каждой точкой.
+        // ВАЖНО: считаем и недостроенные (hp<=0) — иначе ИИ ставил бы бункер
+        // на одно и то же место каждые 2 секунды, спамя постройку.
         const counts = new Map();
         for (const cp of aiPoints) {
             const n = this.G.buildings.filter(b =>
@@ -361,8 +407,7 @@ export class AI {
             const need = this.getDesiredBunkerCount(cp);
             const deficit = need - have;
             if (deficit <= 0) continue;
-            const base = this.G.cps.find(c => c.owner === this.G.ai);
-            const dBase = base ? dist(base.x, base.y, cp.x, cp.y) : 0;
+            const dBase = aiMainBase ? dist(aiMainBase.x, aiMainBase.y, cp.x, cp.y) : 0;
             const score = deficit * 100 - dBase * 0.1; // ближе к базе = выше приоритет
             if (score > bestScore) { bestScore = score; best = cp; }
         }
