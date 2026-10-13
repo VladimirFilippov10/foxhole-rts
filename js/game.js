@@ -448,7 +448,52 @@ export class Game {
             
             // Move to target - can move even if enemy is nearby but out of range
             // Only stop moving if actively attacking
-            if (!isAttacking && u.tx !== undefined) {
+            // Фикс «пехота толпится и топчется у базы»: юнит, который стоит на
+            // месте и стреляет в ближайшего врага (вне приказа), НЕ должен
+            // считать себя «застрявшим» — раньше stuckCounter рос просто от
+            // простоя, каждые ~30 тиков выдавался рандомный детour-приказ и
+            // юнит начинал крутиться/уезжать по кругу вместо боя.
+            if (isAttacking && u.tx === undefined) {
+                u.stuckCounter = 0;
+                u.lastX = u.x;
+                u.lastY = u.y;
+            }
+
+            // ===== ФИКС «вражеская артиллерия не ездит и не обстреливает точки» =====
+            // Раньше арта ИИ, выдвигаясь к огневой позиции, упиралась в зону
+            // обороны города (isCityZoneBlockedFor) и застревала: stuckCounter-обход
+            // давал рандомные развороты, приказ терялся. Теперь у артиллерии —
+            // приоритетный прямой проход к цели приказа (она всё равно не может
+            // стрелять ближе minRange — стрельба сама отодвинет её назад).
+            if (!isAttacking && u.aoe && u.tx !== undefined) {
+                const dA = dist(u.x, u.y, u.tx, u.ty);
+                if (dA > 5) {
+                    if (u.canMove && !u.canMove()) {
+                        u.tx = undefined; u.ty = undefined;
+                    } else {
+                        const step = Math.min(dA, (u.spd || 1) * 2);
+                        const nx = u.x + (u.tx - u.x) / dA * step;
+                        const ny = u.y + (u.ty - u.y) / dA * step;
+                        if (!this.isBlockedForVehicle(nx, ny, u)) {
+                            u.direction = Math.atan2(ny - u.y, nx - u.x);
+                            u.x = nx; u.y = ny;
+                            if (u.useFuel) u.useFuel();
+                        } else {
+                            const side = u.detourSide ?? (u.detourSide = Math.random() > 0.5 ? 1 : -1);
+                            const a = Math.atan2(u.ty - u.y, u.tx - u.x) + side * Math.PI / 2;
+                            const bx = u.x + Math.cos(a) * step, by = u.y + Math.sin(a) * step;
+                            if (!this.isBlockedForVehicle(bx, by, u)) { u.x = bx; u.y = by; }
+                        }
+                    }
+                } else {
+                    // Прибыли на позицию — приказ выполнен, снимаем его полностью,
+                    // чтобы manageArtillery мог next тик выдать огонь/новый манёвр.
+                    u.tx = undefined; u.ty = undefined; u.detourSide = undefined;
+                    u.moveOrder = null; u.retreatOrder = null;
+                }
+            }
+
+            if (!isAttacking && !u.aoe && u.tx !== undefined) {
                 const d = dist(u.x, u.y, u.tx, u.ty);
                 if (d > 5) {
                     // Проверка топлива
@@ -510,84 +555,8 @@ export class Game {
                             }
                         }
 
-                        u.lastX = u.x;
-                            u.lastY = u.y;
-                        }
-                        
-                        // Проверка застревания
-                        const movedDist = dist(u.x, u.y, u.lastX, u.lastY);
-                        if (movedDist < 0.5) {
-                            u.stuckCounter++;
-                        } else {
-                            u.stuckCounter = 0;
-                        }
-                        
-                        // Если застряли слишком долго - пробуем обход
-                        if (u.stuckCounter > 30) {
-                            // СМЕНА ПРИКАЗА (пользователем или ИИ) — старый
-                            // orderOrigin недостижим: забываем детour-состояние,
-                            // иначе юнит «зацикливается» между временной точкой
-                            // и несуществующей старой целью (фикс «арта не едет
-                            // к новой точке и крутится на месте»).
-                            if (u.orderOrigin !== undefined &&
-                                dist(u.x, u.y, u.orderOrigin.x, u.orderOrigin.y) > 600) {
-                                u.orderOrigin = undefined;
-                                u.detourSide = undefined;
-                            }
-                            if (u.aoe) {
-                                // ИСПРАВЛЕНИЕ «артиллерия крутится на месте и почти
-                                // не едет»: раньше каждый «застрявший» детour
-                                // перезаписывал u.tx/u.ty коротким шагом в сторону —
-                                // приказ терялся, арта описывала circle-траектории и
-                                // топталась. Теперь: исходная точка приказа сохраняется
-                                // (orderOrigin) и ВСЕГДА восстанавливается после шага
-                                // в сторону — арта просто едет к цели, огибая помеху.
-                                if (u.orderOrigin === undefined) {
-                                    u.orderOrigin = { x: u.tx, y: u.ty };
-                                }
-                                const ox = u.orderOrigin.x, oy = u.orderOrigin.y;
-                                const toGoal = Math.atan2(oy - u.y, ox - u.x);
-                                // сторона обхода фиксируется один раз на приказ
-                                if (u.detourSide === undefined) {
-                                    u.detourSide = Math.random() > 0.5 ? 1 : -1;
-                                }
-                                const detourAngle = toGoal + u.detourSide * Math.PI / 3;
-                                const step = 70;
-                                u.tx = u.x + Math.cos(detourAngle) * step;
-                                u.ty = u.y + Math.sin(detourAngle) * step;
-                                u.stuckCounter = 0;
-                            } else {
-                                // Пытаемся обойти препятствие
-                                const angle = Math.atan2(u.ty - u.y, u.tx - u.x);
-                                const detourAngle = angle + (Math.random() > 0.5 ? Math.PI / 2 : -Math.PI / 2);
-                                const detourDist = 50;
-                                u.tx = u.x + Math.cos(detourAngle) * detourDist;
-                                u.ty = u.y + Math.sin(detourAngle) * detourDist;
-                                u.stuckCounter = 0;
-                            }
-                        }
-                        
-                        u.lastX = u.x;
-                        u.lastY = u.y;
-                        
-                        // Проверяем, находится ли юнит на дороге
-                        const onRoad = this.isOnRoad(u.x, u.y);
-                        
-                        // Применяем модификаторы скорости
-                        let speedModifier = 1.0;
-                        if (onRoad) {
-                            speedModifier = 1.1; // +10% на дорогах для всех
-                            if (u.tracked) {
-                                speedModifier = 0.7; // -30% для гусеничных на дорогах
-                            }
-                        } else {
-                            speedModifier = 0.7; // -30% на земле для всех
-                            if (u.tracked) {
-                                speedModifier = 1.0; // Гусеничные не теряют скорость на земле
-                            }
-                        }
-                        
-                        const effectiveSpeed = u.spd * speedModifier;
+                        // Движение к цели приказа
+                        const effectiveSpeed = u.spd * this.getSpeedModifier(u);
                         const r = effectiveSpeed / d;
                         const nx = u.x + (u.tx - u.x) * r;
                         const ny = u.y + (u.ty - u.y) * r;
@@ -595,13 +564,11 @@ export class Game {
                         const blockedByBuilding = this.isBlockedForVehicle(nx, ny, u);
                         // Вражеская техника не может заехать на территорию города, пока цела оборона.
                         const blockedByDefense = u.aoe ? false : this.isCityZoneBlockedFor(nx, ny, u);
-                        
+
                         if (!blockedByBuilding && !blockedByDefense) {
-                            // Update direction based on movement
                             u.direction = Math.atan2(ny - u.y, nx - u.x);
                             u.x = nx;
                             u.y = ny;
-                            
                             // Расход топлива при движении
                             if (u.useFuel) {
                                 u.useFuel();
@@ -610,15 +577,30 @@ export class Game {
                             // Если заблокировано - увеличиваем счётчик застревания
                             u.stuckCounter = (u.stuckCounter || 0) + 5;
                         }
+
+                        u.lastX = u.x;
+                        u.lastY = u.y;
                     }
                 } else {
+                    // Достигли цели — сбрасываем приказ и детour-состояние
                     u.tx = undefined;
                     u.ty = undefined;
                     u.detourSide = undefined;
+                    u.orderOrigin = undefined;
                     u.stuckCounter = 0;
                 }
             }
         });
+    }
+
+    getSpeedModifier(u) {
+        const onRoad = this.isOnRoad(u.x, u.y);
+        if (onRoad) {
+            if (u.tracked) return 0.7;   // гусеничные на дороге медленнее
+            return 1.1;                  // колёсная техника/пехота быстрее
+        }
+        if (u.tracked) return 1.0;       // гусеничные в поле без штрафа
+        return 0.7;                      // остальные в поле медленнее
     }
 
     updateCapturePoints() {
@@ -685,24 +667,36 @@ export class Game {
         // Базовые лимиты + 3 за каждую точку
         this.unitLimits.infantry = 20 + playerPoints * 3;
         this.unitLimits.vehicles = 10 + playerPoints * 2;
+        this.unitLimits.combatVehicles = this.unitLimits.vehicles;
+        this.unitLimits.logistics = 4;
         
-        // Лимиты для ИИ
+        // Лимиты для ИИ (combatVehicles — только боевая техника, без логистики)
         this.aiUnitLimits = {
             infantry: 20 + aiPoints * 3,
             vehicles: 10 + aiPoints * 2,
+            combatVehicles: 10 + aiPoints * 2,
+            logistics: 4,
         };
     }
     
     canProduceUnit(type, faction) {
         const limits = faction === this.faction ? this.unitLimits : this.aiUnitLimits;
-        const units = this.units.filter(u => u.faction === faction);
-        
+        const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed'];
+        const units = this.units.filter(u => u.faction === faction && u.hp > 0);
+
         if (type === 'infantry') {
             const infantryCount = units.filter(u => u.type === 'infantry').length;
             return infantryCount < limits.infantry;
         } else {
-            const vehicleCount = units.filter(u => u.type !== 'infantry').length;
-            return vehicleCount < limits.vehicles;
+            // ИСПРАВЛЕНИЕ: раньше в «технику» попадали ВСЕ не-пехотные юниты,
+            // включая логистику (ремонтники/бензовозы/грузовики БК/flatbed).
+            // Логистика набивала лимит vehicles (10 + 2*точки) — и бот физически
+            // не мог производить боевую технику («не спавнит технику»,
+            // «техника=1 при пехоте=23»). Теперь лимит считается только по
+            // БОЕВОЙ технике; логистика ограничена отдельным небольшим лимитом.
+            const combatVeh = units.filter(u => u.type !== 'infantry' && !LOGISTICS_TYPES.includes(u.type)).length;
+            if (limits.combatVehicles !== undefined) return combatVeh < limits.combatVehicles;
+            return combatVeh < limits.vehicles;
         }
     }
     

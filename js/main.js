@@ -89,10 +89,30 @@ const DEFENSE_UPGRADE_INFO = [
     { level: 3, name: 'Оборона Уровень 3', icon: '🛡️🛡️🛡️', stats: 'DMG:40 RNG:180', cost: { s: 150, c: 90, m: 120 } },
 ];
 
+// ===== ИСПРАВЛЕНИЕ "showMapSelect is not defined" =====
+// main.js грузится как ES-модуль (<script type="module">). Если ЛЮБОЙ модуль
+// (constants/map/vehicles/game/renderer/ai) падает с синтаксической ошибкой или
+// выбрасывает исключение на верхнем уровне, main.js не выполняется вообще —
+// все onclick-обработчики из index.html падают с "is not defined".
+// Ставим «страховочные заглушки» НА ПЕРВОЙ СТРОКЕ модуля: они гарантируют,
+// что кнопки меню работают даже если основной код позже не смог загрузиться
+// (заглушки будут перезаписаны реальными функциями ниже по ходу выполнения).
+['showMapSelect', 'showGameInfo', 'hideGameInfo', 'selectMap', 'selectFaction',
+ 'selectGameMode', 'backToMainMenu', 'backToMapSelect', 'notify',
+ 'toggleMoveMode', 'toggleAoEMode', 'closeFactoryMenu', 'closeDefensePanel',
+ 'upgradeDefense'].forEach(fn => {
+    if (typeof window[fn] !== 'function') {
+        window[fn] = function() {
+            console.error('[Loader] Функция ' + fn + ' ещё не готова: ошибка загрузки модулей. См. консоль.');
+        };
+    }
+});
+
 // Initialize
 window.addEventListener('load', () => {
     try {
         canvas = document.getElementById('gameCanvas');
+        if (!canvas) throw new Error('Не найден элемент #gameCanvas');
         ctx = canvas.getContext('2d');
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);

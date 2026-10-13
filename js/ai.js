@@ -798,6 +798,66 @@ export class AI {
         unit.ty = centerY + Math.sin(angle) * optimalDist;
     }
 
+    // Свободные боевые юниты ИИ (без приказа, не логистика, не арта) —
+    // кандидаты в штурмовые отряды 3-5 бойцов
+    getIdleAttackers() {
+        return this.G.units.filter(u =>
+            u.faction === this.G.ai && u.hp > 0 && !u.aoe && u.tx === undefined &&
+            !u.retreatToBase && !u.garrisonedAt &&
+            u.type !== 'truck' && u.type !== 'fuel_truck' &&
+            u.type !== 'engineer' && u.type !== 'flatbed'
+        );
+    }
+
+    // Лучшая цель для отряда: сначала нейтральные точки (легко захватить),
+    // затем вражеские с пробитой обороной, затем любые вражеские.
+    pickBestTarget(fromX, fromY) {
+        const neutral = this.G.cps.filter(c => c.owner === 'neutral');
+        const enemy = this.G.cps.filter(c => c.owner === this.G.faction);
+        const nearestOf = (list) => list.length ? list.reduce((best, cp) =>
+            dist(fromX, fromY, cp.x, cp.y) < dist(fromX, fromY, best.x, best.y) ? cp : best) : null;
+
+        if (neutral.length) return nearestOf(neutral);
+        // вражеские точки с разрушенной обороной — приоритет
+        const broken = enemy.filter(cp => this.G.isCityDefenseBroken(cp));
+        if (broken.length) return nearestOf(broken);
+        if (enemy.length) return nearestOf(enemy);
+        return null;
+    }
+
+    // Формирование штурмового отряда из 3-5 свободных бойцов (с техникой,
+    // если есть; иначе только пехота) и отправка его на цель. Вызывается
+    // постоянно, поэтому ИИ атакует и занимает точки и после первой волны.
+    sendIdleSquadToTarget() {
+        const idle = this.getIdleAttackers();
+        if (idle.length < 3) return;
+
+        const base = this.getAIMainBase();
+        const sorted = idle.sort((a, b) =>
+            dist(a.x, a.y, base?.x ?? a.x, base?.y ?? a.y) -
+            dist(b.x, b.y, base?.x ?? b.x, base?.y ?? b.y));
+
+        // Отряд 3-5 человек: техника идёт впереди, пехота под её прикрытием
+        const squadSize = Math.min(3 + Math.floor(this.difficulty), sorted.length);
+        const vehicles = sorted.filter(u => u.type !== 'infantry');
+        const infantry = sorted.filter(u => u.type === 'infantry');
+        const squad = [...vehicles, ...infantry].slice(0, squadSize);
+
+        const leader = squad[0];
+        const target = this.pickBestTarget(leader.x, leader.y);
+        if (!target) return;
+
+        squad.forEach((u, i) => {
+            const angle = (i / squad.length) * Math.PI * 2;
+            const spread = target.radius * 0.5;
+            u.tx = target.x + Math.cos(angle) * spread;
+            u.ty = target.y + Math.sin(angle) * spread;
+            u.captureTarget = target;
+            u.squadAttack = true;
+        });
+        aiLog(`[AI][SQUAD] т.${this.timer}: отряд ${squad.length} (техника=${vehicles.slice(0, squadSize).length}) идёт на "${target.name || ''}" (${target.owner})`);
+    }
+
     strategicBehavior() {
         // Переключение между режимами каждые 1500 тиков (~25 сек; было 3000 — ИИ засиживался в обороне)
         if (this.timer % 1500 === 0) {
@@ -816,26 +876,34 @@ export class AI {
             aiLog(`[AI][MODE] т.${this.timer}: принудительная ОБОРОНА (точки ИИ=${aiPoints}, игрока=${playerPoints})`);
         }
 
+        // ===== ПОСТОЯННАЯ АКТИВНОСТЬ (фикс «после первой атаки ИИ засиживается
+        // у базы толпами пехоты»): как только накапливается отряд из 3-5 бойцов
+        // без приказа — он тут же отправляется на ближайшую доступную цель
+        // (нейтральная или вражеская точка), с техникой или без неё.
+        // Атака больше НЕ зависит от режима и от большого кулдауна.
+        const idleSquadCount = this.getIdleAttackers().length;
+        if (idleSquadCount >= 3 && this.timer - this.lastAttackTime > 600) { // ~10 сек
+            this.lastAttackTime = this.timer;
+            this.sendIdleSquadToTarget();
+        }
+
         // Активность: если есть численное превосходство свободных боёв над гарнизонами —
         // сами ищем цель и атакуем, не дожидаясь накопления по таймеру
-        const idleAttackers = this.G.units.filter(u =>
-            u.faction === this.G.ai && u.hp > 0 && !u.aoe && u.tx === undefined &&
-            u.type !== 'truck' && u.type !== 'fuel_truck' &&
-            u.type !== 'engineer' && u.type !== 'flatbed'
-        ).length;
-        if (!this.defenseMode && idleAttackers >= 4 && this.timer - this.lastAttackTime > 1800) {
+        if (!this.defenseMode && idleSquadCount >= 4 && this.timer - this.lastAttackTime > 900) {
             this.lastAttackTime = this.timer;
             this.launchAttack();
         }
-        
-        // Стратегия накопления сил и атаки
-        if (this.accumulatedForces >= this.attackThreshold && this.timer - this.lastAttackTime > 3600) {
+
+        // Стратегия накопления сил и атаки (перезарядка после атаки укорочена
+        // с 3600 до 1200 тиков (~20 сек) — иначе после одной волны бот
+        // «переставал атаковать и занимать точки»)
+        if (this.accumulatedForces >= this.attackThreshold && this.timer - this.lastAttackTime > 1200) {
             this.defenseMode = false;
             this.lastAttackTime = this.timer;
             this.accumulatedForces = 0; // Сбрасываем счётчик после атаки
             this.launchAttack();
         } else if (this.accumulatedForces >= this.attackThreshold) {
-            aiLog(`[AI][ATTACK] т.${this.timer}: силы накоплены (${this.accumulatedForces}), но атака отложена — перезарядка после прошлой атаки ${this.timer - this.lastAttackTime}/3600 тиков`);
+            aiLog(`[AI][ATTACK] т.${this.timer}: силы накоплены (${this.accumulatedForces}), перезарядка после прошлой атаки ${this.timer - this.lastAttackTime}/1200 тиков`);
         }
         
         // Если у нас больше точек и прошло достаточно времени - атакуем
