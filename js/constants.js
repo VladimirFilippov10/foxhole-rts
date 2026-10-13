@@ -121,6 +121,16 @@ export function letterToCol(letter) {
 }
 
 export function dist(x1, y1, x2, y2) {
+    // ===== ФИКС NaN-КООРДИНАТ =====
+    // Если хоть одна координата повреждена (NaN/Infinity), обычный sqrt даёт
+    // NaN. Дальше код вида `if (dist(...) > 5)` молча даёт false и юнит
+    // каждый тик перезаписывает себе x/y через битную арифметику, получая
+    // новый NaN («юниты исчезают»). Возвращаем Infinity: сравнения с ним
+    // однозначны (цель «бесконечно далеко» → не достать, не ехать).
+    if (!Number.isFinite(x1) || !Number.isFinite(y1) ||
+        !Number.isFinite(x2) || !Number.isFinite(y2)) {
+        return Infinity;
+    }
     return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
 }
 
