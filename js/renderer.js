@@ -2046,8 +2046,11 @@ function drawMinimap(ctx, G, canvas) {
     
     // Cities on minimap (цвета фракций: Wardens — синий, Colonials — зелёный)
     G.cps.forEach(cp => {
+        // ФИКС СИНТАКСИСА: здесь было два объявления `const col` подряд —
+        // файл не разбирался вообще, вся игра падала при загрузке модуля
+        // рендера (что косвенно ломало и ИИ/юниты). Оставлено одно —
+        // через палитру COLORS (поддерживает обе фракции корректно).
         const col = cp.owner === 'neutral' ? COLORS.neutral.p : COLORS[cp.owner].p;
-        const col = cp.owner === 'neutral' ? '#6b7280' : cp.owner === 'wardens' ? '#2563eb' : '#dc2626';
        
         ctx.fillStyle = col;
         ctx.beginPath();

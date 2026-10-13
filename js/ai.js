@@ -166,9 +166,16 @@ export class AI {
         const debtTarget = liveVeh * INF_PER_VEHICLE;
         const needsCatchUp = liveInf > debtTarget;
 
-        // Спавн пехоты (с учётом доминирования)
-        if (canProduceInfantry && this.timer % actualInfantryInterval === 0) {
-            if (this.canAffordInfantry()) {
+        // ===== ФИКС КРАША ИСХОДНОГО КОДА =====
+        // В оригинальной версии здесь был оборванный блок:
+        //     if (canProduceInfantry && ...) { if (this.canAffordInfantry()) {
+        // без закрывающих скобок и тела — из-за чего весь файл ai.js не
+        // разбирался (SyntaxError), модуль ИИ не загружался, методы класса
+        // AI (в т.ч. manageSnipers) не существовали, а updateInner() падал с
+        // «TypeError: this.manageSnipers is not a function». Цикл ИИ
+        // обрывался на середине, юниты переставали обновляться и «внезапно
+        // пропадали». Лишние строки удалены: ниже есть полный и корректный
+        // блок производства (завод / квота 1:5 / догоняющее строительство).
         const hasFactory = this.G.buildings.some(b => b.faction === this.G.ai && b.type === 'factory');
         const canVehicleSlot = this.G.canProduceUnit('vehicle', this.G.ai);
         const canAffordVeh = this.canAffordVehicle();
@@ -176,6 +183,12 @@ export class AI {
         // Техника возможна только когда ЕСТЬ завод (иначе бот «копил» бы вечно
         // без factory и не производил вообще ничего — фикс этого тупика):
         const vehiclePossible = hasFactory && canVehicleSlot && canAffordVeh;
+
+        // Пехоту спавним только когда она разрешена лимитами производства
+        // (canProduceInfantry) — раньше это условие терялось при восстановлении
+        // блока после синтаксической ошибки и бот игнорировал лимит пехоты.
+        const allowInf = () => canProduceInfantry &&
+            this.G.canProduceUnit('infantry', this.G.ai) && this.canAffordInfantry();
 
         if (vehiclePossible && (quotaMet || needsCatchUp)) {
             // Квота выполнена ИЛИ нужно догнать потери техники — выпускаем технику
@@ -188,10 +201,9 @@ export class AI {
                 spawnedThisTick = true;
                 aiLog(`[AI][SPAWN] т.${this.timer}: ТЕХНИКА (${this.vehicleCount} всего). На поле: пехота=${liveInf}, техника=${liveVeh} (квота 1:${INF_PER_VEHICLE}${needsCatchUp ? ', ДОГОНЯЕМ ПОТЕРИ' : ''})`);
             }
-        } else if (hasFactory && canVehicleSlot && canAffordVeh) {
+        } else if (vehiclePossible) {
             // Завод есть, техника доступна, но квота ещё не набрана — копим пехоту
-            if (this.timer % actualInfantryInterval === 0 &&
-                this.G.canProduceUnit('infantry', this.G.ai) && this.canAffordInfantry()) {
+            if (this.timer % actualInfantryInterval === 0 && allowInf()) {
                 this.spawnInfantrySquad();
                 this.infantrySpawned += this.squadSizeOf(this.difficulty);
                 this.accumulatedForces++;
@@ -199,8 +211,7 @@ export class AI {
             }
         } else if (!canVehicleSlot && canAffordVeh && needsCatchUp && hasFactory) {
             // Догоняем потери, но слотов техники нет — ждём, пехоту НЕ спамим
-        } else if (this.timer % actualInfantryInterval === 0 &&
-                   this.G.canProduceUnit('infantry', this.G.ai) && this.canAffordInfantry()) {
+        } else if (this.timer % actualInfantryInterval === 0 && allowInf()) {
             // Нет завода / нет ресурсов на технику / лимит техники -> компенсируем пехотой
             this.spawnInfantrySquad();
             this.infantrySpawned += this.squadSizeOf(this.difficulty);
