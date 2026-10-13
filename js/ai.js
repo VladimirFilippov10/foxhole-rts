@@ -99,6 +99,10 @@ export class AI {
         try {
             this.updateInner();
         } catch (err) {
+            // Критическая защита: если в логике ИИ возникает ошибка (например,
+            // вызов несуществующего метода), она НЕ должна прерывать игровой цикл,
+            // иначе юниты перестают обновляться и "исчезают" из игры.
+            console.error('[AI] Ошибка в update() бота:', err);
             // ИИ никогда не должен ронять игровой цикл: логируем ошибку и продолжаем
             console.error('[AI][ERROR] Ошибка в update() бота:', err);
         }
@@ -119,6 +123,12 @@ export class AI {
         
         // Генерация ресурсов ИИ (медленнее чем у игрока)
         this.updateAIResources();
+
+        // Проверка лимита пехоты влияет только на производство пехоты.
+        // Раньше при достижении лимита выходил весь update(), из-за чего
+        // бот полностью замирал: не двигал юниты, не строил укрепления,
+        // не атаковал оборону игрока.
+        const canProduceInfantry = this.G.canProduceUnit('infantry', this.G.ai);
 
         // Проверка доминирования игрока (больше 50% точек)
         const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction).length;
@@ -156,6 +166,9 @@ export class AI {
         const debtTarget = liveVeh * INF_PER_VEHICLE;
         const needsCatchUp = liveInf > debtTarget;
 
+        // Спавн пехоты (с учётом доминирования)
+        if (canProduceInfantry && this.timer % actualInfantryInterval === 0) {
+            if (this.canAffordInfantry()) {
         const hasFactory = this.G.buildings.some(b => b.faction === this.G.ai && b.type === 'factory');
         const canVehicleSlot = this.G.canProduceUnit('vehicle', this.G.ai);
         const canAffordVeh = this.canAffordVehicle();
@@ -204,7 +217,11 @@ export class AI {
 
         // Снайперы: 1 снайпер на каждый захваченный противником город
         // (при достаточном запасе ресурсов цель расширяется и на главную базу)
-        this.manageSnipers();
+        // ФИКС КРАША: у этого метода не существовало реализации — вызов
+        // ронял весь цикл ИИ (TypeError: this.manageSnipers is not a function),
+        // из-за чего бот «внезапно» терял управление над всеми юнитами.
+        // Теперь метод реализован ниже + защита typeof на всякий случай.
+        if (typeof this.manageSnipers === 'function') this.manageSnipers();
 
         // Стратегическое поведение
         this.strategicBehavior();
@@ -713,6 +730,76 @@ export class AI {
                 this.assignSquadToTarget(spawned, target);
             }
         }
+    }
+
+    // ===== СНАЙПЕРЫ: 1 снайпер на каждый город, захваченный противником =====
+    // ФИКС КРАША: метод вызывался в updateInner(), но реализован не был —
+    // это роняло весь цикл ИИ (TypeError), из-за чего юниты бота «внезапно
+    // пропадали» (переставали двигаться/стрелять и гибли поодиночке).
+    manageSnipers() {
+        // Ревизия назначений раз в ~2 секунды
+        if (this.timer - this.lastSniperScanAt < 120) return;
+        this.lastSniperScanAt = this.timer;
+
+        const enemyCities = this.G.cps.filter(c => c.owner === this.G.faction);
+
+        // 1) Удаляем назначения за городами, которые перестали быть вражескими,
+        //    и за мёртвыми/удалёнными снайперами.
+        for (const [key, id] of [...this.sniperAssignments.entries()]) {
+            const cp = this.G.cps.find(c => (c.id || c.name) === key);
+            const stillEnemy = cp && cp.owner === this.G.faction;
+            const sniperAlive = this.G.units.some(u => u.id === id && u.hp > 0);
+            if (!stillEnemy || !sniperAlive) this.sniperAssignments.delete(key);
+        }
+
+        // 2) Новый снайпер — только если нет незакрытых вакансий и есть запас
+        //    ресурсов (снайпер не должен съедать бюджет производства отрядов).
+        const unstaffed = enemyCities.filter(
+            c => !this.sniperAssignments.has(c.id || c.name));
+        if (unstaffed.length === 0) return;
+
+        const cost = VEHICLE_COSTS.sniper || VEHICLE_COSTS.infantry;
+        const RESERVE = 60; // не тратим последние ресурсы на снайпера
+        if (this.aiResources.s < cost.s + RESERVE ||
+            this.aiResources.c < cost.c + RESERVE ||
+            this.aiResources.m < cost.m + RESERVE) return;
+
+        const target = unstaffed[0];
+        const unit = this.spawnSniper();
+        if (!unit) return;
+
+        this.sniperAssignments.set(target.id || target.name, unit.id);
+        aiLog(`[AI][SNIPER] т.${this.timer}: снайпер отправлен к городу "${target.name || ''}" (${Math.round(unit.x)}, ${Math.round(unit.y)})`);
+    }
+
+    // Выпустить одного снайпера с казармы и поставить его на огневую позицию
+    // у границы целевого города (сам город может быть под обороной — поэтому
+    // цель — край зоны, а не центр).
+    spawnSniper() {
+        const barracks = this.G.buildings.find(b =>
+            b.faction === this.G.ai && b.type === 'barracks' && b.hp > 0);
+        if (!barracks) return null;
+        if (!this.G.canProduceUnit('infantry', this.G.ai)) return null;
+
+        const cost = VEHICLE_COSTS.sniper || VEHICLE_COSTS.infantry;
+        if (this.aiResources.s < cost.s || this.aiResources.c < cost.c ||
+            this.aiResources.m < cost.m) return null;
+        this.spendResources(cost);
+
+        const unit = createVehicle('sniper', this.G.ai,
+            barracks.x + 40, barracks.y + 40);
+        this.G.units.push(unit);
+        this.infantryCount++;
+
+        // Позиция: снаружи зоны цели, со стороны своих войск
+        const target = this.pickBestTarget(unit.x, unit.y);
+        if (target) {
+            const a = Math.atan2(unit.y - target.y, unit.x - target.x) || 0;
+            unit.tx = target.x + Math.cos(a) * (target.radius + 60);
+            unit.ty = target.y + Math.sin(a) * (target.radius + 60);
+            unit.isSniperPost = true;
+        }
+        return unit;
     }
 
     // Стоимость отряда пехоты по фактическому составу

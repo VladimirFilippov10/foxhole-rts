@@ -1946,6 +1946,7 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
         ctx.textAlign = 'center';
         ctx.fillText('★', x, y - sz * 0.5);
     } else if (u.type === 'colonial_artillery') {
+        ctx.fillStyle = '#4ade80'; // зелёный маркер артиллерии колонистов
         ctx.fillStyle = '#4ade80';
         ctx.beginPath();
         ctx.moveTo(x, y - sz * 0.6);
@@ -2043,8 +2044,9 @@ function drawMinimap(ctx, G, canvas) {
     ctx.fillStyle = '#8b7355';
     ctx.fillRect(mx, my, mw, mh);
     
-    // Cities on minimap
+    // Cities on minimap (цвета фракций: Wardens — синий, Colonials — зелёный)
     G.cps.forEach(cp => {
+        const col = cp.owner === 'neutral' ? COLORS.neutral.p : COLORS[cp.owner].p;
         const col = cp.owner === 'neutral' ? '#6b7280' : cp.owner === 'wardens' ? '#2563eb' : '#dc2626';
        
         ctx.fillStyle = col;
@@ -2055,20 +2057,22 @@ function drawMinimap(ctx, G, canvas) {
     
     // Mines on minimap
     G.mines.forEach(mine => {
-        const col = mine.owner === 'neutral' ? '#fbbf24' : mine.owner === 'wardens' ? '#2563eb' : '#dc2626';
+        const col = mine.owner === 'neutral' ? '#fbbf24' : COLORS[mine.owner].p;
         ctx.fillStyle = col;
         ctx.fillRect(mx + mine.x * sx - 2, my + mine.y * sy - 2, 4, 4);
     });
     
     // Buildings on minimap
     G.buildings.forEach(b => {
-        ctx.fillStyle = b.faction === 'wardens' ? '#2563eb' : '#dc2626';
+        ctx.fillStyle = COLORS[b.faction] ? COLORS[b.faction].p : '#6b7280';
         ctx.fillRect(mx + b.x * sx - 2, my + b.y * sy - 2, 4, 4);
     });
     
-    // Units on minimap
+    // Units on minimap (свои — светлый цвет фракции, чужие — тёмный)
     G.units.forEach(u => {
-        ctx.fillStyle = u.faction === G.faction ? '#60a5fa' : '#f87171';
+        const c = COLORS[u.faction];
+        if (!c) return;
+        ctx.fillStyle = u.faction === G.faction ? c.a : c.s;
         ctx.fillRect(mx + u.x * sx - 1, my + u.y * sy - 1, 2, 2);
     });
     
