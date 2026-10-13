@@ -387,6 +387,11 @@ function issueMoveOrder(selUnits, worldX, worldY) {
             u.retreatOrder = null;
             u.moveOrder = null;
             u.stuckCounter = 0;
+            // ИСПРАВЛЕНИЕ «арта крутится на месте»: арта едет ТОЧНО в точку клика,
+            // без смещения для атаки и без авто-отъезда по пути — просто едет.
+            u.aoeTarget = null;
+            u.holdPosition = undefined;
+            u.retreatDecisionAt = undefined;
         }
     });
 }
