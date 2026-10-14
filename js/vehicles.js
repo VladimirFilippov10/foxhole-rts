@@ -725,3 +725,18 @@ export function isInfUnit(u) {
     if (!u) return false;
     return u.isInfantry === true || u.type === 'infantry' || INFANTRY_TYPES.includes(u.type);
 }
+
+// Юнит — техника? Всё, что производится во вкладке «🚗 Техника»
+// (TAB_TYPES.vehicles в main.js): тяжёлые и лёгкие боевые машины обеих
+// фракций. Используется для бонуса обороны +15% урона по технике (уровень 3).
+export const TECHNIC_VEHICLE_TYPES = [
+    'king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska',
+    'hatchet', 'scorpion', 'nemesis', 'falchion', 'hoplite',
+];
+
+export function isTechVehicle(u) {
+    if (!u) return false;
+    // Пехота/логистика/арта техникой не считаются
+    if (isInfUnit(u)) return false;
+    return TECHNIC_VEHICLE_TYPES.includes(u.type);
+}
