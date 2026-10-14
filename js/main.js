@@ -57,49 +57,52 @@ function initDraggableWindow(el, handleSelector) {
 
 // Vehicle info for factory menu
 const VEHICLE_INFO = {
-    infantry: { name: 'Пехота', icon: '🔫', stats: 'HP:50 DMG:8 SPD:0.8', cost: VEHICLE_COSTS.infantry },
+    // ===== ВНИМАНИЕ: значения в полях stats соответствуют КЛАССАМ из vehicles.js =====
+    infantry: { name: 'Пехота', icon: '🔫', stats: 'HP:30-35 DMG:6-8 RNG:120-130 SPD:0.5-0.65 (стрелки)', cost: VEHICLE_COSTS.infantry },
     // ===== Пехота по видам (раскладка по фракциям — см. FACTION_INFANTRY) =====
     // wardens:   Стрелок / Пулемётчик / Гранатомётчик / Снайпер
     // colonials: Стрелок / Пулемётчик / Гренадер      / Снайпер
-    rifleman: { name: 'Стрелок', icon: '🔫', stats: 'Универсальная пехота, идёт в атаку', cost: VEHICLE_COSTS.rifleman },
-    mg_gunner: { name: 'Пулемётчик', icon: '🛡️', stats: 'HP:45 DMG:10 RNG:95 CD:30 x2 по пехоте — оборона (общий для обеих фракций)', cost: VEHICLE_COSTS.mg_gunner },
-    grenadier: { name: 'Гранатомётчик / Гренадер', icon: '💣', stats: 'AoE-урон по скоплениям пехоты: у wardens мощный ближний залп, у colonials дальше бросает и больше радиус взрыва', cost: VEHICLE_COSTS.grenadier },
-    sniper: { name: 'Снайпер', icon: '🎯', stats: 'Дальний бой: большой урон и дальность, мало HP', cost: VEHICLE_COSTS.sniper },
-    
+    rifleman: { name: 'Стрелок', icon: '🔫', stats: 'HP:30-35 DMG:6-8 RNG:120-130 SPD:0.5-0.65 Универсальная пехота, идёт в атаку', cost: VEHICLE_COSTS.rifleman },
+    mg_gunner: { name: 'Пулемётчик', icon: '🛡️', stats: 'HP:45 DMG:10 RNG:95 CD:0.5с x2 по пехоте SPD:0.2 — оборона (общий для обеих фракций)', cost: VEHICLE_COSTS.mg_gunner },
+    grenadier: { name: 'Гранатомётчик / Гренадер', icon: '💣', stats: 'AoE по пехоте: W: HP:40 DMG:60 RNG:45 r15 · C: HP:40 DMG:25 RNG:70 r25', cost: VEHICLE_COSTS.grenadier },
+    sniper: { name: 'Снайпер', icon: '🎯', stats: 'W: HP:20 DMG:45 RNG:260 CD:16с · C: HP:30 DMG:35 RNG:230 CD:13с', cost: VEHICLE_COSTS.sniper },
+
     // Wardens tanks
-    king_spire: { name: 'King Spire Mk.I', icon: '🔍', stats: 'HP:135 DMG:15 RNG:140 SPD:1.4 Разведка', cost: VEHICLE_COSTS.king_spire },
-    devitt: { name: 'Devitt Mk.III', icon: '🚗', stats: 'HP:195 DMG:45 RNG:160 SPD:1.6 40мм пушка', cost: VEHICLE_COSTS.devitt },
-    devitt_mmr: { name: 'Devitt MMR', icon: '💥', stats: 'Миномёт: HP:160 DMG:25 AoE:30 RNG:90-240 SPD:1.1 БК:70 (-30%)', cost: VEHICLE_COSTS.devitt_mmr },
-    silverhand: { name: 'Silverhand Mk.IV', icon: '💪', stats: 'HP:310 DMG:65 RNG:170 SPD:1.5 40мм+68мм', cost: VEHICLE_COSTS.silverhand },
-    gallagher_highwayman: { name: 'Gallagher Highwayman', icon: '⚡', stats: 'HP:295 DMG:35 RNG:165 SPD:1.7 Буст', cost: VEHICLE_COSTS.gallagher_highwayman },
-    gallagher_outlaw: { name: 'Gallagher Outlaw Mk.II', icon: '🌪️', stats: 'HP:370 DMG:45 RNG:190 SPD:1.5 Буст, усиленное орудие, броня 30', cost: VEHICLE_COSTS.gallagher_outlaw },
-    niska: { name: 'Niska APC', icon: '🚙', stats: 'HP:260 DMG:10 RNG:150 SPD:1.8 БТР', cost: VEHICLE_COSTS.niska },
-    warden_artillery120: { name: 'Warden Artillery 120мм', icon: '🎯', stats: 'HP:100 DMG:60 RNG:100-600 AoE:65 SPD:0.6 БК:100', cost: VEHICLE_COSTS.warden_artillery120 },
-    warden_artillery150: { name: 'Warden Artillery 150мм', icon: '🎯', stats: 'HP:80 DMG:95 RNG:180-550 AoE:100 SPD:0.3 CD:9с', cost: VEHICLE_COSTS.warden_artillery150 },
+    king_spire: { name: 'King Spire Mk.I', icon: '🔍', stats: 'HP:135 DMG:15 RNG:140 SPD:1.3 ARM:25 Разведка 120', cost: VEHICLE_COSTS.king_spire },
+    devitt: { name: 'Devitt Mk.III', icon: '🚗', stats: 'HP:195 DMG:45 RNG:160 SPD:1.6 ARM:35 40мм CD:4.8с БК:50', cost: VEHICLE_COSTS.devitt },
+    devitt_mmr: { name: 'Devitt MMR', icon: '💥', stats: 'Миномёт: HP:160 DMG:25 AoE:30 RNG:90-240 SPD:1.1 ARM:30 БК:70', cost: VEHICLE_COSTS.devitt_mmr },
+    silverhand: { name: 'Silverhand Mk.IV', icon: '💪', stats: 'HP:310 DMG:85 RNG:170 SPD:1.1 ARM:50 40мм+68мм CD:8.3с БК:50', cost: VEHICLE_COSTS.silverhand },
+    gallagher_highwayman: { name: 'Gallagher Highwayman', icon: '⚡', stats: 'HP:295 DMG:35 RNG:165 SPD:1.7→2.8 Буст ARM:45 CD:1с', cost: VEHICLE_COSTS.gallagher_highwayman },
+    gallagher_outlaw: { name: 'Gallagher Outlaw Mk.II', icon: '🌪️', stats: 'HP:370 DMG:45 RNG:190 SPD:1.5→2.8 Буст ARM:30 CD:2.5с', cost: VEHICLE_COSTS.gallagher_outlaw },
+    niska: { name: 'Niska APC', icon: '🚙', stats: 'HP:260 DMG:10 RNG:150 SPD:1.8 ARM:20 БТР CD:0.75с', cost: VEHICLE_COSTS.niska },
+    warden_artillery120: { name: 'Warden Artillery 120мм', icon: '🎯', stats: 'HP:100 DMG:60 RNG:100-600 AoE:65 SPD:0.6 ARM:25 CD:6.7с БК:50', cost: VEHICLE_COSTS.warden_artillery120 },
+    warden_artillery150: { name: 'Warden Artillery 150мм', icon: '🎯', stats: 'HP:80 DMG:95 RNG:180-550 AoE:100 SPD:0.3 ARM:30 CD:9.2с', cost: VEHICLE_COSTS.warden_artillery150 },
 
     // Colonials tanks
-    hatchet: { name: 'H-5 Hatchet', icon: '🪓', stats: 'HP:195 DMG:45 RNG:160 SPD:1.6 40мм пушка', cost: VEHICLE_COSTS.hatchet },
-    scorpion: { name: 'HC-2 Scorpion', icon: '🦂', stats: 'HP:330 DMG:20 RNG:130 SPD:1.3 Пулеметы x2', cost: VEHICLE_COSTS.scorpion },
-    nemesis: { name: '90T-v Nemesis', icon: '🔥', stats: 'HP:365 DMG:70 RNG:175 SPD:1.7 68мм+гранатомет', cost: VEHICLE_COSTS.nemesis },
-    falchion: { name: 'Falchion', icon: '⚔️', stats: 'HP:480 DMG:60 RNG:170 SPD:1.0', cost: VEHICLE_COSTS.falchion },
-    spatha: { name: 'Spatha', icon: '🗡️', stats: 'HP:560 DMG:80 RNG:180 SPD:0.7 CD:8.3с Тяжёлый танк, броня 70, дульный тормоз', cost: VEHICLE_COSTS.spatha },
-    hoplite: { name: 'Hoplite Mortar', icon: '💥', stats: 'Миномёт: HP:150 DMG:25 AoE:30 RNG:80-180 SPD:1.3 БК:70 (-30%)', cost: VEHICLE_COSTS.hoplite },
-    javelin: { name: 'Javelin APC', icon: '🛡️', stats: 'HP:200 DMG:7 RNG:140 SPD:1.65 БТР', cost: VEHICLE_COSTS.javelin },
-    colonial_artillery120: { name: 'Colonial Artillery 120мм', icon: '🎯', stats: 'HP:60 DMG:55 RNG:60-400 AoE:45 SPD:0.7 Быстрая лёгкая арта', cost: VEHICLE_COSTS.colonial_artillery120 },
-    colonial_artillery150: { name: 'Colonial Artillery 150мм', icon: '🎯', stats: 'HP:90 DMG:85 RNG:150-550 AoE:80 SPD:0.5 CD:7.5с', cost: VEHICLE_COSTS.colonial_artillery150 },
+    hatchet: { name: 'H-5 Hatchet', icon: '🪓', stats: 'HP:195 DMG:45 RNG:160 SPD:1.3 ARM:5 40мм CD:5.8с БК:50 +бак 25', cost: VEHICLE_COSTS.hatchet },
+    scorpion: { name: 'HC-2 Scorpion', icon: '🦂', stats: 'HP:330 DMG:15 RNG:130 SPD:0.7 ARM:20 Пулемёты x2.5 по пехоте CD:0.83с', cost: VEHICLE_COSTS.scorpion },
+    nemesis: { name: '90T-v Nemesis', icon: '🔥', stats: 'HP:365 DMG:110 RNG:190 SPD:1.3 ARM:50 68мм+гранатомёт AoE:40 CD:6.7с', cost: VEHICLE_COSTS.nemesis },
+    falchion: { name: 'Falchion', icon: '⚔️', stats: 'HP:450 DMG:70 RNG:150 SPD:0.8 ARM:50 Средний танк CD:7.7с', cost: VEHICLE_COSTS.falchion },
+    spatha: { name: 'Spatha', icon: '🗡️', stats: 'HP:560 DMG:80 RNG:180 SPD:0.7 ARM:70 Тяжёлый танк CD:8.3с', cost: VEHICLE_COSTS.spatha },
+    hoplite: { name: 'Hoplite Mortar', icon: '💥', stats: 'Миномёт: HP:150 DMG:25 AoE:30 RNG:80-180 SPD:1.3 ARM:15 CD:2.5с БК:70', cost: VEHICLE_COSTS.hoplite },
+    javelin: { name: 'Javelin APC', icon: '🛡️', stats: 'HP:200 DMG:7 RNG:140 SPD:1.65 ARM:25 БТР CD:1.1с', cost: VEHICLE_COSTS.javelin },
+    colonial_artillery120: { name: 'Colonial Artillery 120мм', icon: '🎯', stats: 'HP:60 DMG:55 RNG:60-400 AoE:45 SPD:0.7 ARM:15 Быстрая лёгкая арта CD:6.7с БК:70', cost: VEHICLE_COSTS.colonial_artillery120 },
+    colonial_artillery150: { name: 'Colonial Artillery 150мм', icon: '🎯', stats: 'HP:90 DMG:85 RNG:150-550 AoE:80 SPD:0.5 ARM:15 CD:7.5с', cost: VEHICLE_COSTS.colonial_artillery150 },
 
     // Logistics
-    truck: { name: 'Грузовик', icon: '🚚', stats: 'HP:120 SPD:1.8 Пополняет БК', cost: VEHICLE_COSTS.truck },
-    fuel_truck: { name: 'Бензовоз', icon: '⛽', stats: 'HP:140 SPD:1.6 Пополняет топливо', cost: VEHICLE_COSTS.fuel_truck },
-    engineer: { name: 'Инженер', icon: '🔧', stats: 'HP:160 SPD:1.2 Ремонтирует технику', cost: VEHICLE_COSTS.engineer },
-    flatbed: { name: 'Flatbed', icon: '🚛', stats: 'HP:150 SPD:1.5 Перевозит снаряды', cost: VEHICLE_COSTS.flatbed },
+    truck: { name: 'Грузовик', icon: '🚚', stats: 'HP:100 SPD:1.5 Без оружия Пополняет БК (запас 400)', cost: VEHICLE_COSTS.truck },
+    fuel_truck: { name: 'Бензовоз', icon: '⛽', stats: 'HP:80 SPD:1.3 Без оружия Пополняет топливо (запас 400)', cost: VEHICLE_COSTS.fuel_truck },
+    engineer: { name: 'Инженер', icon: '🔧', stats: 'HP:120 SPD:1.1 Без оружия Ремонт в радиусе 100 (запас 500)', cost: VEHICLE_COSTS.engineer },
+    flatbed: { name: 'Flatbed', icon: '🚛', stats: 'HP:150 SPD:1.0 Без оружия Снаряды для артиллерии (запас 300)', cost: VEHICLE_COSTS.flatbed },
 };
 
 // Defense upgrade info
+// ===== ФИКС: характеристики приведены в соответствие с getTerritoryDefenseStats()
+// в game.js (радиусы были указаны по старой таблице 120/150/180 до удвоения).
 const DEFENSE_UPGRADE_INFO = [
-    { level: 1, name: 'Оборона Уровень 1', icon: '🛡️', stats: 'DMG:15 RNG:120', cost: { s: 50, c: 30, m: 40 } },
-    { level: 2, name: 'Оборона Уровень 2', icon: '🛡️🛡️', stats: 'DMG:25 RNG:150', cost: { s: 100, c: 60, m: 80 } },
-    { level: 3, name: 'Оборона Уровень 3', icon: '🛡️🛡️🛡️', stats: 'DMG:40 RNG:180', cost: { s: 150, c: 90, m: 120 } },
+    { level: 1, name: 'Уровень 1', icon: '🛡️', stats: 'DMG:15 RNG:240 HP:300', cost: { s: 50, c: 30, m: 40 } },
+    { level: 2, name: 'Уровень 2', icon: '🛡️🛡️', stats: 'DMG:25 RNG:300 HP:600', cost: { s: 100, c: 60, m: 80 } },
+    { level: 3, name: 'Уровень 3', icon: '🛡️🛡️🛡️', stats: 'DMG:40 RNG:360 HP:1000 +15% по технике, защита от артиллерии', cost: { s: 150, c: 90, m: 120 } },
 ];
 
 // ===== ИСПРАВЛЕНИЕ "showMapSelect is not defined" =====
@@ -928,11 +931,9 @@ function openDefensePanel(cp, mx, my) {
     `;
     
     const levels = document.getElementById('defenseLevels');
-    const defenseInfo = [
-        { level: 1, name: 'Уровень 1', icon: '🛡️', stats: 'DMG:15 RNG:120 HP:300', cost: { s: 50, c: 30, m: 40 } },
-        { level: 2, name: 'Уровень 2', icon: '🛡️🛡️', stats: 'DMG:25 RNG:150 HP:600', cost: { s: 100, c: 60, m: 80 } },
-        { level: 3, name: 'Уровень 3', icon: '🛡️🛡️🛡️', stats: 'DMG:40 RNG:180 HP:1000 + защита от артиллерии', cost: { s: 150, c: 90, m: 120 } },
-    ];
+    // ===== ФИКС: радиусы приведены в соответствие с getTerritoryDefenseStats()
+    // в game.js (240/300/360 после удвоения; в панели были устаревшие 120/150/180)
+    const defenseInfo = DEFENSE_UPGRADE_INFO.map(d => ({ ...d }));
     
     levels.innerHTML = defenseInfo.map(d => {
         const currentLevel = cp.defenseLevel || 0;
