@@ -180,20 +180,94 @@ export class Game {
     }
 
     // ===== Оборона территории: прочность и правила захвата/въезда =====
-    // Возвращает суммарную прочность обороны города (бункеры + уровень обороны точки)
-    getCityDefenseIntegrity(cp) {
+    // Прочность обороны ХРАНИТСЯ на самой точке (cp.defenseHp) — как HP у
+    // юнита. Раньше «прочность» была производной величиной (сумма HP бункеров
+    // + константа уровня из getTerritoryDefenseStats), которую никто не мог
+    // уменьшить: ни артиллерия ИИ, ни юниты игрока не наносили урона обороне,
+    // поэтому город с 1 уровнем вечно показывал 300 и захват был невозможен.
+    // Теперь любой урон по оборонным объектам города (через
+    // damageCityDefense) вычитается из cp.defenseHp, при 0 оборона считается
+    // сломленной: укрепления визуально разрушены, стрельба обороны
+    // прекращается, въезд техники и захват становятся возможны.
+    getCityDefenseMaxIntegrity(cp) {
         if (!cp || cp.owner === 'neutral') return 0;
-        let integrity = 0;
+        let maxHp = 0;
         // Бункеры в радиусе города дают очки прочности
         this.buildings.forEach(b => {
-            if (b.faction === cp.owner && b.type && b.type.startsWith('bunker_') && b.hp > 0) {
-                if (dist(b.x, b.y, cp.x, cp.y) <= cp.radius + 80) integrity += Math.max(0, b.hp);
+            if (b.faction === cp.owner && b.type && b.type.startsWith('bunker_')) {
+                if (dist(b.x, b.y, cp.x, cp.y) <= cp.radius + 80) {
+                    maxHp += Math.max(0, b.maxHp || b.hp || 0);
+                }
             }
         });
         // Уровень обороны территории тоже даёт очки прочности
         const stats = this.getTerritoryDefenseStats(cp.defenseLevel || 0);
-        integrity += stats.hp;
-        return integrity;
+        maxHp += stats.hp;
+        return maxHp;
+    }
+
+    // Актуализация хранимого HP обороны при смене уровня / строительстве
+    // бункеров / смене владельца. При апгрейде добавляем дельту максимума
+    // (новый уровень «достраивается» поверх целой обороны).
+    refreshCityDefenseHp(cp) {
+        if (!cp || cp.owner === 'neutral') return;
+        const maxNow = this.getCityDefenseMaxIntegrity(cp);
+        if (cp.defenseHp === undefined || cp.defenseHp === null) {
+            cp.defenseHp = maxNow;
+        } else if (cp._defMaxHp === undefined || maxNow !== cp._defMaxHp) {
+            const delta = maxNow - (cp._defMaxHp || 0);
+            cp.defenseHp = Math.min(maxNow, Math.max(0, cp.defenseHp + Math.max(0, delta)));
+            cp._defMaxHp = maxNow;
+        }
+    }
+
+    getCityDefenseIntegrity(cp) {
+        if (!cp || cp.owner === 'neutral') return 0;
+        // Гарантируем инициализацию хранимого HP обороны
+        if (cp.defenseHp === undefined || cp.defenseHp === null) {
+            this.refreshCityDefenseHp(cp);
+        }
+        return Math.max(0, cp.defenseHp);
+    }
+
+    // ===== НАНЕСЕНИЕ УРОНА ПО ОБОРОНЕ ТЕРРИТОРИИ =====
+    // Вызывается при попадании по укреплениям города: AoE-артиллерия, прямой
+    // огонь по оборонному зданию/флагу, обстрел площади. Урон вычитается из
+    // хранимой прочности cp.defenseHp.
+    damageCityDefense(cp, dmg, fromX, fromY) {
+        if (!cp || cp.owner === 'neutral') return 0;
+        const d = Number(dmg);
+        if (!Number.isFinite(d) || d <= 0) return 0;
+        if (cp.defenseHp === undefined || cp.defenseHp === null) {
+            this.refreshCityDefenseHp(cp);
+        }
+        cp.defenseHp = Math.max(0, (cp.defenseHp || 0) - d);
+        // Визуальная обратная связь: трассер к центру обороны и обломки
+        if (Number.isFinite(fromX) && Number.isFinite(fromY)) {
+            this.addTracer(fromX, fromY, cp.x, cp.y, 'artillery');
+        }
+        this.addParticles(cp.x, cp.y, '#ff6b00', 8);
+        if (cp.defenseHp <= 0 && !cp._defenseBrokenNotified) {
+            cp._defenseBrokenNotified = true;
+            this.notify?.(`${cp.name}: оборона сломлена! Город можно захватить.`);
+        }
+        return cp.defenseHp;
+    }
+
+    // Индекс точки захвата, чьей обороной является данное здание/укрепление
+    // (для перенаправления урона по оборонным объектам в cp.defenseHp)
+    getOwningCpIndexForBuilding(b) {
+        for (let i = 0; i < this.cps.length; i++) {
+            const cp = this.cps[i];
+            if (cp.owner === 'neutral' || cp.owner !== b.faction) continue;
+            if (dist(b.x, b.y, cp.x, cp.y) <= cp.radius + 80) return i;
+        }
+        return -1;
+    }
+
+    isPointDefenseActive(cp) {
+        // Оборона стреляет только пока её прочность цела
+        return this.getCityDefenseIntegrity(cp) > 0;
     }
 
     // ===== ФИКС «КОООРДИНАТЫ ЛОМАЮТСЯ ПРИ ЗАЕЗДЕ В ГОРОД» =====
@@ -597,7 +671,42 @@ export class Game {
                             this.addParticles(attackTarget.x, attackTarget.y, '#ff6b00', 20);
                             this.addParticles(attackTarget.x, attackTarget.y, '#ffcc00', 15);
                             this.addParticles(attackTarget.x, attackTarget.y, '#ff0000', 10);
-                            
+
+                            // ===== ФИКС «АРТА НЕ ЛОМАЕТ ОБОРОНУ ГОРОДА» =====
+                            // Раньше артиллерия (и ИИ, и игрока) наносила урон
+                            // только по юнитам — прочность обороны города была
+                            // производной константой уровня и никогда не
+                            // уменьшалась («долбит город с 1 уровнем, а там как
+                            // было 300, так и осталось»). Теперь попадания по
+                            // чужому городу и его зданиям вычитают урон из
+                            // хранимой прочности обороны cp.defenseHp.
+                            for (let ci = 0; ci < this.cps.length; ci++) {
+                                const cp = this.cps[ci];
+                                if (cp.owner === 'neutral' || cp.owner === u.faction) continue;
+                                const dCp = dist(attackTarget.x, attackTarget.y, cp.x, cp.y);
+                                if (dCp <= u.aoeRadius + cp.radius * 0.4) {
+                                    const falloff = Math.max(0.25, 1 - (dCp / (cp.radius + u.aoeRadius)) * 0.5);
+                                    this.damageCityDefense(cp, Math.floor(u.dmg * falloff), u.x, u.y);
+                                }
+                            }
+                            // Попадания по вражеским зданиям в зоне разлёта:
+                            // укрепления города одновременно списывают и HP
+                            // здания, и прочность обороны территории.
+                            this.buildings.forEach(b => {
+                                if (b.faction === u.faction || !(b.hp > 0)) return;
+                                const dB = dist(attackTarget.x, attackTarget.y, b.x, b.y);
+                                if (dB > u.aoeRadius) return;
+                                const mult = 1 - (dB / u.aoeRadius) * 0.5;
+                                const dmgB = Math.floor(u.dmg * mult);
+                                const cbi = this.getOwningCpIndexForBuilding(b);
+                                if (cbi >= 0) {
+                                    b.hp = Math.max(0, b.hp - dmgB);
+                                    this.damageCityDefense(this.cps[cbi], dmgB, u.x, u.y);
+                                } else {
+                                    b.hp -= dmgB;
+                                }
+                            });
+
                             // Clear aoeTarget after firing
                             if (u.aoeTarget) {
                                 u.aoeTarget = null;
@@ -609,8 +718,27 @@ export class Game {
                             // (TypeError), из-за чего игра «змирала»: ИИ переставал работать,
                             // а артиллерия seemed to disappear.
                             if (typeof attackTarget.takeDamage !== 'function') {
-                                canAttack = false;
-                                isAttacking = false;
+                                // ===== ФИКС «ИГРОК НЕ ЛОМАЕТ ОБОРОНУ» =====
+                                // Цель — постройка/укрепление города (нет
+                                // takeDamage). Раньше такой выстрел просто
+                                // игнорировался: ни танки, ни пехота не могли
+                                // повредить оборону. Теперь прямой огонь по
+                                // зданиям списывает HP постройки, а если это
+                                // оборонный объект города — урон идёт ещё и в
+                                // прочность обороны территории (cp.defenseHp).
+                                if (attackTarget.hp > 0 && Number.isFinite(attackTarget.x)) {
+                                    let dmgB = Math.floor(u.dmg);
+                                    if (u.antiInfantry && !isInfUnit(attackTarget)) {
+                                        // пулемёты почти не эффективны по бетону
+                                        dmgB = Math.max(1, Math.floor(dmgB * 0.25));
+                                    }
+                                    attackTarget.hp = Math.max(0, attackTarget.hp - dmgB);
+                                    const ci = this.getOwningCpIndexForBuilding(attackTarget);
+                                    if (ci >= 0) {
+                                        this.damageCityDefense(this.cps[ci], dmgB, u.x, u.y);
+                                    }
+                                    this.addParticles(attackTarget.x, attackTarget.y, '#ffcc00', 4);
+                                }
                             } else {
                             // Add tracer based on unit type
                             let tracerType = 'bullet';
