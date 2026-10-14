@@ -680,8 +680,16 @@ export class Game {
             // юнит начинал крутиться/уезжать по кругу вместо боя.
             if (isAttacking && u.tx === undefined) {
                 u.stuckCounter = 0;
-                u.lastX = u.x;
-                u.lastY = u.y;
+                // ЯКОРЬ САНации (lastX/lastY) обновляем ТОЛЬКО когда он
+                // повреждён или ещё не задан. Раньше здесь была безусловная
+                // запись — при бое с NaN-целью (битый приказ/AoE-точка)
+                // lastX/lastY портились в тот же тик, и санация на следующем
+                // тике телепортировала юнита к базе/первой точке захвата
+                // («Повреждены координаты ... позиция восстановлена»).
+                if (!Number.isFinite(u.lastX) || !Number.isFinite(u.lastY)) {
+                    u.lastX = Number.isFinite(u.x) ? u.x : undefined;
+                    u.lastY = Number.isFinite(u.y) ? u.y : undefined;
+                }
             }
 
             // ===== ФИКС «вражеская артиллерия не ездит и не обстреливает точки» =====
@@ -693,9 +701,21 @@ export class Game {
             if (!isAttacking && u.aoe && u.tx !== undefined) {
                 // ===== ФИКС NaN-КООРДИНАТ: валидация цели перед движением =====
                 if (!Number.isFinite(u.tx) || !Number.isFinite(u.ty)) {
+                    // Битый приказ сам по себе не портит координаты (dist()
+                    // возвращает Infinity для NaN), но юнит с таким приказом
+                    // больше никогда не заведёт валидный якорь lastX/lastY —
+                    // и при первом же повреждении x/y санация телепортирует его
+                    // к базе/первой точке захвата («телепорт с восстановлением
+                    // координат» на ходу, devitt/va0l9tx5ge). Сносим битый
+                    // приказ и заводим якорь от текущей валидной позиции.
+                    console.warn('[GAME][FIX] Битый приказ движения (tx/ty) у ' + (u.type || '?') + '/' + (u.id || '?') + ' — приказ снят');
                     u.tx = undefined; u.ty = undefined;
                     u.detourSide = undefined; u.detourTicks = undefined;
                     u.orderOrigin = undefined;
+                    if (Number.isFinite(u.x) && Number.isFinite(u.y)) {
+                        u.lastX = u.x;
+                        u.lastY = u.y;
+                    }
                 } else {
                 // Если цель приказа ушла за пределы досягаемости огня (например,
                 // игрок отменил приказ AoE-огня) — арта просто едет к новой цели
@@ -753,6 +773,13 @@ export class Game {
                     u.tx = undefined; u.ty = undefined;
                     u.detourSide = undefined; u.detourTicks = undefined;
                     u.orderOrigin = undefined; u.stuckCounter = 0;
+                    // Заводим якорь санации от текущей валидной позиции,
+                    // иначе битый приказ блокирует его обновление и первое
+                    // же повреждение x/y «восстановится» телепортом к базе.
+                    if (Number.isFinite(u.x) && Number.isFinite(u.y)) {
+                        u.lastX = u.x;
+                        u.lastY = u.y;
+                    }
                 } else {
                 const d = dist(u.x, u.y, u.tx, u.ty);
                 if (d > 5) {
@@ -764,26 +791,35 @@ export class Game {
                         // ===== ФИКС «ТЕЛЕПОРТ С ВОССТАНОВЛЕНИЕМ КООРДИНАТ» =====
                         // lastX/lastY — это ЯКОРЬ санации повреждённых координат
                         // (sanitizeUnitPosition восстанавливает юнита именно туда).
-                        // Раньше при каждом НОВОМ приказе, выданном на ходу,
-                        // счётчик застревания заново инициализировался и якорь
-                        // перезаписывался текущей позицией — если после этого
-                        // координаты портились (битый приказ/урон), юнит
-                        // телепортировался на старую точку («восстановление
-                        // координат»). Теперь якорь обновляется ТОЛЬКО когда
-                        // lastX/lastY повреждены или отсутствуют (юнит ещё никуда
-                        // не ехал) — новый приказ поверх движения якорь не трогает.
-                        if (!Number.isFinite(u.lastX) || !Number.isFinite(u.lastY)) {
+                        // Якорь обязан ВСЕГДА отставать от текущей позиции не
+                        // более чем на один шаг движения, иначе «восстановление»
+                        // выглядит как телепорт назад. Раньше при каждом НОВОМ
+                        // приказе, выданном на ходу, якорь перезаписывался/
+                        // сбрасывался и мог «замереть» на старой точке приказа;
+                        // если после этого координаты портились (битый источник
+                        // NaN), юнит телепортировался на старую точку
+                        // («восстановление координат»). Теперь: снимок позиции в
+                        // начале тика (prevX/prevY) служит эталоном для детектора
+                        // застревания, а якорь обновляется ТОЛЬКО валидной
+                        // позиацией — новый приказ поверх движения его больше
+                        // никогда не «отматывает» назад.
+                        const prevX = u.x, prevY = u.y;
+                        if (Number.isFinite(u.x) && Number.isFinite(u.y)) {
                             u.lastX = u.x;
                             u.lastY = u.y;
+                        } else if (!Number.isFinite(u.lastX) || !Number.isFinite(u.lastY)) {
+                            u.lastX = undefined;
+                            u.lastY = undefined;
                         }
                         // Инициализация счётчика застревания
                         if (u.stuckCounter === undefined) {
                             u.stuckCounter = 0;
                         }
 
-                        // Проверка застревания
-                        const movedDist = dist(u.x, u.y, u.lastX, u.lastY);
-                        if (movedDist < 0.5) {
+                        // Проверка застревания: смещение за ЭТОТ тик
+                        // (снимок начала тика против текущей позиции)
+                        const movedDist = dist(prevX, prevY, u.x, u.y);
+                        if (!(movedDist > 0.5)) {
                             u.stuckCounter++;
                         } else {
                             u.stuckCounter = 0;
@@ -867,7 +903,8 @@ export class Game {
                             }
                         }
 
-                        if (nx !== u.x || ny !== u.y) {
+                        if (Number.isFinite(nx) && Number.isFinite(ny) &&
+                            (nx !== u.x || ny !== u.y)) {
                             u.direction = Math.atan2(ny - u.y, nx - u.x);
                             u.x = nx;
                             u.y = ny;
@@ -877,8 +914,15 @@ export class Game {
                             }
                         }
 
-                        u.lastX = u.x;
-                        u.lastY = u.y;
+                        // ЯКОРЬ САНации: обновляем lastX/lastY ТОЛЬКО валидной
+                        // позицией. Безусловная запись могла повредить сам якорь
+                        // (если x/y уже NaN) — и тогда санация телепортировала
+                        // юнита к базе/первой точке захвата вместо продолжения
+                        // движения («телепорт с восстановлением координат»).
+                        if (Number.isFinite(u.x) && Number.isFinite(u.y)) {
+                            u.lastX = u.x;
+                            u.lastY = u.y;
+                        }
                     }
                 } else {
                     // Достигли цели — сбрасываем приказ и детour-состояние
@@ -944,12 +988,17 @@ export class Game {
         const ok = (v) => Number.isFinite(v);
         const candidates = [];
         if (ok(u.lastX) && ok(u.lastY)) candidates.push({ x: u.lastX, y: u.lastY });
-        // Позиция приказа тоже рядом с местом боя — годится как ориентир
-        if (ok(u.tx) && ok(u.ty)) candidates.push({ x: u.tx, y: u.ty });
+        // Позиция приказа — НЕ кандидат на восстановление! Раньше сюда же
+        // подставлялись tx/ty и база фракции: если якорь lastX/lastY по
+        // какой-то причине был повреждён или «протух» (юнит ехал, новый
+        // приказ посреди пути), санация телепортировала юнита то ли в
+        // исходную точку маршрута, то ли через всю карту на базу — это и
+        // есть баг «телепортируется с восстановлением координат». Теперь
+        // при отсутствии валидного якоря точка восстановления ищётся
+        // КРУГ ТЕКУЩЕЙ позиции (см. ниже), а не далеко от неё.
         // Свой городок/база фракции — крайний, но всегда валидный якорь
         const base = (this.cps && this.cps.find(cp => cp.owner === u.faction)) || null;
         if (base && ok(base.x) && ok(base.y)) candidates.push({ x: base.x, y: base.y });
-        if (!candidates.length) return null;
 
         const isBadSpot = (x, y) => {
             if (!Number.isFinite(x) || !Number.isFinite(y)) return true;
@@ -966,6 +1015,23 @@ export class Game {
             }
             return false;
         };
+
+        // Если сам юнит ещё имеет ХОТЬ ОДНУ валидную координату (например,
+        // x нормальный, а y = NaN) — ищем свободную точку вокруг него:
+        // восстановление рядом с местом гибели приказа, без телепорта.
+        if (ok(u.x) || ok(u.y)) {
+            const cx = ok(u.x) ? u.x : (ok(u.lastX) ? u.lastX : 1000);
+            const cy = ok(u.y) ? u.y : (ok(u.lastY) ? u.lastY : 1000);
+            if (!isBadSpot(cx, cy)) return { x: cx, y: cy };
+            for (let r = 20; r <= 160; r += 20) {
+                for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+                    const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+                    if (!isBadSpot(x, y)) return { x, y };
+                }
+            }
+        }
+
+        if (!candidates.length) return null;
 
         for (const c of candidates) {
             if (!isBadSpot(c.x, c.y)) return c;
@@ -994,9 +1060,19 @@ export class Game {
     sanitizeUnitPosition(u) {
         const ok = (v) => Number.isFinite(v);
         if (ok(u.x) && ok(u.y)) {
-            // Запоминаем последнюю хорошую позицию для восстановления
-            u.lastX = u.x;
-            u.lastY = u.y;
+            // Запоминаем последнюю хорошую позицию для восстановления.
+            // Якорь ведёт себя «как цепь»: он может ОТСТАВАТЬ от юнита не
+            // более чем на один шаг движения (санация восстанавливает юнита
+            // именно сюда, и большой разрыв выглядел бы как телепорт назад).
+            // Поэтому записываем только если якорь повреждён/отсутствует ИЛИ
+            // юнит ушёл от него дальше одного тика — новый приказ игрока
+            // посреди пути больше не «замораживает» старый якорь.
+            const gap = ok(u.lastX) && ok(u.lastY)
+                ? dist(u.x, u.y, u.lastX, u.lastY) : Infinity;
+            if (!(gap <= 4)) {
+                u.lastX = u.x;
+                u.lastY = u.y;
+            }
             return;
         }
         console.warn('[GAME][FIX] Повреждены координаты у ' + (u.type || '?') + '/' + (u.id || '?') + ' — позиция восстановлена');
