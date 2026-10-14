@@ -521,20 +521,32 @@ export class Engineer extends Vehicle {
     
     // Ремонт другой техники
     repairUnit(targetUnit) {
-        if (this.currentCargo > 0 && targetUnit.hp < targetUnit.maxHp) {
-            // ИСПРАВЛЕНИЕ «чинит один раз и не полностью»: ёмкость инженера
-            // теперь 500 (> maxHp любой техники 480) + ремонт идёт каждый тик,
-            // пока цель в радиусе — техника починится ДО конца.
-            const amount = Math.min(
-                SUPPLY_SYSTEM.engineerRepairRate,
-                targetUnit.maxHp - targetUnit.hp,
-                this.currentCargo
-            );
-            targetUnit.hp += amount;
-            this.currentCargo -= amount;
-            return amount;
-        }
-        return 0;
+        // ===== ФИКС NaN-КООРДИНАТ: защита от «битого» ремонта =====
+        // Раньше сюда мог попасть targetUnit с повреждёнными данными (hp = NaN
+        // из-за битого урона) или вызов без цели. Арифметика min(NaN, ...) = NaN
+        // портила hp/груз инженера, дальше ИИ/сепарация считали dist() от битых
+        // значений и юниты получали tx/ty = NaN — в консоли мелькали строки
+        // «[GAME][FIX] Повреждены координаты у devitt/vabjo36kt1». Теперь все
+        // входящие значения валидируются, а результат ремонта никогда не может
+        // стать NaN. (Поле lastResupplyTick здесь НЕ записывается — оно нигде
+        // не инициализировано и раньше рождало NaN-арифметику в логистике.)
+        if (!targetUnit || typeof targetUnit !== 'object') return 0;
+        const cargo = Number(this.currentCargo);
+        if (!Number.isFinite(cargo) || cargo <= 0) return 0;
+        const hp = Number(targetUnit.hp);
+        const maxHp = Number(targetUnit.maxHp);
+        if (!Number.isFinite(hp) || !Number.isFinite(maxHp)) return 0;
+        if (hp >= maxHp - 0.5) return 0;
+
+        const amount = Math.min(
+            Number(SUPPLY_SYSTEM.engineerRepairRate) || 0,
+            maxHp - hp,
+            cargo
+        );
+        if (!Number.isFinite(amount) || amount <= 0) return 0;
+        targetUnit.hp = hp + amount;
+        this.currentCargo = cargo - amount;
+        return amount;
     }
     
     // Пополнение материалов на базе

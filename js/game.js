@@ -44,6 +44,18 @@ export class Game {
         
         // Система трассеров
         this.tracers = []; // Массив трассеров
+
+        // ===== ФИКС NaN-КООРДИНАТ: «страховка въезда» в зоны городов =====
+        // Ключ "faction|cpIndex" -> { tick, units:Set<id>, buildings:Set<id> }.
+        // Фиксирует технику фракции, которая УЖЕ стоит на территории города
+        // в момент его захвата (или смены владельца). Такая техника НЕ
+        // выталкивается за блок-линию и получает персональный разрешение-проход
+        // через isCityZoneBlockedFor, чтобы она могла спокойно выехать или
+        // остаться. Страховка живёт 120 тиков после захвата — этого хватает,
+        // чтобы юнит на границе зоны успел сделать первый шаг наружу и не был
+        // «вытолкнут» телепортом (именно этот телепорт раньше ломал координаты
+        // при резком пересечении границы/препятствий).
+        this.cityEnterGuard = new Map();
         
         // Система разведки
         this.revealedAreas = []; // Области, раскрытые разведкой
@@ -184,15 +196,66 @@ export class Game {
         return integrity;
     }
 
+    // ===== ФИКС «КОООРДИНАТЫ ЛОМАЮТСЯ ПРИ ЗАЕЗДЕ В ГОРОД» =====
+    // Регистрирует технику фракции, которая УЖЕ стоит на территории города в
+    // момент захвата (смены владельца). Такая техника получает «страховку»:
+    // она не выталкивается за блок-линию и может спокойно выехать или остаться.
+    registerCityEnterGuard(cpIndex, newOwner) {
+        if (!this.cityEnterGuard) this.cityEnterGuard = new Map();
+        const cp = this.cps[cpIndex];
+        if (!cp) return;
+        const units = new Set();
+        const buildings = new Set();
+        for (const u of this.units) {
+            if (u.faction !== newOwner || u.hp <= 0) continue;
+            if (dist(u.x, u.y, cp.x, cp.y) <= cp.radius) units.add(u.id);
+        }
+        for (const b of this.buildings) {
+            if (b.faction !== newOwner || !(b.hp > 0)) continue;
+            if (dist(b.x, b.y, cp.x, cp.y) <= cp.radius) buildings.add(b.id);
+        }
+        if (units.size || buildings.size) {
+            this.cityEnterGuard.set(newOwner + '|' + cpIndex, {
+                tick: this.time, units, buildings,
+            });
+        }
+    }
+
+    // Жива ли ещё страховка въезда для юнита на этой точке (120 тиков после
+    // захвата, плюс бесконечно — пока юнит реально стоит внутри зоны).
+    hasCityEnterGuard(unit, cpIndex) {
+        const g = this.cityEnterGuard && this.cityEnterGuard.get(unit.faction + '|' + cpIndex);
+        if (!g) return false;
+        if (!g.units.has(unit.id)) return false;
+        // Страховка истекла, но юнит всё ещё внутри зоны — продлеваем её,
+        // чтобы «старый жилец» города никогда не был вытолкнут телепортом.
+        const cp = this.cps[cpIndex];
+        if (cp && dist(unit.x, unit.y, cp.x, cp.y) <= cp.radius) {
+            g.tick = this.time;
+            return true;
+        }
+        return (this.time - g.tick) < 120;
+    }
+
     // Вражеская техника не может заехать на территорию города, пока цела оборона.
     // НЕЙТРАЛЬНЫЙ городок проходим для любого юнита — там нет обороны.
     // Во ВРАЖЕСКИЙ город можно въехать только после уничтожения всей обороны.
+    // ИСКЛЮЧЕНИЕ (фикс повреждаемых координат при заезде): если город захватили
+    // то время как техника другой фракции уже стояла на его территории — она
+    // там и остаётся (или спокойно выезжает): для неё зона не блокируется.
     isCityZoneBlockedFor(x, y, unit) {
-        for (const cp of this.cps) {
+        for (let i = 0; i < this.cps.length; i++) {
+            const cp = this.cps[i];
             // нейтральные и свои точки никогда не блокируют проезд
             if (cp.owner === 'neutral' || cp.owner === unit.faction) continue;
             const d = dist(x, y, cp.x, cp.y);
-            if (d <= cp.radius && this.getCityDefenseIntegrity(cp) > 0) return true;
+            if (!Number.isFinite(d)) continue; // битые координаты — санация разберётся
+            if (d <= cp.radius && this.getCityDefenseIntegrity(cp) > 0) {
+                // Техника, попавшая в зону ДО захвата — не блокируем: она имеет
+                // право остаться или выехать без принудительного выталкивания.
+                if (this.hasCityEnterGuard(unit, i)) continue;
+                return true;
+            }
         }
         return false;
     }
@@ -202,11 +265,24 @@ export class Game {
         return this.getCityDefenseIntegrity(cp) <= 0;
     }
 
-    // Аварийная «выручалка»: если юнит по какой-то причине всё же оказался
-    // внутри зоны вражеского города с целой обороной (например, его туда
-    // вытолкнула раздвигающая сепарация союзников или он перелетел границу
-    // за один шаг), мягко выталкиваем его к краю зоны — вместо того чтобы
-    // юнит «залип» там под огнём обороны и выглядело так, будто он исчез.
+    // ===== ФИКС «КООРДИНАТЫ ЛОМАЮТСЯ ПРИ ЗАЕЗДЕ В ГОРОД»: ПЛАВНЫЙ ВЫЕЗД =====
+    // Если техника оказалась внутри зоны вражеского города с целой обороной
+    // (её туда вытолкнула сепарация, перенесло шагом, или город захватили,
+    // когда она уже стояла внутри), раньше её каждый тик TELEPORT-ом
+    // перебрасывало за границу на радиус+4 px. На большой скорости/при
+    // резком пересечении препятствий такие скачки и порождали повреждённые
+    // координаты ([GAME][FIX] Повреждены координаты у devitt/vabjo36kt1).
+    // Теперь юнит «страхуется»: он плавно шагает наружу к краю зоны со своей
+    // обычной скоростью — без телепорта, пока не окажется за блок-линией.
+    getCityZoneExitTarget(u, cp) {
+        const dx = u.x - cp.x, dy = u.y - cp.y;
+        const d = Math.hypot(dx, dy);
+        if (!Number.isFinite(d)) return null;
+        let nx = dx, ny = dy;
+        if (d < 1) { nx = 1; ny = 0; } else { nx /= d; ny /= d; }
+        return { x: cp.x + nx * (cp.radius + 6), y: cp.y + ny * (cp.radius + 6) };
+    }
+
     enforceCityZoneBoundaries() {
         for (const u of this.units) {
             if (u.hp <= 0) continue;
@@ -215,21 +291,41 @@ export class Game {
             // проезда не запрещает), а выталкивание каждый тик утаскивало её
             // телепортом за край зоны — визуально юнит «исчезал» с поля зрения.
             if (isInfUnit(u)) continue;
-            for (const cp of this.cps) {
+            for (let i = 0; i < this.cps.length; i++) {
+                const cp = this.cps[i];
                 if (cp.owner === 'neutral' || cp.owner === u.faction) continue;
                 if (this.getCityDefenseIntegrity(cp) <= 0) continue;
+                // Техника, стоявшая в зоне ДО захвата города другой фракцией,
+                // имеет право там остаться или спокойно выехать своим приказом —
+                // не выталкиваем её вовсе («страховка въезда»).
+                if (this.hasCityEnterGuard(u, i)) continue;
                 const dx = u.x - cp.x, dy = u.y - cp.y;
                 const d = Math.hypot(dx, dy);
                 if (!Number.isFinite(d)) break; // повреждённые координаты — санация разберётся
                 if (d <= cp.radius) {
-                    // Стоим ровно в центре — выбираем любое направление наружу
-                    let nx = dx, ny = dy;
-                    if (d < 1) { nx = 1; ny = 0; }
-                    const push = cp.radius + 4;
-                    u.x = cp.x + (nx / d) * push;
-                    u.y = cp.y + (ny / d) * push;
-                    // Вытолкнули — выходим, иначе при нескольких зонах юнита
-                    // мотало бы между ними туда-сюда каждый тик.
+                    const exit = this.getCityZoneExitTarget(u, cp);
+                    if (!exit) break;
+                    // Плавный шаг наружу вместо телепорта: скорость обычная,
+                    // координаты не «перескакивают» через препятствия.
+                    const step = Math.max(2, (u.spd || 1) * 2);
+                    const ed = dist(u.x, u.y, exit.x, exit.y);
+                    if (ed <= step) {
+                        // Последний короткий шаг — ставим ровно за край зоны.
+                        u.x = exit.x;
+                        u.y = exit.y;
+                    } else {
+                        u.x += (exit.x - u.x) / ed * step;
+                        u.y += (exit.y - u.y) / ed * step;
+                    }
+                    // Заодно снимаем битый приказ внутрь зоны, иначе цикл
+                    // движения снова поведёт юнита назад под блок-линию.
+                    if (u.tx !== undefined && this.isCityZoneBlockedFor(u.tx, u.ty, u)) {
+                        u.tx = undefined; u.ty = undefined;
+                        u.detourSide = undefined; u.detourTicks = undefined;
+                        u.orderOrigin = undefined;
+                    }
+                    // Вытолкнули (плавно) — выходим, иначе при нескольких зонах
+                    // юнита мотало бы между ними туда-сюда каждый тик.
                     break;
                 }
             }
@@ -903,7 +999,7 @@ export class Game {
     }
 
     updateCapturePoints() {
-        this.cps.forEach(cp => {
+        this.cps.forEach((cp, cpIndex) => {
             const pU = this.units.filter(u => u.faction === this.faction && dist(u.x, u.y, cp.x, cp.y) <= cp.radius);
             const aU = this.units.filter(u => u.faction === this.ai && dist(u.x, u.y, cp.x, cp.y) <= cp.radius);
             
@@ -916,6 +1012,14 @@ export class Game {
                 if (cp.progress >= 100) {
                     cp.owner = this.faction;
                     cp.defenseLevel = 0; // Новая оборона строится с нуля
+                    // ===== ФИКС «КООРДИНАТЫ ЛОМАЮТСЯ ПРИ ЗАЕЗДЕ В ГОРОД» =====
+                    // Если в момент захвата на территории города уже стояла
+                    // техника ПРОТИВНИКА — она там и остаётся: регистрируем её
+                    // в «страховке въезда», чтобы enforceCityZoneBoundaries не
+                    // выталкивал её телепортом за блок-линию (именно это
+                    // выталкивание повреждало координаты), и чтобы из-за целой
+                    // новой обороны она могла спокойно выехать своим приказом.
+                    this.registerCityEnterGuard(cpIndex, this.ai);
                     this.notify?.(cp.name + ' захвачен!');
                 }
             } else if (aU.length > 0 && pU.length === 0 && cp.owner !== this.ai && defenseBroken) {
@@ -924,6 +1028,9 @@ export class Game {
                 if (cp.progress >= 100) {
                     cp.owner = this.ai;
                     cp.defenseLevel = 0;
+                    // Симметрично: техника игрока, стоявшая в зоне до захвата,
+                    // остаётся и может свободно выехать или остаться.
+                    this.registerCityEnterGuard(cpIndex, this.faction);
                 }
             } else {
                 cp.capturing = null;
