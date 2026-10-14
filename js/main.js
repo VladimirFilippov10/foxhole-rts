@@ -1,6 +1,6 @@
 // ===== MAIN ENTRY POINT =====
 import { VEHICLE_COSTS, dist, GAME_MODES, FIXED_STEP_MS, MAX_STEPS_PER_FRAME } from './constants.js';
-import { createVehicle, FACTION_VEHICLES } from './vehicles.js';
+import { createVehicle, FACTION_VEHICLES, FACTION_INFANTRY, INFANTRY_TYPES } from './vehicles.js';
 import { getCapturePointsInWorld, getResourcePointsInWorld } from './map.js';
 import { Game } from './game.js';
 import { render } from './renderer.js';
@@ -58,6 +58,13 @@ function initDraggableWindow(el, handleSelector) {
 // Vehicle info for factory menu
 const VEHICLE_INFO = {
     infantry: { name: 'Пехота', icon: '🔫', stats: 'HP:50 DMG:8 SPD:0.8', cost: VEHICLE_COSTS.infantry },
+    // ===== Пехота по видам (раскладка по фракциям — см. FACTION_INFANTRY) =====
+    // wardens:   Стрелок / Пулемётчик / Гранатомётчик / Снайпер
+    // colonials: Стрелок / Пулемётчик / Гренадер      / Снайпер
+    rifleman: { name: 'Стрелок', icon: '🔫', stats: 'Универсальная пехота, идёт в атаку', cost: VEHICLE_COSTS.rifleman },
+    mg_gunner: { name: 'Пулемётчик', icon: '🛡️', stats: 'HP:45 DMG:10 RNG:95 CD:30 x2 по пехоте — оборона (общий для обеих фракций)', cost: VEHICLE_COSTS.mg_gunner },
+    grenadier: { name: 'Гранатомётчик / Гренадер', icon: '💣', stats: 'AoE-урон по скоплениям пехоты: у wardens мощный ближний залп, у colonials дальше бросает и больше радиус взрыва', cost: VEHICLE_COSTS.grenadier },
+    sniper: { name: 'Снайпер', icon: '🎯', stats: 'Дальний бой: большой урон и дальность, мало HP', cost: VEHICLE_COSTS.sniper },
     
     // Wardens tanks
     king_spire: { name: 'King Spire Mk.I', icon: '🔍', stats: 'HP:135 DMG:15 RNG:140 SPD:1.4 Разведка', cost: VEHICLE_COSTS.king_spire },
@@ -634,8 +641,13 @@ const PRODUCTION_TABS = [
 ];
 
 // Раскладка типов юнитов по вкладкам (для обеих фракций)
+// Пехота: класс выбирается по фракции (FACTION_INFANTRY), поэтому в меню
+// у wardens это Стрелок/Пулемётчик/Гранатомётчик/Снайпер,
+// у colonials — Стрелок/Пулемётчик/Гренадер/Снайпер.
+const FACTION_INFANTRY_TYPES = ['rifleman', 'mg_gunner', 'grenadier', 'sniper'];
+
 const TAB_TYPES = {
-    infantry: ['infantry'],
+    infantry: ['infantry', ...FACTION_INFANTRY_TYPES],
     vehicles: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska',
                'hatchet', 'scorpion', 'nemesis', 'falchion', 'hoplite'],
     supply:   ['truck', 'fuel_truck', 'engineer', 'flatbed'],
@@ -643,6 +655,15 @@ const TAB_TYPES = {
 };
 
 let factoryTab = 'infantry';
+
+// Фракционное название вида пехоты: у wardens — «Гранатомётчик»,
+// у colonials — «Гренадер» (это один тип 'grenadier', разные классы).
+function factionUnitName(type, info) {
+    if (type === 'grenadier') {
+        return game && game.faction === 'colonials' ? 'Гренадер' : 'Гранатомётчик';
+    }
+    return info.name;
+}
 
 function openFactoryMenu(factory, mx, my) {
     factoryMenuOpen = true;
@@ -687,8 +708,20 @@ function renderFactoryTabs(tabsEl, factory, grid) {
 
 function renderTabUnits(grid, factory) {
     grid.innerHTML = '';
-    const factionPool = ['infantry', ...FACTION_VEHICLES[game.faction]];
-    const types = (TAB_TYPES[factoryTab] || []).filter(t => factionPool.includes(t));
+    // Пехота своей фракции (у каждой — свои классы/названия: у wardens
+    // «Гранатомётчик», у colonials «Гренадер»; пулемётчик общий).
+    const ownInfantry = FACTION_INFANTRY[game.faction] || [];
+    const factionPool = ['infantry', ...ownInfantry, ...FACTION_VEHICLES[game.faction]];
+    let types = (TAB_TYPES[factoryTab] || []).filter(t => factionPool.includes(t));
+
+    // На вкладке пехоты не дублируем: 'infantry' и 'rifleman' — одни и те же
+    // стрелки, оставляем карточку «Стрелок».
+    if (factoryTab === 'infantry') {
+        types = types.filter(t => t !== 'infantry');
+    }
+
+    // Название гранатомётчика зависит от фракции: wardens — «Гранатомётчик»,
+    // colonials — «Гренадер» (factionUnitName).
 
     if (types.length === 0) {
         grid.innerHTML = '<div style="color:#9ca3af;font-size:0.75rem;">Нет доступных юнитов в этой вкладке</div>';
@@ -697,11 +730,12 @@ function renderTabUnits(grid, factory) {
 
     types.forEach(type => {
         const info = VEHICLE_INFO[type];
+        const name = factionUnitName(type, info);
         const canAfford = game.res.s >= info.cost.s && game.res.c >= info.cost.c && game.res.m >= info.cost.m;
         const card = document.createElement('div');
         card.className = 'unit-card' + (canAfford ? '' : ' disabled');
         card.innerHTML = `
-            <div class="unit-name">${info.icon} ${info.name}</div>
+            <div class="unit-name">${info.icon} ${name}</div>
             <div class="unit-stats">${info.stats}</div>
             <div class="unit-cost">S:${info.cost.s} C:${info.cost.c} M:${info.cost.m}</div>
         `;
@@ -744,6 +778,7 @@ function updateProductionQueueUI() {
     
     allQueueItems.forEach((item, index) => {
         const info = VEHICLE_INFO[item.type];
+        const displayName = factionUnitName(item.type, info);
         const elapsed = game.time - item.startTime;
         const buildTimeTicks = item.buildTime * 60;
         const progress = Math.min(100, (elapsed / buildTimeTicks) * 100);
@@ -751,7 +786,7 @@ function updateProductionQueueUI() {
         
         queueHtml += `
             <div style="margin-bottom:0.5rem;">
-                <div style="font-size:0.7rem;color:#d1d5db;">${info.icon} ${info.name}</div>
+                <div style="font-size:0.7rem;color:#d1d5db;">${info.icon} ${displayName}</div>
                 <div style="background:#1f2937;height:6px;border-radius:3px;overflow:hidden;margin-top:3px;border:1px solid #374151;">
                     <div style="background:linear-gradient(90deg, #60a5fa, #3b82f6);height:100%;width:${progress}%;"></div>
                 </div>
@@ -777,7 +812,8 @@ function trainUnit(type, factory) {
         const limits = game.getUnitLimits(game.faction);
         const counts = game.getUnitCounts(game.faction);
         
-        if (type === 'infantry') {
+        if (type === 'infantry' || type === 'rifleman' || type === 'mg_gunner' ||
+            type === 'grenadier' || type === 'sniper') {
             notify(`Достигнут лимит пехоты! (${counts.infantry}/${limits.infantry}) Захватите больше точек для увеличения лимита.`);
         } else {
             notify(`Достигнут лимит техники! (${counts.vehicles}/${limits.vehicles}) Захватите больше точек для увеличения лимита.`);
@@ -797,7 +833,7 @@ function trainUnit(type, factory) {
     // Добавляем в очередь производства
     const buildTime = cost.buildTime || 10; // По умолчанию 10 секунд
     game.addToProductionQueue(type, game.faction, factory.id, buildTime);
-    notify(`${info.name} поставлен в очередь (${buildTime}с)`);
+    notify(`${factionUnitName(type, info)} поставлен в очередь (${buildTime}с)`);
 }
 
 window.closeFactoryMenu = function() {
