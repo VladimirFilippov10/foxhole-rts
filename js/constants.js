@@ -61,6 +61,7 @@ export const VEHICLE_COSTS = {
     silverhand: { s: 80, c: 60, m: 40, buildTime: 30 }, // Штурмовой танк
     gallagher_highwayman: { s: 70, c: 50, m: 35, buildTime: 25 }, // Крейсерский танк
     gallagher_outlaw: {s: 100, c: 35, m: 20, buildTime: 30},
+    noble_widow: {s: 130, c: 80, m: 50, buildTime: 55},
     niska: { s: 40, c: 30, m: 20, buildTime: 10 }, // БТР
     warden_artillery150: { s: 55, c: 40, m: 30, buildTime: 40 }, // Артиллерия
     warden_artillery120: { s: 55, c: 40, m: 10, buildTime: 35 }, // Артиллерия
@@ -71,6 +72,7 @@ export const VEHICLE_COSTS = {
     nemesis: { s: 85, c: 65, m: 60, buildTime: 40 }, // Штурмовой танк
     falchion: { s: 55, c: 40, m: 25, buildTime: 30 }, // Средний танк
     spatha : { s: 80, c: 50, m: 40, buildTime: 30 },
+    talos :{s: 120, c: 100, m: 50, buildTime: 60 },
     javelin: { s: 40, c: 30, m: 15, buildTime: 20 }, // БТР (аналог Niska)
     hoplite: { s: 35, c: 25, m: 10, buildTime: 25 }, // Миномётная поддержка (Hoplite)
     colonial_artillery: { s: 80, c: 30, m: 20, buildTime: 35 }, // Артиллерия (алиас 150 мм)

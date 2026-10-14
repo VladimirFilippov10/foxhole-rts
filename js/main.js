@@ -74,6 +74,7 @@ const VEHICLE_INFO = {
     silverhand: { name: 'Silverhand Mk.IV', icon: '💪', stats: 'HP:310 DMG:85 RNG:170 SPD:1.1 ARM:50 40мм+68мм CD:8.3с БК:50', cost: VEHICLE_COSTS.silverhand },
     gallagher_highwayman: { name: 'Gallagher Highwayman', icon: '⚡', stats: 'HP:295 DMG:35 RNG:165 SPD:1.7→2.8 Буст ARM:45 CD:1с', cost: VEHICLE_COSTS.gallagher_highwayman },
     gallagher_outlaw: { name: 'Gallagher Outlaw Mk.II', icon: '🌪️', stats: 'HP:370 DMG:45 RNG:190 SPD:1.5→2.8 Буст ARM:30 CD:2.5с', cost: VEHICLE_COSTS.gallagher_outlaw },
+    noble_widow: { name: 'Noble Widow MK. XIV', icon: '🌪️', stats: 'HP:370 DMG:45 RNG:190 SPD:1.5→2.8 Буст ARM:30 CD:2.5с', cost: VEHICLE_COSTS.noble_widow },
     niska: { name: 'Niska APC', icon: '🚙', stats: 'HP:260 DMG:10 RNG:150 SPD:1.8 ARM:20 БТР CD:0.75с', cost: VEHICLE_COSTS.niska },
     warden_artillery120: { name: 'Warden Artillery 120мм', icon: '🎯', stats: 'HP:100 DMG:60 RNG:100-600 AoE:65 SPD:0.6 ARM:25 CD:6.7с БК:50', cost: VEHICLE_COSTS.warden_artillery120 },
     warden_artillery150: { name: 'Warden Artillery 150мм', icon: '🎯', stats: 'HP:80 DMG:95 RNG:180-550 AoE:100 SPD:0.3 ARM:30 CD:9.2с', cost: VEHICLE_COSTS.warden_artillery150 },
@@ -82,6 +83,7 @@ const VEHICLE_INFO = {
     hatchet: { name: 'H-5 Hatchet', icon: '🪓', stats: 'HP:195 DMG:45 RNG:160 SPD:1.3 ARM:5 40мм CD:5.8с БК:50 +бак 25', cost: VEHICLE_COSTS.hatchet },
     scorpion: { name: 'HC-2 Scorpion', icon: '🦂', stats: 'HP:330 DMG:15 RNG:130 SPD:0.7 ARM:20 Пулемёты x2.5 по пехоте CD:0.83с', cost: VEHICLE_COSTS.scorpion },
     nemesis: { name: '90T-v Nemesis', icon: '🔥', stats: 'HP:365 DMG:110 RNG:190 SPD:1.3 ARM:50 68мм+гранатомёт AoE:40 CD:6.7с', cost: VEHICLE_COSTS.nemesis },
+    talos: { name: '85V-G Talos', icon: '🔥', stats: 'HP:365 DMG:110 RNG:190 SPD:1.3 ARM:50 68мм+гранатомёт AoE:40 CD:6.7с', cost: VEHICLE_COSTS.talos },
     falchion: { name: 'Falchion', icon: '⚔️', stats: 'HP:450 DMG:70 RNG:150 SPD:0.8 ARM:50 Средний танк CD:7.7с', cost: VEHICLE_COSTS.falchion },
     spatha: { name: 'Spatha', icon: '🗡️', stats: 'HP:560 DMG:80 RNG:180 SPD:0.7 ARM:70 Тяжёлый танк CD:8.3с', cost: VEHICLE_COSTS.spatha },
     hoplite: { name: 'Hoplite Mortar', icon: '💥', stats: 'Миномёт: HP:150 DMG:25 AoE:30 RNG:80-180 SPD:1.3 ARM:15 CD:2.5с БК:70', cost: VEHICLE_COSTS.hoplite },
@@ -659,7 +661,7 @@ const FACTION_INFANTRY_TYPES = ['rifleman', 'mg_gunner', 'grenadier', 'sniper'];
 
 const TAB_TYPES = {
     infantry: ['infantry', ...FACTION_INFANTRY_TYPES],
-    vehicles: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw', 'niska', 'spatha',
+    vehicles: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw', 'niska', 'spatha', 'talos', 'noble_widow',
                'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin'],
     supply:   ['truck', 'fuel_truck', 'engineer', 'flatbed'],
     // Поддержка: ствольная артиллерия + миномётные машины (Hoplite, Devitt MMR)

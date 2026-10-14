@@ -2085,6 +2085,105 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
             ctx.fill();
         }
         
+ if (u.type === 'noble_widow') {
+            // Гусеницы по бортам
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(-sz * 0.5, -sz * 0.34, sz, sz * 0.1);
+            ctx.fillRect(-sz * 0.5, sz * 0.24, sz, sz * 0.1);
+            // Катки
+            ctx.fillStyle = '#374151';
+            for (let i = 0; i < 4; i++) {
+                const wx = -sz * 0.36 + i * sz * 0.24;
+                ctx.beginPath();
+                ctx.arc(wx, -sz * 0.29, sz * 0.045, 0, Math.PI * 2);
+                ctx.arc(wx, sz * 0.29, sz * 0.045, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // Низкий безбашенный корпус
+            ctx.fillStyle = col.p;
+            ctx.fillRect(-sz * 0.48, -sz * 0.24, sz * 0.96, sz * 0.48);
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(-sz * 0.48, -sz * 0.24, sz * 0.96, sz * 0.48);
+            // Наклонная рубка (трапеция, скошенный лоб)
+            ctx.fillStyle = col.s;
+            ctx.beginPath();
+            ctx.moveTo(-sz * 0.28, -sz * 0.2);
+            ctx.lineTo(sz * 0.2, -sz * 0.14);
+            ctx.lineTo(sz * 0.34, 0);           // скошенный нос
+            ctx.lineTo(sz * 0.2, sz * 0.14);
+            ctx.lineTo(-sz * 0.28, sz * 0.2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            // Длинное орудие, смещённое вправо от продольной оси (как у Хетцера)
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+            ctx.moveTo(sz * 0.15, sz * 0.08);
+            ctx.lineTo(sz * 0.78, sz * 0.08);
+            ctx.stroke();
+            // Дульный тормоз
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(sz * 0.7, sz * 0.03, sz * 0.09, sz * 0.1);
+            // Люк командира в кормовой части рубки
+            ctx.strokeStyle = col.p;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(-sz * 0.15, 0, sz * 0.06, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Talos — тяжёлый штурмовик колонистов (силуэт сов. КВ-2):
+        // высокий коробчатый корпус и большая прямоугольная «самоходная»
+        // башня с массивным коротким орудием
+        if (u.type === 'talos') {
+            // Гусеницы (широкие, выступают за корпус)
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(-sz * 0.5, -sz * 0.34, sz, sz * 0.1);
+            ctx.fillRect(-sz * 0.5, sz * 0.24, sz, sz * 0.1);
+            // Катки
+            ctx.fillStyle = '#374151';
+            for (let i = 0; i < 5; i++) {
+                const wx = -sz * 0.38 + i * sz * 0.19;
+                ctx.beginPath();
+                ctx.arc(wx, -sz * 0.29, sz * 0.04, 0, Math.PI * 2);
+                ctx.arc(wx, sz * 0.29, sz * 0.04, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // Коробчатый корпус
+            ctx.fillStyle = col.p;
+            ctx.fillRect(-sz * 0.46, -sz * 0.26, sz * 0.92, sz * 0.52);
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(-sz * 0.46, -sz * 0.26, sz * 0.92, sz * 0.52);
+            // Большая прямоугольная высокая башня (сдвинута к корме — как у КВ-2)
+            ctx.fillStyle = col.s;
+            ctx.fillRect(-sz * 0.26, -sz * 0.22, sz * 0.44, sz * 0.44);
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-sz * 0.26, -sz * 0.22, sz * 0.44, sz * 0.44);
+            // Массивное короткое орудие крупного калибра
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(sz * 0.12, 0);
+            ctx.lineTo(sz * 0.6, 0);
+            ctx.stroke();
+            // Дульный срез (толстый — «миллионный» калибр)
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(sz * 0.62, 0, sz * 0.06, 0, Math.PI * 2);
+            ctx.fill();
+            // Командирская башенка на крыше
+            ctx.fillStyle = col.a;
+            ctx.beginPath();
+            ctx.arc(-sz * 0.12, -sz * 0.1, sz * 0.06, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
         // Инженерная машина
         if (u.type === 'engineer') {
             ctx.fillStyle = col.s;

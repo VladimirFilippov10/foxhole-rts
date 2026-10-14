@@ -189,6 +189,8 @@ export class Game {
     // damageCityDefense) вычитается из cp.defenseHp, при 0 оборона считается
     // сломленной: укрепления визуально разрушены, стрельба обороны
     // прекращается, въезд техники и захват становятся возможны.
+    DEFENSE_INTEGRITY_MULT = 3;
+
     getCityDefenseMaxIntegrity(cp) {
         if (!cp || cp.owner === 'neutral') return 0;
         let maxHp = 0;
@@ -203,7 +205,7 @@ export class Game {
         // Уровень обороны территории тоже даёт очки прочности
         const stats = this.getTerritoryDefenseStats(cp.defenseLevel || 0);
         maxHp += stats.hp;
-        return maxHp;
+        return maxHp * this.DEFENSE_INTEGRITY_MULT;
     }
 
     // Актуализация хранимого HP обороны при смене уровня / строительстве
@@ -214,9 +216,16 @@ export class Game {
         const maxNow = this.getCityDefenseMaxIntegrity(cp);
         if (cp.defenseHp === undefined || cp.defenseHp === null) {
             cp.defenseHp = maxNow;
+            cp._defRebuilt = false;
         } else if (cp._defMaxHp === undefined || maxNow !== cp._defMaxHp) {
             const delta = maxNow - (cp._defMaxHp || 0);
-            cp.defenseHp = Math.min(maxNow, Math.max(0, cp.defenseHp + Math.max(0, delta)));
+             if (cp._defRebuilt) {
+                // Оборону перестроили заново — прочность НЕ восстанавливаем,
+                // пока игрок/ИИ не включит ремонт.
+                cp._defRebuilt = false;
+            } else {
+                cp.defenseHp = Math.min(maxNow, Math.max(0, cp.defenseHp + Math.max(0, delta)));
+            }
             cp._defMaxHp = maxNow;
         }
     }
@@ -662,7 +671,7 @@ export class Game {
                                     if (distToTarget <= u.aoeRadius) {
                                         // Damage decreases with distance from center
                                         const damageMultiplier = 1 - (distToTarget / u.aoeRadius) * 0.5;
-                                        enemy.takeDamage(Math.floor(u.dmg * damageMultiplier));
+                                        enemy.takeDamage(Math.floor(u.dmg * damageMultiplier), u);
                                     }
                                 }
                             });
@@ -762,7 +771,7 @@ export class Game {
                             
                             // Silverhand: dual gun attack (two shots)
                             if (u.dualGun) {
-                                attackTarget.takeDamage(damage);
+                                attackTarget.takeDamage(damage,u);
                                 // Second shot with slight delay effect
                                 // ===== ФИКС «ЮНИТЫ ПРОПАДАЮТ» №4 =====
                                 // Проверка, что цель ещё жива И всё ещё в списке
@@ -783,7 +792,7 @@ export class Game {
                                     if (enemy.faction !== u.faction && enemy.hp > 0 && isInfUnit(enemy)) {
                                         const distToTarget = dist(attackTarget.x, attackTarget.y, enemy.x, enemy.y);
                                         if (distToTarget <= (u.grenadeRadius || 40)) {
-                                            enemy.takeDamage(Math.floor(damage * 0.6));
+                                            enemy.takeDamage(Math.floor(damage * 0.6), u);
                                         }
                                     }
                                 });
@@ -791,7 +800,7 @@ export class Game {
                                 this.addParticles(attackTarget.x, attackTarget.y, '#9c27b0', 8);
                             }
                             
-                            attackTarget.takeDamage(damage);
+                            attackTarget.takeDamage(damage, u);
                             this.addParticles(attackTarget.x, attackTarget.y, '#ffcc00', 4);
                             }
                         }
@@ -1292,6 +1301,10 @@ export class Game {
     }
 
     updateCapturePoints() {
+         // Актуализация прочности обороны ДО проверки захвата: при смене
+        // владельца defenseLevel обнуляется и максимум падает — без этого
+        // шага точка ещё тик хранила бы старую (целую) прочность.
+        this.cps.forEach(cp => { if (cp.owner !== 'neutral') this.refreshCityDefenseHp(cp); });
         this.cps.forEach((cp, cpIndex) => {
             const pU = this.units.filter(u => u.faction === this.faction && dist(u.x, u.y, cp.x, cp.y) <= cp.radius);
             const aU = this.units.filter(u => u.faction === this.ai && dist(u.x, u.y, cp.x, cp.y) <= cp.radius);
@@ -1312,6 +1325,14 @@ export class Game {
                     // выталкивал её телепортом за блок-линию (именно это
                     // выталкивание повреждало координаты), и чтобы из-за целой
                     // новой обороны она могла спокойно выехать своим приказом.
+                      // Заново отстроенная оборона стартует БЕЗ очков прочности:
+                    // после перезахвата очки НЕ возвращаются сами — их нужно
+                    // восстанавливать кнопкой «Ремонт обороны» за материалы.
+                    cp.defenseHp = 0;
+                    cp._defRebuilt = true;
+                    cp._defMaxHp = this.getCityDefenseMaxIntegrity(cp);
+                    cp.repairDefense = false;
+                    cp._defenseBrokenNotified = false;
                     this.registerCityEnterGuard(cpIndex, this.ai);
                     this.notify?.(cp.name + ' захвачен!');
                 }
@@ -1321,6 +1342,12 @@ export class Game {
                 if (cp.progress >= 100) {
                     cp.owner = this.ai;
                     cp.defenseLevel = 0;
+                     // Симметрично ИИ: новая оборона без очков прочности.
+                    cp.defenseHp = 0;
+                    cp._defRebuilt = true;
+                    cp._defMaxHp = this.getCityDefenseMaxIntegrity(cp);
+                    cp.repairDefense = false;
+                    cp._defenseBrokenNotified = false;
                     // Симметрично: техника игрока, стоявшая в зоне до захвата,
                     // остаётся и может свободно выехать или остаться.
                     this.registerCityEnterGuard(cpIndex, this.faction);
