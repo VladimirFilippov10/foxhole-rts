@@ -543,10 +543,10 @@ export class Spatha extends Vehicle {
 export class Talos extends Vehicle {
     constructor(faction, x, y) {
         super('talos', faction, x, y);
-        this.hp = this.maxHp = 400;
-        this.dmg = 95;
+        this.hp = this.maxHp = 350;
+        this.dmg = 105;
         this.range = 150;
-        this.spd = 0.8;
+        this.spd = 0.5;
         this.cd = 800;
         this.size = 26;
         this.armor = 45;
