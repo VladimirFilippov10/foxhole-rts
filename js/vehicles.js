@@ -50,18 +50,26 @@ export class Vehicle {
     }
     
     canAttack() {
+        // Артиллерия расходует за выстрел artilleryAmmoConsumption снарядов
+        if (this.isArtillery) return this.ammo >= SUPPLY_SYSTEM.artilleryAmmoConsumption;
         return this.ammo >= SUPPLY_SYSTEM.ammoConsumption;
     }
     
     useAmmo() {
-        this.ammo = Math.max(0, this.ammo - SUPPLY_SYSTEM.ammoConsumption);
+        const cost = this.isArtillery ? SUPPLY_SYSTEM.artilleryAmmoConsumption
+                                      : SUPPLY_SYSTEM.ammoConsumption;
+        this.ammo = Math.max(0, this.ammo - cost);
     }
     
     useFuel() {
+        // Пехота не расходует топливо (топливо — только у техники на ходу)
+        if (this.isInfantry) return;
         this.fuel = Math.max(0, this.fuel - SUPPLY_SYSTEM.fuelConsumption);
     }
     
     canMove() {
+        // Пехоте топливо не нужно — она всегда может двигаться
+        if (this.isInfantry) return true;
         return this.fuel > 0;
     }
     
@@ -120,6 +128,10 @@ export class InfantryBase extends Vehicle {
         this.isInfantry = true;
         this.size = 8;
         this.spd = 0.5;
+        // Пехоте топливо не нужно (убрано для баланса/логики): полоска топлива
+        // у неё не рисуется, возврат на базу по «пустому баку» не срабатывает.
+        this.maxFuel = 0;
+        this.fuel = 0;
     }
 }
 
@@ -251,6 +263,9 @@ export class Devitt extends Vehicle {
         this.label = 'Devitt Mk.III';
         this.tracked = true;
         this.crew = 3;
+        // БАЛАНС: урон > 40 → БК в два раза меньше (было 100)
+        this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.5);
+        this.ammo = this.maxAmmo;
     }
 }
 
@@ -296,6 +311,9 @@ export class Silverhand extends Vehicle {
         this.tracked = true;
         this.crew = 4;
         this.dualGun = true; // Два орудия
+        // БАЛАНС: урон > 40 → БК в два раза меньше (было 100)
+        this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.5);
+        this.ammo = this.maxAmmo;
     }
 }
 
@@ -366,6 +384,9 @@ export class Hatchet extends Vehicle {
         this.tracked = true;
         this.crew = 3;
         this.extraFuel = 25; // Увеличенный топливный бак (325л vs 300л)
+        // БАЛАНС: урон > 40 → БК в два раза меньше (было 100)
+        this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.5);
+        this.ammo = this.maxAmmo;
     }
 }
 
@@ -466,31 +487,33 @@ export class Hoplite extends Vehicle {
 }
 
 // ===== ARTILLERY (фракционная) =====
-// Типы артиллерии:
-//   warden_artillery_120 / warden_artillery_150 — Wardens
-//   colonial_artillery_120 / colonial_artillery_150 — Colonials
-// Старые типы 'warden_artillery' / 'colonial_artillery' оставлены как
-// алиасы 150-мм орудий (обратная совместимость со сохранениями и тестами).
+// Канонические типы юнитов (совпадают с ключами VEHICLE_COSTS):
+//   wardens:   warden_artillery120 / warden_artillery150
+//   colonials: colonial_artillery120 / colonial_artillery150
+// Обратная совместимость со старыми сохранениями/скриптами:
+//   'warden_artillery' / 'warden_artillery_150' → 150 мм Wardens
+//   'colonial_artillery' / 'colonial_artillery_150' → 150 мм Colonials
+//   'colonial_artillery_120' → 120 мм Colonials
 // Все арты помечаются флагами isArtillery/isMortar — так их находит ИИ
 // (unitCategory + manageArtillery) и игра (AoE-логика, снабжение flatbed).
 export class WardenArtillery120 extends Vehicle {
     constructor(faction, x, y) {
-        super('warden_artillery_120', faction, x, y);
-        this.hp = this.maxHp = 100; // Хуже живучесть
-        this.dmg = 60; // Больше урона
+        super('warden_artillery120', faction, x, y);
+        this.hp = this.maxHp = 100; // Живучесть выше, чем у 150 мм
+        this.dmg = 60;
         this.range = 600; // Дальность 600
         this.minRange = 100; // Минимальная дальность - не может стрелять в упор
-        this.spd = 0.6; // Очень медленная
+        this.spd = 0.6; // Медленная, но подвижнее 150 мм
         this.cd = 400; // ~6.7 секунд при 60 FPS
         this.size = 24;
         this.armor = 25;
         this.label = 'Warden Artillery 120mm';
         this.aoe = true; // Area of Effect attack
-        this.aoeRadius = 65; // Большой радиус поражения
+        this.aoeRadius = 65; // Радиус поражения
         this.tracked = true; // Гусеничная артиллерия
         this.isArtillery = true; // ствольная артиллерия (ведение огня через manageArtillery)
         this.isMortar = true;  // категоризация ИИ: «артиллерия», а не бронетехника
-        // БАЛАНС: БК у варденской 120 мм в два раза меньше, чем у 150 мм
+        // БАЛАНС: БК у 120 мм в два раза меньше, чем у 150 мм
         this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.5);
         this.ammo = this.maxAmmo;
     }
@@ -498,7 +521,7 @@ export class WardenArtillery120 extends Vehicle {
 
 export class WardenArtillery150mm extends Vehicle {
     constructor(faction, x, y) {
-        super('warden_artillery_150', faction, x, y);
+        super('warden_artillery150', faction, x, y);
         this.hp = this.maxHp = 80; // Хуже живучесть
         this.dmg = 95; // Больше урона
         this.range = 550; // Дальность 550
@@ -518,7 +541,7 @@ export class WardenArtillery150mm extends Vehicle {
 
 export class ColonialArtillery150mm extends Vehicle {
     constructor(faction, x, y) {
-        super('colonial_artillery_150', faction, x, y);
+        super('colonial_artillery150', faction, x, y);
         this.hp = this.maxHp = 90; // Чуть лучше живучесть
         this.dmg = 85; // Немного меньше урона
         this.range = 550; // Дальность 550
@@ -538,7 +561,7 @@ export class ColonialArtillery150mm extends Vehicle {
 
 export class ColonialArtillery120mm extends Vehicle {
     constructor(faction, x, y) {
-        super('colonial_artillery_120', faction, x, y);
+        super('colonial_artillery120', faction, x, y);
         this.hp = this.maxHp = 60; // Хрупкая
         this.dmg = 55; // Немного меньше урона
         this.range = 400; // Дальность 400
@@ -553,6 +576,9 @@ export class ColonialArtillery120mm extends Vehicle {
         this.tracked = true; // Гусеничная артиллерия
         this.isArtillery = true;
         this.isMortar = true;
+        // БК порезан на 30% для баланса (было 100)
+        this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.7);
+        this.ammo = this.maxAmmo;
     }
 }
 
@@ -563,8 +589,8 @@ const ColonialArtillery = ColonialArtillery150mm;
 
 // Все виды ствольной артиллерии (для проверок по типу)
 export const ARTILLERY_TYPES = [
-    'warden_artillery_120', 'warden_artillery_150',
-    'colonial_artillery_120', 'colonial_artillery_150',
+    'warden_artillery120', 'warden_artillery150',
+    'colonial_artillery120', 'colonial_artillery150',
 ];
 
 // Юнит — ствольная артиллерия? (учитывает старые типы из сохранений)
