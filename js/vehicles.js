@@ -65,22 +65,45 @@ export class Vehicle {
         return this.fuel > 0;
     }
     
-    // Пополнение БК и топлива в НАШЕЙ базе.
-    // ИСПРАВЛЕНИЕ: раньше пополнялись только ammo/fuel, но НЕ HP — подбитая
-    // техника на базе никогда не чинилась («ремонты работают один раз»).
-    // Теперь база также плавно восстанавливает HP (медленнее, чем инженер).
-    regenerateAtBase() {
-        const baseHpRegen = 0.15; // HP/тик
+    // Пополнение HP/БК/топлива в НАШЕЙ базе.
+    // ИСПРАВЛЕНИЕ «бессмертные юниты»: раньше база чинила технику почти
+    // мгновенно (0.15 HP/тик + пополнение БК/топлива с множителем x4 каждый
+    // тик). Теперь по правилу баланса: ремонт, пополнение БК и топлива идут
+    // по 1% от максимума каждые 100 тиков (baseRegenInterval), то есть полный
+    // цикл восстановления ~10000 тиков — техника на базе уязвима и не может
+    // бесконечно «отсиживаться» от боя.
+    regenerateAtBase(gameTime) {
+        // throttle: срабатывает раз в baseRegenInterval тиков
+        const interval = SUPPLY_SYSTEM.baseRegenInterval || 100;
+        if (gameTime !== undefined) {
+            if (this._lastBaseRegen === undefined) this._lastBaseRegen = gameTime;
+            if (gameTime - this._lastBaseRegen < interval) return;
+            this._lastBaseRegen = gameTime;
+        }
+        const pct = SUPPLY_SYSTEM.baseRegenPercent ?? 0.01; // 1% за интервал
         if (this.hp < this.maxHp) {
-            this.hp = Math.min(this.maxHp, this.hp + baseHpRegen);
+            this.hp = Math.min(this.maxHp, this.hp + this.maxHp * pct);
         }
         if (this.ammo < this.maxAmmo) {
-            this.ammo = Math.min(this.maxAmmo, this.ammo + SUPPLY_SYSTEM.ammoRegenRate * 4);
+            this.ammo = Math.min(this.maxAmmo, this.ammo + this.maxAmmo * pct);
         }
         if (this.fuel < this.maxFuel) {
-            this.fuel = Math.min(this.maxFuel, this.fuel + SUPPLY_SYSTEM.fuelRegenRate * 4);
+            this.fuel = Math.min(this.maxFuel, this.fuel + this.maxFuel * pct);
         }
     }
+}
+
+// Вспомогательный throttled-тик пополнения на базе: срабатывает раз в
+// baseRegenInterval (100) тиков — «по 1% каждые 100 тиков» вместо мгновенного
+// заполнения каждый тик (фикс «бессмертные юниты» / «мгновенный ремонт»).
+function baseRegenTick(unit, gameTime, interval) {
+    const iv = interval || SUPPLY_SYSTEM.baseRegenInterval || 100;
+    if (gameTime !== undefined) {
+        if (unit._lastLogisticsRegen === undefined) unit._lastLogisticsRegen = gameTime;
+        if (gameTime - unit._lastLogisticsRegen < iv) return false;
+        unit._lastLogisticsRegen = gameTime;
+    }
+    return true;
 }
 
 // ===== ИНФАНТЕРИЯ (базовый класс) =====
@@ -425,11 +448,12 @@ export class Truck extends Vehicle {
     }
     
     // Пополнение груза на базе
-    replenishAtBase() {
+    replenishAtBase(gameTime) {
+        if (!baseRegenTick(this, gameTime)) return;
         if (this.currentCargo < this.cargoCapacity) {
             this.currentCargo = Math.min(
                 this.cargoCapacity,
-                this.currentCargo + SUPPLY_SYSTEM.logisticsReplenishRate
+                this.currentCargo + this.cargoCapacity * (SUPPLY_SYSTEM.baseRegenPercent ?? 0.01)
             );
         }
     }
@@ -467,11 +491,12 @@ export class FuelTruck extends Vehicle {
     }
     
     // Пополнение топлива на базе
-    replenishAtBase() {
+    replenishAtBase(gameTime) {
+        if (!baseRegenTick(this, gameTime)) return;
         if (this.currentCargo < this.cargoCapacity) {
             this.currentCargo = Math.min(
                 this.cargoCapacity,
-                this.currentCargo + SUPPLY_SYSTEM.logisticsReplenishRate
+                this.currentCargo + this.cargoCapacity * (SUPPLY_SYSTEM.baseRegenPercent ?? 0.01)
             );
         }
     }
@@ -513,11 +538,12 @@ export class Engineer extends Vehicle {
     }
     
     // Пополнение материалов на базе
-    replenishAtBase() {
+    replenishAtBase(gameTime) {
+        if (!baseRegenTick(this, gameTime)) return;
         if (this.currentCargo < this.cargoCapacity) {
             this.currentCargo = Math.min(
                 this.cargoCapacity,
-                this.currentCargo + SUPPLY_SYSTEM.logisticsReplenishRate
+                this.currentCargo + this.cargoCapacity * (SUPPLY_SYSTEM.baseRegenPercent ?? 0.01)
             );
         }
     }
@@ -556,11 +582,12 @@ export class Flatbed extends Vehicle {
     }
     
     // Пополнение снарядов на базе
-    replenishAtBase() {
+    replenishAtBase(gameTime) {
+        if (!baseRegenTick(this, gameTime)) return;
         if (this.currentCargo < this.cargoCapacity) {
             this.currentCargo = Math.min(
                 this.cargoCapacity,
-                this.currentCargo + SUPPLY_SYSTEM.logisticsReplenishRate * 1.5
+                this.currentCargo + this.cargoCapacity * (SUPPLY_SYSTEM.baseRegenPercent ?? 0.01) * 1.5
             );
         }
     }
