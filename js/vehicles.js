@@ -338,6 +338,41 @@ export class GallagherHighwayman extends Vehicle {
         this.boostFuelCost = 0.5; // Дополнительный расход топлива при бусте
     }
     
+    
+    activateBoost() {
+        if (this.fuel > 20 && !this.boosting) {
+            this.boosting = true;
+            this.spd = this.boostSpd;
+        }
+    }
+    
+    deactivateBoost() {
+        this.boosting = false;
+        this.spd = 1.7; // Возврат к базовой скорости
+    }
+}
+
+export class GallagherOutlaw extends Vehicle {
+    constructor(faction, x, y) {
+        super('gallagher_highwayman', faction, x, y);
+        this.hp = this.maxHp = 370; // Нормализовано из 2950
+        this.dmg = 45; // Спаренные 14.5мм пушки
+        this.range = 190;
+        this.spd = 1.5; // Высокая базовая скорость
+        this.offRoadSpd = 1.2;
+        this.boostSpd = 2.8; // Ускорение с бустом
+        this.cd = 150; // Быстрая скорострельность
+        this.size = 24;
+        this.armor = 30;
+        this.label = 'Gallagher Outlaw Mk. II';
+        this.tracked = true;
+        this.crew = 3;
+        this.canBoost = true; // Может использовать буст
+        this.boosting = false;
+        this.boostFuelCost = 0.5; 
+    }
+    
+    
     activateBoost() {
         if (this.fuel > 20 && !this.boosting) {
             this.boosting = true;
@@ -416,7 +451,7 @@ export class Nemesis extends Vehicle {
     constructor(faction, x, y) {
         super('nemesis', faction, x, y);
         this.hp = this.maxHp = 365; // Нормализовано из 3650
-        this.dmg = 90; // 68мм пушка + гранатомет
+        this.dmg = 110; // 68мм пушка + гранатомет
         this.range = 190;
         this.spd = 1.3; // 8.45 м/с нормализовано - самый быстрый штурмовой
         this.offRoadSpd = 0.7; // 5.92 м/с
@@ -434,14 +469,29 @@ export class Nemesis extends Vehicle {
 export class Falchion extends Vehicle {
     constructor(faction, x, y) {
         super('falchion', faction, x, y);
-        this.hp = this.maxHp = 480;
+        this.hp = this.maxHp = 450;
         this.dmg = 70;
-        this.range = 170;
+        this.range = 150;
         this.spd = 0.8;
         this.cd = 460;
         this.size = 26;
         this.armor = 50;
         this.label = 'Falchion';
+        this.tracked = true; // Гусеничный танк
+    }
+}
+
+export class Spatha extends Vehicle {
+    constructor(faction, x, y) {
+        super('falchion', faction, x, y);
+        this.hp = this.maxHp = 560;
+        this.dmg = 80;
+        this.range = 180;
+        this.spd = 0.7;
+        this.cd = 500;
+        this.size = 26;
+        this.armor = 70;
+        this.label = 'Spatha';
         this.tracked = true; // Гусеничный танк
     }
 }
@@ -828,16 +878,22 @@ export function createVehicle(type, faction, x, y) {
         devitt_mmr: DevittMMR,
         silverhand: Silverhand,
         gallagher_highwayman: GallagherHighwayman,
+        gallagher_outlaw: GallagherHighwayman,
         niska: Niska,
         warden_artillery120: WardenArtillery120,
+        warden_artillery150: WardenArtillery150mm,
+        warden_artillery: WardenArtillery150mm,
         // Colonials
         hatchet: Hatchet,
         scorpion: Scorpion,
         nemesis: Nemesis,
         falchion: Falchion,
+        spatha: Spatha,
         javelin: Javelin,
         hoplite: Hoplite,
-        colonial_artillery: ColonialArtillery,
+        colonial_artillery120: ColonialArtillery120mm,
+        colonial_artillery150: ColonialArtillery150mm,
+        colonial_artillery: ColonialArtillery150mm,
         // Logistics
         truck: Truck,
         fuel_truck: FuelTruck,
@@ -851,8 +907,8 @@ export function createVehicle(type, faction, x, y) {
 
 // Доступная техника по фракциям
 export const FACTION_VEHICLES = {
-    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'gallagher_highwayman', 'niska', 'WardenArtillery150mm','WardenArtillery120mm', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
-    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'hoplite', 'colonial_artillery', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
+    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'gallagher_highwayman', 'niska', 'warden_artillery150', 'warden_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'gallagher_outlaw'],
+    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'hoplite', 'colonial_artillery150', 'colonial_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha'],
 };
 
 // ===== Помощники по видам пехоты =====
@@ -882,8 +938,8 @@ export function isInfUnit(u) {
 // фракций. Используется для бонуса обороны +15% урона по технике (уровень 3).
 // Миномёты-поддержка (hoplite, devitt_mmr) и артиллерия техникой не считаются.
 export const TECHNIC_VEHICLE_TYPES = [
-    'king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska',
-    'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin',
+    'king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska', 'gallagher_outlaw',
+    'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'spatha'
 ];
 
 export function isTechVehicle(u) {

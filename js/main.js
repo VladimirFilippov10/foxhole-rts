@@ -72,9 +72,10 @@ const VEHICLE_INFO = {
     devitt_mmr: { name: 'Devitt MMR', icon: '💥', stats: 'Миномёт: HP:160 DMG:25 AoE:30 RNG:90-240 SPD:1.1 БК:70 (-30%)', cost: VEHICLE_COSTS.devitt_mmr },
     silverhand: { name: 'Silverhand Mk.IV', icon: '💪', stats: 'HP:310 DMG:65 RNG:170 SPD:1.5 40мм+68мм', cost: VEHICLE_COSTS.silverhand },
     gallagher_highwayman: { name: 'Gallagher Highwayman', icon: '⚡', stats: 'HP:295 DMG:35 RNG:165 SPD:1.7 Буст', cost: VEHICLE_COSTS.gallagher_highwayman },
+    gallagher_outlaw: { name: 'Gallagher Outlaw', icon: '⚡', stats: 'HP:295 DMG:35 RNG:165 SPD:1.7 Буст', cost: VEHICLE_COSTS.gallagher_outlaw },
     niska: { name: 'Niska APC', icon: '🚙', stats: 'HP:260 DMG:10 RNG:150 SPD:1.8 БТР', cost: VEHICLE_COSTS.niska },
-    warden_artillery120: { name: 'Warden Artillery 120', icon: '🎯', stats: 'HP:100 DMG:85 RNG:150-500 AoE:80 SPD:0.3', cost: VEHICLE_COSTS.warden_artillery },
-    warden_artillery150: { name: 'Warden Artillery 150', icon: '🎯', stats: 'HP:100 DMG:85 RNG:150-500 AoE:80 SPD:0.3', cost: VEHICLE_COSTS.warden_artillery },
+    warden_artillery120: { name: 'Warden Artillery 120мм', icon: '🎯', stats: 'HP:100 DMG:60 RNG:100-600 AoE:65 SPD:0.6 БК:100', cost: VEHICLE_COSTS.warden_artillery120 },
+    warden_artillery150: { name: 'Warden Artillery 150мм', icon: '🎯', stats: 'HP:80 DMG:95 RNG:180-550 AoE:100 SPD:0.3 CD:9с', cost: VEHICLE_COSTS.warden_artillery150 },
 
     // Colonials tanks
     hatchet: { name: 'H-5 Hatchet', icon: '🪓', stats: 'HP:195 DMG:45 RNG:160 SPD:1.6 40мм пушка', cost: VEHICLE_COSTS.hatchet },
@@ -83,8 +84,9 @@ const VEHICLE_INFO = {
     falchion: { name: 'Falchion', icon: '⚔️', stats: 'HP:480 DMG:60 RNG:170 SPD:1.0', cost: VEHICLE_COSTS.falchion },
     hoplite: { name: 'Hoplite Mortar', icon: '💥', stats: 'Миномёт: HP:150 DMG:25 AoE:30 RNG:80-180 SPD:1.3 БК:70 (-30%)', cost: VEHICLE_COSTS.hoplite },
     javelin: { name: 'Javelin APC', icon: '🛡️', stats: 'HP:200 DMG:7 RNG:140 SPD:1.65 БТР', cost: VEHICLE_COSTS.javelin },
-    colonial_artillery: { name: 'Colonial Artillery', icon: '🎯', stats: 'HP:110 DMG:75 RNG:120-400 AoE:70 SPD:0.6', cost: VEHICLE_COSTS.colonial_artillery },
-    
+    colonial_artillery120: { name: 'Colonial Artillery', icon: '🎯', stats: 'HP:110 DMG:75 RNG:120-400 AoE:70 SPD:0.6', cost: VEHICLE_COSTS.colonial_artillery120 },
+    colonial_artillery150: { name: 'Colonial Artillery', icon: '🎯', stats: 'HP:110 DMG:75 RNG:120-400 AoE:70 SPD:0.6', cost: VEHICLE_COSTS.colonial_artillery150 },
+
     // Logistics
     truck: { name: 'Грузовик', icon: '🚚', stats: 'HP:120 SPD:1.8 Пополняет БК', cost: VEHICLE_COSTS.truck },
     fuel_truck: { name: 'Бензовоз', icon: '⛽', stats: 'HP:140 SPD:1.6 Пополняет топливо', cost: VEHICLE_COSTS.fuel_truck },
@@ -653,11 +655,11 @@ const FACTION_INFANTRY_TYPES = ['rifleman', 'mg_gunner', 'grenadier', 'sniper'];
 
 const TAB_TYPES = {
     infantry: ['infantry', ...FACTION_INFANTRY_TYPES],
-    vehicles: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska',
+    vehicles: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw', 'niska', 'spatha',
                'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin'],
     supply:   ['truck', 'fuel_truck', 'engineer', 'flatbed'],
     // Поддержка: ствольная артиллерия + миномётные машины (Hoplite, Devitt MMR)
-    support:  ['warden_artillery', 'colonial_artillery', 'hoplite', 'devitt_mmr'],
+    support:  ['warden_artillery120', 'warden_artillery150','colonial_artillery120','colonial_artillery150', 'hoplite', 'devitt_mmr'],
 };
 
 let factoryTab = 'infantry';

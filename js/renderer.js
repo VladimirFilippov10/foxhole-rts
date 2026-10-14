@@ -1841,7 +1841,7 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
         }
         
         // Falchion - Medium tank
-        if (u.type === 'falchion') {
+        if (u.type === 'falchion' || u.type === 'spatha') {
             // Turret
             ctx.fillStyle = col.s;
             ctx.beginPath();
