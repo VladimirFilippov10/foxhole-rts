@@ -135,7 +135,7 @@ export class InfantryVarden extends InfantryBase {
     }
 }
 
-export class InfantryColonist extends InfantryColonist {
+export class InfantryColonist extends InfantryBase {
     constructor(faction, x, y) {
         super('rifleman', faction, x, y);
         this.hp = this.maxHp = 30;
@@ -643,13 +643,36 @@ export class Flatbed extends Vehicle {
     }
 }
 
+// Фабрика пехоты: выбирает класс по виду пехоты И фракции.
+//   wardens   — «...Varden»   (Стрелок / Пулемётчик / Снайпер / Гранатомётчик)
+//   colonials — «...Colonist» (Стрелок / Пулемётчик / Снайпер / Гренадер)
+// Пулемётчик один на обе фракции (MgGunner).
+function createInfantry(type, faction, x, y) {
+    const isWardens = faction === 'wardens';
+    switch (type) {
+        case 'rifleman':
+        case 'infantry':
+            return isWardens ? new InfantryVarden(faction, x, y)
+                             : new InfantryColonist(faction, x, y);
+        case 'mg_gunner':
+            return new MgGunner(faction, x, y);          // общий для обеих фракций
+        case 'grenadier':
+            return isWardens ? new GrenadierVarden(faction, x, y)
+                             : new GrenadierColonist(faction, x, y);
+        case 'sniper':
+            return isWardens ? new SniperVarden(faction, x, y)
+                             : new SniperColonist(faction, x, y);
+        default:
+            return null;
+    }
+}
+
 export function createVehicle(type, faction, x, y) {
+    // Пехота создаётся с учётом фракции (у каждой свои виды в названии класса)
+    const inf = createInfantry(type, faction, x, y);
+    if (inf) return inf;
+
     const map = {
-        infantry: Infantry,      // старое имя = стрелки (обратная совместимость)
-        rifleman: Infantry,
-        mg_gunner: MgGunner,
-        grenadier: Grenadier,
-        sniper: Sniper,
         // Wardens
         king_spire: KingSpire,
         devitt: Devitt,
@@ -683,6 +706,18 @@ export const FACTION_VEHICLES = {
 
 // ===== Помощники по видам пехоты =====
 export const INFANTRY_TYPES = ['rifleman', 'mg_gunner', 'grenadier', 'sniper'];
+
+// Пехота, доступная для производства каждой фракции.
+// Снайпер — общий тип ('sniper'), класс выбирается по фракции:
+//   wardens → SniperVarden, colonials → SniperColonist.
+// Гранатомётчик/Гренадер — один тип 'grenadier' с разными классами и статами:
+//   wardens → GrenadierVarden (короткий мощный залп),
+//   colonials → GrenadierColonist (дальше бросает, радиус взрыва больше).
+// Пулемётчик (mg_gunner) — единый класс MgGunner для обеих фракций.
+export const FACTION_INFANTRY = {
+    wardens:   ['rifleman', 'mg_gunner', 'grenadier', 'sniper'],
+    colonials: ['rifleman', 'mg_gunner', 'grenadier', 'sniper'],
+};
 
 // Юнит — пехота? (новый флаг isInfantry + обратная совместимость со старым
 // типом 'infantry' из сохранений/скриптов)
