@@ -254,6 +254,25 @@ export class Devitt extends Vehicle {
     }
 }
 
+export class DevittMMR extends Vehicle {
+    constructor(faction, x, y) {
+        super('devitt', faction, x, y);
+        this.hp = this.maxHp = 160; // 
+        this.dmg = 25; // 
+        this.range = 240;
+        this.spd = 1.1; // 
+        this.offRoadSpd = 1.0; //
+        this.cd = 300; // 
+        this.size = 22;
+        this.armor = 30;
+        this.label = 'Devitt MMR';
+        this.tracked = true;
+        this.crew = 3;
+        this.aoe = true; // Area of Effect attack
+        this.aoeRadius = 30; 
+    }
+}
+
 // Silverhand Mk. IV - Штурмовой танк
 export class Silverhand extends Vehicle {
     constructor(faction, x, y) {
