@@ -72,7 +72,7 @@ const VEHICLE_INFO = {
     devitt_mmr: { name: 'Devitt MMR', icon: '💥', stats: 'Миномёт: HP:160 DMG:25 AoE:30 RNG:90-240 SPD:1.1 БК:70 (-30%)', cost: VEHICLE_COSTS.devitt_mmr },
     silverhand: { name: 'Silverhand Mk.IV', icon: '💪', stats: 'HP:310 DMG:65 RNG:170 SPD:1.5 40мм+68мм', cost: VEHICLE_COSTS.silverhand },
     gallagher_highwayman: { name: 'Gallagher Highwayman', icon: '⚡', stats: 'HP:295 DMG:35 RNG:165 SPD:1.7 Буст', cost: VEHICLE_COSTS.gallagher_highwayman },
-    gallagher_outlaw: { name: 'Gallagher Outlaw', icon: '⚡', stats: 'HP:295 DMG:35 RNG:165 SPD:1.7 Буст', cost: VEHICLE_COSTS.gallagher_outlaw },
+    gallagher_outlaw: { name: 'Gallagher Outlaw Mk.II', icon: '🌪️', stats: 'HP:370 DMG:45 RNG:190 SPD:1.5 Буст, усиленное орудие, броня 30', cost: VEHICLE_COSTS.gallagher_outlaw },
     niska: { name: 'Niska APC', icon: '🚙', stats: 'HP:260 DMG:10 RNG:150 SPD:1.8 БТР', cost: VEHICLE_COSTS.niska },
     warden_artillery120: { name: 'Warden Artillery 120мм', icon: '🎯', stats: 'HP:100 DMG:60 RNG:100-600 AoE:65 SPD:0.6 БК:100', cost: VEHICLE_COSTS.warden_artillery120 },
     warden_artillery150: { name: 'Warden Artillery 150мм', icon: '🎯', stats: 'HP:80 DMG:95 RNG:180-550 AoE:100 SPD:0.3 CD:9с', cost: VEHICLE_COSTS.warden_artillery150 },
@@ -82,10 +82,11 @@ const VEHICLE_INFO = {
     scorpion: { name: 'HC-2 Scorpion', icon: '🦂', stats: 'HP:330 DMG:20 RNG:130 SPD:1.3 Пулеметы x2', cost: VEHICLE_COSTS.scorpion },
     nemesis: { name: '90T-v Nemesis', icon: '🔥', stats: 'HP:365 DMG:70 RNG:175 SPD:1.7 68мм+гранатомет', cost: VEHICLE_COSTS.nemesis },
     falchion: { name: 'Falchion', icon: '⚔️', stats: 'HP:480 DMG:60 RNG:170 SPD:1.0', cost: VEHICLE_COSTS.falchion },
+    spatha: { name: 'Spatha', icon: '🗡️', stats: 'HP:560 DMG:80 RNG:180 SPD:0.7 CD:8.3с Тяжёлый танк, броня 70, дульный тормоз', cost: VEHICLE_COSTS.spatha },
     hoplite: { name: 'Hoplite Mortar', icon: '💥', stats: 'Миномёт: HP:150 DMG:25 AoE:30 RNG:80-180 SPD:1.3 БК:70 (-30%)', cost: VEHICLE_COSTS.hoplite },
     javelin: { name: 'Javelin APC', icon: '🛡️', stats: 'HP:200 DMG:7 RNG:140 SPD:1.65 БТР', cost: VEHICLE_COSTS.javelin },
-    colonial_artillery120: { name: 'Colonial Artillery', icon: '🎯', stats: 'HP:110 DMG:75 RNG:120-400 AoE:70 SPD:0.6', cost: VEHICLE_COSTS.colonial_artillery120 },
-    colonial_artillery150: { name: 'Colonial Artillery', icon: '🎯', stats: 'HP:110 DMG:75 RNG:120-400 AoE:70 SPD:0.6', cost: VEHICLE_COSTS.colonial_artillery150 },
+    colonial_artillery120: { name: 'Colonial Artillery 120мм', icon: '🎯', stats: 'HP:60 DMG:55 RNG:60-400 AoE:45 SPD:0.7 Быстрая лёгкая арта', cost: VEHICLE_COSTS.colonial_artillery120 },
+    colonial_artillery150: { name: 'Colonial Artillery 150мм', icon: '🎯', stats: 'HP:90 DMG:85 RNG:150-550 AoE:80 SPD:0.5 CD:7.5с', cost: VEHICLE_COSTS.colonial_artillery150 },
 
     // Logistics
     truck: { name: 'Грузовик', icon: '🚚', stats: 'HP:120 SPD:1.8 Пополняет БК', cost: VEHICLE_COSTS.truck },
@@ -666,11 +667,13 @@ let factoryTab = 'infantry';
 
 // Фракционное название вида пехоты: у wardens — «Гранатомётчик»,
 // у colonials — «Гренадер» (это один тип 'grenadier', разные классы).
+// info может быть undefined, если тип не добавлен в VEHICLE_INFO —
+// возвращаем label/тип вместо падения с "Cannot read properties of undefined".
 function factionUnitName(type, info) {
     if (type === 'grenadier') {
         return game && game.faction === 'colonials' ? 'Гренадер' : 'Гранатомётчик';
     }
-    return info.name;
+    return info?.name || type;
 }
 
 function openFactoryMenu(factory, mx, my) {
