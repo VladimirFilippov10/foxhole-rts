@@ -1,19 +1,41 @@
 // ===== RENDERER =====
-import { COLORS, dist } from './constants.js';
-import { ROADS, CITY_ZONES, TREES, BUSHES, ROCKS, GRASS_PATCHES, LAKES } from './map.js';
+import { COLORS, dist, CELL_W, CELL_H } from './constants.js';
+import { ROADS, CITY_ZONES, TREES, BUSHES, ROCKS, GRASS_PATCHES, LAKES, MAP_STYLE, STONE_PATCHES, DARK_PATCHES, GULLIES, SHALLOWS } from './map.js';
 import { isInfUnit } from './vehicles.js';
 
 export function render(ctx, G, canvas) {
     const cam = G.cam;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Background - green terrain with variation
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, '#5a7a4a');
-    gradient.addColorStop(0.5, '#4a6a3a');
-    gradient.addColorStop(1, '#5a7a4a');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (MAP_STYLE === 'sableport') {
+        // Песчаная база карты Sableport (светло-бежевая пустыня/степь)
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, '#e3d3ae');
+        gradient.addColorStop(0.5, '#dcc9a0');
+        gradient.addColorStop(1, '#e3d3ae');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Едва заметная гексовая сетка (серые линии)
+        drawHexGrid(ctx, cam, canvas);
+
+        // Тёмно-бежевые пятна (леса/возвышенности: Waspwood, Groggy Pinion)
+        drawTerrainPatches(ctx, DARK_PATCHES, cam, canvas, true);
+
+        // Каменное пятно Sableport (тёмно-серая «застывшая лава»)
+        drawStoneField(ctx, cam, canvas);
+
+        // Овраги/русла
+        drawGullies(ctx, cam, canvas);
+    } else {
+        // Background - green terrain with variation
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, '#5a7a4a');
+        gradient.addColorStop(0.5, '#4a6a3a');
+        gradient.addColorStop(1, '#5a7a4a');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
     // Grass patches
     drawGrassPatches(ctx, cam, canvas);
@@ -282,17 +304,159 @@ function getHoveredUnit(G, cam) {
     return null;
 }
 
+// ===== TERRAIN: SABLEPORT (песчаная карта с гексовой сеткой) =====
+
+// Едва заметная гексовая сетка: серые линии поверх песочной базы.
+function drawHexGrid(ctx, cam, canvas) {
+    const r = 42;                       // «радиус» гекса
+    const w = Math.sqrt(3) * r;         // ширина гекса (pointy-top)
+    const h = 2 * r;
+    ctx.strokeStyle = 'rgba(110, 105, 95, 0.16)';
+    ctx.lineWidth = 1;
+
+    const startCol = Math.floor(cam.x / w) - 1;
+    const endCol = Math.floor((cam.x + canvas.width) / w) + 1;
+    const startRow = Math.floor(cam.y / (h * 0.75)) - 1;
+    const endRow = Math.floor((cam.y + canvas.height) / (h * 0.75)) + 1;
+
+    for (let row = startRow; row <= endRow; row++) {
+        for (let col = startCol; col <= endCol; col++) {
+            const cx = col * w + (row % 2 ? w / 2 : 0) - cam.x;
+            const cy = row * h * 0.75 - cam.y;
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const a = Math.PI / 180 * (60 * i - 30);
+                const px = cx + r * Math.cos(a);
+                const py = cy + r * Math.sin(a);
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.stroke();
+        }
+    }
+}
+
+// Неровное («пятнистое») заполнение эллипса — имитация органических границ.
+function blotPath(ctx, x, y, rx, ry, rot, seed) {
+    const pts = 14;
+    ctx.beginPath();
+    for (let i = 0; i <= pts; i++) {
+        const a = (i / pts) * Math.PI * 2;
+        const wob = 0.82 + Math.sin(a * 3 + seed) * 0.12 + Math.cos(a * 5 + seed * 1.7) * 0.08;
+        const px = Math.cos(a) * rx * wob;
+        const py = Math.sin(a) * ry * wob;
+        const c = Math.cos(rot), s = Math.sin(rot);
+        const X = x + px * c - py * s;
+        const Y = y + px * s + py * c;
+        if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+    }
+    ctx.closePath();
+}
+
+// Тёмно-бежевые пятна (возвышенности/леса) с подписями регионов
+function drawTerrainPatches(ctx, patches, cam, canvas, withLabels) {
+    (patches || []).forEach((p, idx) => {
+        const x = p.x - cam.x, y = p.y - cam.y;
+        if (x < -p.rx - 100 || x > canvas.width + p.rx + 100 ||
+            y < -p.ry - 100 || y > canvas.height + p.ry + 100) return;
+
+        // Светлая «подложка» более сухой земли вокруг пятна
+        ctx.fillStyle = 'rgba(222, 205, 170, 0.55)';
+        blotPath(ctx, x, y, p.rx * 1.18, p.ry * 1.25, p.rot, idx * 2.3 + 1);
+        ctx.fill();
+
+        // Само тёмно-бежевое пятно
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = 0.55;
+        blotPath(ctx, x, y, p.rx, p.ry, p.rot, idx * 2.3);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        if (withLabels && p.label) {
+            ctx.fillStyle = 'rgba(90, 78, 55, 0.85)';
+            ctx.font = 'italic bold 15px Georgia, serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(p.label, x, y - p.ry - 8);
+        }
+    });
+}
+
+// Центральное каменное пятно Sableport / Creeping Drought
+function drawStoneField(ctx, cam, canvas) {
+    (STONE_PATCHES || []).forEach((p, idx) => {
+        const x = p.x - cam.x, y = p.y - cam.y;
+        if (x < -p.rx - 150 || x > canvas.width + p.rx + 150 ||
+            y < -p.ry - 150 || y > canvas.height + p.ry + 150) return;
+
+        // Более светлая земля вокруг камня
+        ctx.fillStyle = 'rgba(233, 219, 188, 0.8)';
+        blotPath(ctx, x, y, p.rx * 1.3, p.ry * 1.35, p.rot, idx * 3.1 + 0.5);
+        ctx.fill();
+
+        // Тёмно-серый камень неправильной формы
+        ctx.fillStyle = p.color;
+        blotPath(ctx, x, y, p.rx, p.ry, p.rot, idx * 3.1);
+        ctx.fill();
+
+        // Внутренние прожилки (трещины застывшей лавы)
+        ctx.strokeStyle = 'rgba(35, 34, 38, 0.5)';
+        ctx.lineWidth = 2;
+        for (let k = 0; k < 3; k++) {
+            blotPath(ctx, x + (k - 1) * p.rx * 0.3, y + (k % 2 - 0.5) * p.ry * 0.4,
+                p.rx * (0.35 + k * 0.12), p.ry * (0.3 + k * 0.08), p.rot + k, idx * 3.1 + k * 1.9);
+            ctx.stroke();
+        }
+
+        if (p.label) {
+            ctx.fillStyle = 'rgba(245, 240, 230, 0.9)';
+            ctx.font = 'bold 16px Georgia, serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(p.label, x, y - p.ry - 10);
+        }
+    });
+}
+
+// Извилистые тёмно-серые русла/овраги
+function drawGullies(ctx, cam, canvas) {
+    (GULLIES || []).forEach(line => {
+        if (!line || line.length < 2) return;
+        ctx.strokeStyle = 'rgba(80, 76, 72, 0.5)';
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(line[0].x - cam.x, line[0].y - cam.y);
+        for (let i = 1; i < line.length - 1; i++) {
+            const xc = (line[i].x + line[i + 1].x) / 2 - cam.x;
+            const yc = (line[i].y + line[i + 1].y) / 2 - cam.y;
+            ctx.quadraticCurveTo(line[i].x - cam.x, line[i].y - cam.y, xc, yc);
+        }
+        const last = line[line.length - 1];
+        ctx.lineTo(last.x - cam.x, last.y - cam.y);
+        ctx.stroke();
+    });
+}
+
 function drawGrassPatches(ctx, cam, canvas) {
     GRASS_PATCHES.forEach(patch => {
         const x = patch.x - cam.x;
         const y = patch.y - cam.y;
         if (x < -100 || x > canvas.width + 100 || y < -100 || y > canvas.height + 100) return;
 
-        // Gradient grass
-        const gradient = ctx.createRadialGradient(x, y, 0, x, y, patch.radius);
-        gradient.addColorStop(0, 'rgba(120, 140, 80, 0.4)');
-        gradient.addColorStop(0.7, 'rgba(100, 120, 60, 0.2)');
-        gradient.addColorStop(1, 'rgba(80, 100, 40, 0)');
+        let gradient;
+        if (MAP_STYLE === 'sableport') {
+            // На песчаной карте — более тёмные бежевые пятна вместо травы
+            gradient = ctx.createRadialGradient(x, y, 0, x, y, patch.radius);
+            gradient.addColorStop(0, 'rgba(166, 141, 99, 0.35)');
+            gradient.addColorStop(0.7, 'rgba(150, 128, 90, 0.18)');
+            gradient.addColorStop(1, 'rgba(140, 118, 82, 0)');
+        } else {
+            // Gradient grass
+            gradient = ctx.createRadialGradient(x, y, 0, x, y, patch.radius);
+            gradient.addColorStop(0, 'rgba(120, 140, 80, 0.4)');
+            gradient.addColorStop(0.7, 'rgba(100, 120, 60, 0.2)');
+            gradient.addColorStop(1, 'rgba(80, 100, 40, 0)');
+        }
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.ellipse(x, y, patch.radius, patch.radius * 0.7, 0, 0, Math.PI * 2);
@@ -308,12 +472,35 @@ function drawLakes(ctx, lakes, cam, canvas) {
         const y = centerY - cam.y;
         
         if (x < -200 || x > canvas.width + 200 || y < -200 || y > canvas.height + 200) return;
-        
+
+        // Мелководье: светло-голубой «ореол» с переходом в глубокую воду
+        if (MAP_STYLE === 'sableport') {
+            const shallow = SHALLOWS.find(s => s.lakeCol === lake.col && s.lakeRow === lake.row);
+            if (shallow) {
+                const sr = lake.radius * shallow.scale;
+                const sg = ctx.createRadialGradient(x, y, lake.radius * 0.6, x, y, sr);
+                sg.addColorStop(0, 'rgba(150, 205, 235, 0.55)');
+                sg.addColorStop(0.7, 'rgba(170, 215, 240, 0.35)');
+                sg.addColorStop(1, 'rgba(190, 228, 245, 0)');
+                ctx.fillStyle = sg;
+                ctx.beginPath();
+                ctx.ellipse(x, y, sr, sr * 0.72, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
         // Draw lake water with irregular shape
         const gradient = ctx.createRadialGradient(x, y, 0, x, y, lake.radius);
-        gradient.addColorStop(0, 'rgba(70, 130, 180, 0.8)');
-        gradient.addColorStop(0.7, 'rgba(100, 149, 237, 0.6)');
-        gradient.addColorStop(1, 'rgba(135, 206, 235, 0.4)');
+        if (MAP_STYLE === 'sableport') {
+            // Глубокая вода — тёмно-синяя, к берегу светлее
+            gradient.addColorStop(0, 'rgba(23, 58, 110, 0.9)');
+            gradient.addColorStop(0.65, 'rgba(38, 84, 148, 0.8)');
+            gradient.addColorStop(1, 'rgba(96, 156, 200, 0.55)');
+        } else {
+            gradient.addColorStop(0, 'rgba(70, 130, 180, 0.8)');
+            gradient.addColorStop(0.7, 'rgba(100, 149, 237, 0.6)');
+            gradient.addColorStop(1, 'rgba(135, 206, 235, 0.4)');
+        }
         ctx.fillStyle = gradient;
         
         // Create irregular lake shape using multiple points
