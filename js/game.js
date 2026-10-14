@@ -1,7 +1,7 @@
 // ===== GAME LOGIC =====
 import { dist, distToSeg, GAME_MODES, SUPPLY_SYSTEM } from './constants.js';
 import { AI } from './ai.js';
-import { createVehicle, isInfUnit, isTechVehicle, INFANTRY_TYPES } from './vehicles.js';
+import { createVehicle, isInfUnit, isTechVehicle, INFANTRY_TYPES, getDefenseDamageVsTech, getUnitAttackDamage } from './vehicles.js';
 
 // Логирование (console.log) — используется и здесь, и в ai.js.
 // ИСПРАВЛЕНИЕ: раньше game.js вызывал aiLog(...), который был определён только
@@ -763,6 +763,10 @@ export class Game {
                             
                             // Special attack handling
                             let damage = u.dmg;
+
+                            // Noble Widow: +25% урона по технике противника
+                            // (базовый dmg * 1.25, см. vehicles.js)
+                            damage = getUnitAttackDamage(u, attackTarget, damage);
                             
                             // Scorpion: increased damage to infantry
                             if (u.antiInfantry && isInfUnit(attackTarget)) {
@@ -1634,7 +1638,7 @@ export class Game {
             { damage: 0, range: 0, hp: 0 },      // Уровень 0 - нет обороны
             { damage: 15, range: 240, hp: 300 },  // Уровень 1 (было 120)
             { damage: 25, range: 300, hp: 600 },  // Уровень 2 (было 150)
-            { damage: 40, range: 360, hp: 1000 }, // Уровень 3 (было 180) + защита от артиллерии + урон по технике x1.15
+            { damage: 40, range: 360, hp: 1000 }, // Уровень 3 (было 180) + защита от артиллерии + урон по технике x1.3
         ];
         return stats[defenseLevel] || stats[0];
     }
@@ -1742,8 +1746,22 @@ export class Game {
 
             // Бункеры атакуют врагов в радиусе действия (только если достроены)
             if (b.type && b.type.startsWith('bunker_') && !b.isBuilding && b.range > 0) {
-                // Инициализация таймера атаки
-                if (b.lastAtk === undefined) b.lastAtk = 0;
+                // ===== ФИКС «ОБОРОНА (ИГРОКА И ИИ) НЕ СТРЕЛЯЕТ ПО ЮНИТАМ» =====
+                // Раньше бункер стрелял ТОЛЬКО по юнитам-врагам. Как только
+                // у юнита срабатывало «ответное решение» — он получал флаг
+                // holdPosition (держать позицию до конца, см. ai.js /
+                // updateUnit) или приказ отхода retreatToBase — оборона его
+                // игнорировала. В реальном бою почти вся техника очень быстро
+                // переходила в holdPosition, поэтому оборона фактически
+                // «молчала» и работала только контрбатарейный огонь по
+                // артиллерии. Теперь укрепления ведут огонь по ЛЮБЫМ
+                // вражеским юнитам в радиусе (включая стоящих на месте),
+                // исключение — лишь техника, полностью уехавшая на базу
+                // (hp <= 0 мёртвые фильтруются списком livingUnits).
+                // Плюс защита от «залипшего кулдауна»: если lastAtk оказался
+                // в будущем (битые данные после санации/сохранения), бункер
+                // больше не ждёт перезапуска игры — таймер сбрасывается.
+                if (!Number.isFinite(b.lastAtk) || b.lastAtk > this.time) b.lastAtk = 0;
 
                 // Кулдаун (2 секунды между выстрелами). return здесь теперь
                 // безопасен: список врагов уже собран выше и другие здания
@@ -1774,11 +1792,10 @@ export class Game {
                 if (nearestEnemy) {
                     b.lastAtk = this.time;
                     let damage = b.defense || 10;
-                    // Тяжёлый бункер («уровень 3» среди укреплений): +15% урона
-                    // только по технике из вкладки «🚗 Техника» производства.
-                    if (b.type === 'bunker_heavy' && isTechVehicle(nearestEnemy)) {
-                        damage = Math.round(damage * 1.15);
-                    }
+                    // Урон обороны по технике — коэффициент x1.3 (см.
+                    // DEFENSE_VS_TECH_MULT в vehicles.js). Действует для всех
+                    // достроенных укреплений и целей из вкладки «🚗 Техника».
+                    damage = getDefenseDamageVsTech(damage, nearestEnemy);
                     nearestEnemy.takeDamage(damage);
 
                     // Визуальный эффект выстрела
@@ -1830,13 +1847,11 @@ export class Game {
                     // Add defense tracer
                     this.addTracer(cp.x, cp.y, nearestEnemy.x, nearestEnemy.y, 'defense');
                     
-                    // Уровень 3: +15% урона только по технике (всё из вкладки
-                    // «🚗 Техника» производства — TAB_TYPES.vehicles). По пехоте,
+                    // Урон обороны по технике — коэффициент x1.3 (см.
+                    // DEFENSE_VS_TECH_MULT в vehicles.js). По пехоте,
                     // логистике и артиллерии урон без бонуса.
                     let defDamage = stats.damage;
-                    if (cp.defenseLevel === 3 && isTechVehicle(nearestEnemy)) {
-                        defDamage = Math.round(defDamage * 1.15);
-                    }
+                    defDamage = getDefenseDamageVsTech(defDamage, nearestEnemy);
                     nearestEnemy.takeDamage(defDamage);
                     
                     // Визуальный эффект выстрела

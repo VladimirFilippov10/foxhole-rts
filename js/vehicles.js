@@ -1014,14 +1014,40 @@ export function isTechUnit(u) {
 // (TAB_TYPES.vehicles в main.js): тяжёлые и лёгкие боевые машины обеих
 // фракций. Используется для бонуса обороны +15% урона по технике (уровень 3).
 // Миномёты-поддержка (hoplite, devitt_mmr) и артиллерия техникой не считаются.
+// ВАЖНО: noble_widow тоже относится к технике (вкладка «🚗 Техника») —
+// раньше её не было в списке, из-за чего бонусы «по технике» (урон обороны)
+// на неё не действовали.
 export const TECHNIC_VEHICLE_TYPES = [
     'king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska', 'gallagher_outlaw',
-    'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'spatha'
+    'noble_widow',
+    'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'spatha', 'talos'
 ];
+
+// Множитель урона обороны (бункеры и территория 3 уровня) по технике.
+const DEFENSE_VS_TECH_MULT = 1.3;
+
+// Собственный бонус Noble Widow «по технике»: +25% к базовому урону (x1.25).
+const NOBLE_WIDOW_VS_TECH_MULT = 1.25;
 
 export function isTechVehicle(u) {
     if (!u) return false;
     // Пехота/логистика/арта техникой не считаются
     if (isInfUnit(u)) return false;
     return TECHNIC_VEHICLE_TYPES.includes(u.type);
+}
+
+// Оборона (укрепления/территории) — урон по технике с коэффициентом x1.3.
+export function getDefenseDamageVsTech(baseDamage, target) {
+    if (!isTechVehicle(target)) return baseDamage;
+    return Math.round(baseDamage * DEFENSE_VS_TECH_MULT);
+}
+
+// Noble Widow: если цель — техника противника, урон = базовый dmg * 1.25.
+// Возвращает итоговый урон (для остальных юнитов/целей — без изменений).
+export function getUnitAttackDamage(attacker, target, baseDamage) {
+    let damage = baseDamage;
+    if (attacker && attacker.type === 'noble_widow' && isTechVehicle(target)) {
+        damage = damage * NOBLE_WIDOW_VS_TECH_MULT;
+    }
+    return damage;
 }
