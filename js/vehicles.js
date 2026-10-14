@@ -201,7 +201,7 @@ export class GrenadierVarden extends InfantryBase {
     }
 }
 
-export class GrenadierVarden extends InfantryBase {
+export class GrenadierColonist extends InfantryBase {
     constructor(faction, x, y) {
         super('grenadier', faction, x, y);
         this.hp = this.maxHp = 40;
