@@ -224,10 +224,10 @@ export class GrenadierVarden extends InfantryBase {
     constructor(faction, x, y) {
         super('grenadier', faction, x, y);
         this.hp = this.maxHp = 40;
-        this.dmg = 60;
-        this.range = 45;
+        this.dmg = 65;
+        this.range = 100;
         this.spd = 0.5;
-        this.cd = 200;
+        this.cd = 300;
         this.grenadeLauncher = true;    // AoE по пехоте вокруг цели (game.js)
         this.grenadeRadius = 15;
         this.label = 'Гранатомётчик';
@@ -238,10 +238,10 @@ export class GrenadierColonist extends InfantryBase {
     constructor(faction, x, y) {
         super('grenadier', faction, x, y);
         this.hp = this.maxHp = 40;
-        this.dmg = 25;
-        this.range = 70;
+        this.dmg = 35;
+        this.range = 80;
         this.spd = 0.5;
-        this.cd = 250;
+        this.cd = 240;
         this.grenadeLauncher = true;    // AoE по пехоте вокруг цели (game.js)
         this.grenadeRadius = 25;
         this.label = 'Гренадер';
@@ -254,12 +254,12 @@ export class GrenadierColonist extends InfantryBase {
 export class KingSpire extends Vehicle {
     constructor(faction, x, y) {
         super('king_spire', faction, x, y);
-        this.hp = this.maxHp = 135; // Нормализовано из 1350
-        this.dmg = 15; // 12.7мм пулемет
+        this.hp = this.maxHp = 150; // Нормализовано из 1350
+        this.dmg = 18; // 12.7мм пулемет
         this.range = 140;
         this.spd = 1.3; // 7.22 м/с нормализовано
         this.offRoadSpd = 1.0; // 5.05 м/с
-        this.cd = 40; // Быстрая скорострельность пулемета
+        this.cd = 50; // Быстрая скорострельность пулемета
         this.size = 20;
         this.armor = 25;
         this.label = 'King Spire';
@@ -292,14 +292,14 @@ export class NobleWidow extends Vehicle {
 export class Devitt extends Vehicle {
     constructor(faction, x, y) {
         super('devitt', faction, x, y);
-        this.hp = this.maxHp = 195; // Нормализовано из 1950
+        this.hp = this.maxHp = 200; // Нормализовано из 1950
         this.dmg = 45; // 40мм пушка
-        this.range = 160;
+        this.range = 150;
         this.spd = 1.6; // 8.27 м/с нормализовано
         this.offRoadSpd = 1.1; // 5.79 м/с
         this.cd = 290; // 40мм пушка
         this.size = 22;
-        this.armor = 35;
+        this.armor = 40;
         this.label = 'Devitt Mk.III';
         this.tracked = true;
         this.crew = 3;
