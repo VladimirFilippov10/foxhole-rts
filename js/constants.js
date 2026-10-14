@@ -85,9 +85,10 @@ export const BUILDING_COSTS = {
 
 // Укрепления (бункеры) - одинаковые для обеих фракций
 export const FORTIFICATION_COSTS = {
-    bunker_light: { s: 30, c: 20, m: 25, hp: 300, defense: 10, range: 120 },
-    bunker_medium: { s: 60, c: 40, m: 50, hp: 600, defense: 20, range: 150 },
-    bunker_heavy: { s: 100, c: 70, m: 80, hp: 1000, defense: 35, range: 180 },
+    // Радиусы авто-атаки увеличены x2 (построенная оборона)
+    bunker_light: { s: 30, c: 20, m: 25, hp: 300, defense: 10, range: 240 },
+    bunker_medium: { s: 60, c: 40, m: 50, hp: 600, defense: 20, range: 300 },
+    bunker_heavy: { s: 100, c: 70, m: 80, hp: 1000, defense: 35, range: 360 },
 };
 
 // Система БК и топлива

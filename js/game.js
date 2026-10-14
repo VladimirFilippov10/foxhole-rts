@@ -1,7 +1,7 @@
 // ===== GAME LOGIC =====
 import { dist, distToSeg, GAME_MODES, SUPPLY_SYSTEM } from './constants.js';
 import { AI } from './ai.js';
-import { createVehicle, isInfUnit, INFANTRY_TYPES } from './vehicles.js';
+import { createVehicle, isInfUnit, isTechVehicle, INFANTRY_TYPES } from './vehicles.js';
 
 // Логирование (console.log) — используется и здесь, и в ai.js.
 // ИСПРАВЛЕНИЕ: раньше game.js вызывал aiLog(...), который был определён только
@@ -1474,11 +1474,12 @@ export class Game {
     }
     
     getTerritoryDefenseStats(defenseLevel) {
+        // Радиусы авто-атаки увеличены x2 (раньше оборона стреляла фактически в упор)
         const stats = [
             { damage: 0, range: 0, hp: 0 },      // Уровень 0 - нет обороны
-            { damage: 15, range: 120, hp: 300 },  // Уровень 1
-            { damage: 25, range: 150, hp: 600 },  // Уровень 2
-            { damage: 40, range: 180, hp: 1000 }, // Уровень 3 + защита от артиллерии
+            { damage: 15, range: 240, hp: 300 },  // Уровень 1 (было 120)
+            { damage: 25, range: 300, hp: 600 },  // Уровень 2 (было 150)
+            { damage: 40, range: 360, hp: 1000 }, // Уровень 3 (было 180) + защита от артиллерии + урон по технике x1.15
         ];
         return stats[defenseLevel] || stats[0];
     }
@@ -1499,9 +1500,10 @@ export class Game {
     // Система укреплений (старая - можно удалить)
     buildFortification(type, x, y, faction, aiResources = null) {
         const FORTIFICATION_COSTS = {
-            bunker_light: { s: 30, c: 20, m: 25, hp: 300, defense: 10, range: 120, buildTime: 10 },
-            bunker_medium: { s: 60, c: 40, m: 50, hp: 600, defense: 20, range: 150, buildTime: 15 },
-            bunker_heavy: { s: 100, c: 70, m: 80, hp: 1000, defense: 35, range: 180, buildTime: 20 },
+            // Радиусы авто-атаки увеличены x2 (построенная оборона)
+            bunker_light: { s: 30, c: 20, m: 25, hp: 300, defense: 10, range: 240, buildTime: 10 },
+            bunker_medium: { s: 60, c: 40, m: 50, hp: 600, defense: 20, range: 300, buildTime: 15 },
+            bunker_heavy: { s: 100, c: 70, m: 80, hp: 1000, defense: 35, range: 360, buildTime: 20 },
         };
         
         const cost = FORTIFICATION_COSTS[type];
@@ -1602,7 +1604,12 @@ export class Game {
                 // Атакуем если нашли врага
                 if (nearestEnemy) {
                     b.lastAtk = this.time;
-                    const damage = b.defense || 10;
+                    let damage = b.defense || 10;
+                    // Тяжёлый бункер («уровень 3» среди укреплений): +15% урона
+                    // только по технике из вкладки «🚗 Техника» производства.
+                    if (b.type === 'bunker_heavy' && isTechVehicle(nearestEnemy)) {
+                        damage = Math.round(damage * 1.15);
+                    }
                     nearestEnemy.takeDamage(damage);
                     
                     // Визуальный эффект выстрела
@@ -1647,7 +1654,14 @@ export class Game {
                     // Add defense tracer
                     this.addTracer(cp.x, cp.y, nearestEnemy.x, nearestEnemy.y, 'defense');
                     
-                    nearestEnemy.takeDamage(stats.damage);
+                    // Уровень 3: +15% урона только по технике (всё из вкладки
+                    // «🚗 Техника» производства — TAB_TYPES.vehicles). По пехоте,
+                    // логистике и артиллерии урон без бонуса.
+                    let defDamage = stats.damage;
+                    if (cp.defenseLevel === 3 && isTechVehicle(nearestEnemy)) {
+                        defDamage = Math.round(defDamage * 1.15);
+                    }
+                    nearestEnemy.takeDamage(defDamage);
                     
                     // Визуальный эффект выстрела
                     this.addParticles(nearestEnemy.x, nearestEnemy.y, '#ffcc00', 3);
