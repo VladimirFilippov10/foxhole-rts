@@ -399,9 +399,9 @@ export class Falchion extends Vehicle {
     }
 }
 
-export class Hoplite extends Vehicle {
+export class Javelin extends Vehicle {
     constructor(faction, x, y) {
-        super('hoplite', faction, x, y);
+        super('Javelin', faction, x, y);
         this.hp = this.maxHp = 200;
         this.dmg = 7;
         this.range = 140;
@@ -409,8 +409,25 @@ export class Hoplite extends Vehicle {
         this.cd = 65;
         this.size = 20;
         this.armor = 25;
-        this.label = 'Hoplite APC';
+        this.label = 'Javelin APC';
         this.tracked = true; // Гусеничный БТР
+    }
+}
+
+export class Hoplite extends Vehicle { //в арту
+    constructor(faction, x, y) {
+        super('Hoplite', faction, x, y);
+        this.hp = this.maxHp = 150;
+        this.dmg = 25;
+        this.range = 180;
+        this.spd = 1.3; // Самый быстрый
+        this.cd = 150;
+        this.size = 20;
+        this.armor = 15;
+        this.label = 'Javelin APC';
+        this.tracked = true; // Гусеничный БТР
+        this.aoe = true; // Area of Effect attack
+        this.aoeRadius = 30; // Большой радиус поражения
     }
 }
 
