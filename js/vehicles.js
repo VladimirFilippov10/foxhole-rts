@@ -123,14 +123,26 @@ export class InfantryBase extends Vehicle {
     }
 }
 
-export class Infantry extends InfantryBase {
+export class InfantryVarden extends InfantryBase {
     constructor(faction, x, y) {
         super('rifleman', faction, x, y);
         this.hp = this.maxHp = 35;
-        this.dmg = 6;
-        this.range = 110;
+        this.dmg = 8;
+        this.range = 130;
         this.spd = 0.5; // Очень медленно
         this.cd = 90;
+        this.label = 'Стрелок';
+    }
+}
+
+export class InfantryColonist extends InfantryColonist {
+    constructor(faction, x, y) {
+        super('rifleman', faction, x, y);
+        this.hp = this.maxHp = 30;
+        this.dmg = 6;
+        this.range = 120;
+        this.spd = 0.65; // Очень медленно
+        this.cd = 70;
         this.label = 'Стрелок';
     }
 }
@@ -149,21 +161,33 @@ export class MgGunner extends InfantryBase {
     }
 }
 
-export class Sniper extends InfantryBase {
+export class SniperVarden extends InfantryBase {
     constructor(faction, x, y) {
         super('sniper', faction, x, y);
-        this.hp = this.maxHp = 25;      // хрупкий
-        this.dmg = 40;                  // высокий одиночный урон
+        this.hp = this.maxHp = 20;      // хрупкий
+        this.dmg = 45;                  // высокий одиночный урон
         this.range = 260;               // стреляет с дальней дистанции
-        this.spd = 0.5;                // чуть быстрее обычной пехоты — доходит до позиции
+        this.spd = 0.4;                // чуть быстрее обычной пехоты — доходит до позиции
         this.cd = 950;                  // редкие, но точные выстрелы
+        this.label = 'Снайпер';
+    }
+}
+
+export class SniperColonist extends InfantryBase {
+    constructor(faction, x, y) {
+        super('sniper', faction, x, y);
+        this.hp = this.maxHp = 30;      // хрупкий
+        this.dmg = 35;                  // высокий одиночный урон
+        this.range = 230;               // стреляет с дальней дистанции
+        this.spd = 0.5;                // чуть быстрее обычной пехоты — доходит до позиции
+        this.cd = 800;                  // редкие, но точные выстрелы
         this.label = 'Снайпер';
     }
 }
 
 // Гранатомётчик — наступательная пехота: средний DPS и AoE-урон по
 // скоплениям вражеской пехоты (гранаты задевают всех в радиусе).
-export class Grenadier extends InfantryBase {
+export class GrenadierVarden extends InfantryBase {
     constructor(faction, x, y) {
         super('grenadier', faction, x, y);
         this.hp = this.maxHp = 40;
@@ -172,8 +196,22 @@ export class Grenadier extends InfantryBase {
         this.spd = 0.5;
         this.cd = 200;
         this.grenadeLauncher = true;    // AoE по пехоте вокруг цели (game.js)
-        this.grenadeRadius = 25;
+        this.grenadeRadius = 15;
         this.label = 'Гранатомётчик';
+    }
+}
+
+export class GrenadierVarden extends InfantryBase {
+    constructor(faction, x, y) {
+        super('grenadier', faction, x, y);
+        this.hp = this.maxHp = 40;
+        this.dmg = 25;
+        this.range = 70;
+        this.spd = 0.5;
+        this.cd = 250;
+        this.grenadeLauncher = true;    // AoE по пехоте вокруг цели (game.js)
+        this.grenadeRadius = 25;
+        this.label = 'Гренадер';
     }
 }
 
