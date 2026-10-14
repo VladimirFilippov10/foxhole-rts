@@ -352,37 +352,41 @@ export class GallagherHighwayman extends Vehicle {
     }
 }
 
+// Gallagher Outlaw Mk. II — тяжёлый крейсер на базе Highwayman:
+// усиленное орудие (45 урона), броня 30, дальность 190, буст.
+// ФИКС: раньше класс вызывал super('gallagher_highwayman', ...) — из-за этого
+// createVehicle('gallagher_outlaw') возвращал обычный Highwayman (тип не
+// совпадал ни с VEHICLE_COSTS, ни с моделью рендера).
 export class GallagherOutlaw extends Vehicle {
     constructor(faction, x, y) {
-        super('gallagher_highwayman', faction, x, y);
-        this.hp = this.maxHp = 370; // Нормализовано из 2950
-        this.dmg = 45; // Спаренные 14.5мм пушки
+        super('gallagher_outlaw', faction, x, y);
+        this.hp = this.maxHp = 370;
+        this.dmg = 45; // Усиленное спаренное орудие
         this.range = 190;
-        this.spd = 1.5; // Высокая базовая скорость
+        this.spd = 1.5;
         this.offRoadSpd = 1.2;
         this.boostSpd = 2.8; // Ускорение с бустом
-        this.cd = 150; // Быстрая скорострельность
-        this.size = 24;
+        this.cd = 150;
+        this.size = 26; // Чуть крупнее Highwayman
         this.armor = 30;
         this.label = 'Gallagher Outlaw Mk. II';
         this.tracked = true;
         this.crew = 3;
         this.canBoost = true; // Может использовать буст
         this.boosting = false;
-        this.boostFuelCost = 0.5; 
+        this.boostFuelCost = 0.5;
     }
-    
-    
+
     activateBoost() {
         if (this.fuel > 20 && !this.boosting) {
             this.boosting = true;
             this.spd = this.boostSpd;
         }
     }
-    
+
     deactivateBoost() {
         this.boosting = false;
-        this.spd = 1.7; // Возврат к базовой скорости
+        this.spd = 1.5; // Возврат к базовой скорости Outlaw
     }
 }
 
@@ -483,7 +487,7 @@ export class Falchion extends Vehicle {
 
 export class Spatha extends Vehicle {
     constructor(faction, x, y) {
-        super('falchion', faction, x, y);
+        super('spatha', faction, x, y);
         this.hp = this.maxHp = 560;
         this.dmg = 80;
         this.range = 180;
@@ -878,7 +882,7 @@ export function createVehicle(type, faction, x, y) {
         devitt_mmr: DevittMMR,
         silverhand: Silverhand,
         gallagher_highwayman: GallagherHighwayman,
-        gallagher_outlaw: GallagherHighwayman,
+        gallagher_outlaw: GallagherOutlaw,
         niska: Niska,
         warden_artillery120: WardenArtillery120,
         warden_artillery150: WardenArtillery150mm,
@@ -931,6 +935,20 @@ export const FACTION_INFANTRY = {
 export function isInfUnit(u) {
     if (!u) return false;
     return u.isInfantry === true || u.type === 'infantry' || INFANTRY_TYPES.includes(u.type);
+}
+
+// Логистика (не считается боевой техникой ни у игрока, ни у ИИ)
+export const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed'];
+export function isLogisticsUnit(u) {
+    return !!u && LOGISTICS_TYPES.includes(u.type);
+}
+
+// Боевая техника (всё, что не пехота и не логистика; артиллерия тоже идёт
+// в зачёт как «техника поддержки»)
+export function isTechUnit(u) {
+    if (!u || u.hp <= 0) return false;
+    if (isInfUnit(u)) return false;
+    return !isLogisticsUnit(u);
 }
 
 // Юнит — техника? Всё, что производится во вкладке «🚗 Техника»

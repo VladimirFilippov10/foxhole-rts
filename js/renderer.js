@@ -1740,6 +1740,63 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
             ctx.stroke();
         }
         
+        // Gallagher Outlaw Mk.II — тяжёлый крейсер: массивный корпус,
+        // усиленная башня с одним длинным орудием и бронированными катками
+        if (u.type === 'gallagher_outlaw') {
+            // Гусеничные тележки (выступают за корпус — «тяжёлый» силуэт)
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(-sz * 0.5, -sz * 0.34, sz * 1.0, sz * 0.1);
+            ctx.fillRect(-sz * 0.5, sz * 0.24, sz * 1.0, sz * 0.1);
+            // Катки
+            ctx.fillStyle = '#374151';
+            for (let i = 0; i < 4; i++) {
+                const wx = -sz * 0.38 + i * sz * 0.25;
+                ctx.beginPath();
+                ctx.arc(wx, -sz * 0.29, sz * 0.05, 0, Math.PI * 2);
+                ctx.arc(wx, sz * 0.29, sz * 0.05, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // Массивная угловатая башня (трапеция)
+            ctx.fillStyle = col.s;
+            ctx.beginPath();
+            ctx.moveTo(-sz * 0.2, -sz * 0.22);
+            ctx.lineTo(sz * 0.18, -sz * 0.16);
+            ctx.lineTo(sz * 0.18, sz * 0.16);
+            ctx.lineTo(-sz * 0.2, sz * 0.22);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            // Усиленное спаренное орудие (утолщённый ствол + дульный тормоз)
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(sz * 0.1, -sz * 0.06);
+            ctx.lineTo(sz * 0.68, -sz * 0.06);
+            ctx.stroke();
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(sz * 0.6, -sz * 0.11, sz * 0.09, sz * 0.1); // тормоз
+            // Кормовая ниша (доп. боеукладка — узнаваемая черта Outlaw)
+            ctx.strokeStyle = col.p;
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(-sz * 0.34, -sz * 0.12, sz * 0.12, sz * 0.24);
+            // Boost indicator
+            if (u.boosting) {
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath();
+                ctx.arc(-sz * 0.42, 0, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.moveTo(-sz * 0.5, -sz * 0.12);
+                ctx.lineTo(-sz * 0.74, 0);
+                ctx.lineTo(-sz * 0.5, sz * 0.12);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
         // Gallagher Highwayman - Cruiser tank with boost
         if (u.type === 'gallagher_highwayman') {
             // Turret
@@ -1841,7 +1898,7 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
         }
         
         // Falchion - Medium tank
-        if (u.type === 'falchion' || u.type === 'spatha') {
+        if (u.type === 'falchion') {
             // Turret
             ctx.fillStyle = col.s;
             ctx.beginPath();
@@ -1857,6 +1914,47 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
             ctx.moveTo(0, 0);
             ctx.lineTo(sz * 0.6, 0);
             ctx.stroke();
+        }
+
+        // Spatha — тяжёлый танк колонистов: угловатая массивная башня,
+        // длинное мощное орудие с дульным тормозом, дополнительные экраны
+        if (u.type === 'spatha') {
+            // Экраны по бортам корпуса (тяжёлая защита)
+            ctx.fillStyle = col.p;
+            ctx.fillRect(-sz * 0.5, -sz * 0.3, sz, sz * 0.06);
+            ctx.fillRect(-sz * 0.5, sz * 0.24, sz, sz * 0.06);
+            // Гусеницы
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(-sz * 0.48, -sz * 0.26, sz * 0.96, sz * 0.07);
+            ctx.fillRect(-sz * 0.48, sz * 0.19, sz * 0.96, sz * 0.07);
+            // Угловатая трапециевидная башня (отличается от круглой Falchion)
+            ctx.fillStyle = col.s;
+            ctx.beginPath();
+            ctx.moveTo(-sz * 0.24, -sz * 0.24);
+            ctx.lineTo(sz * 0.16, -sz * 0.2);
+            ctx.lineTo(sz * 0.24, 0);
+            ctx.lineTo(sz * 0.16, sz * 0.2);
+            ctx.lineTo(-sz * 0.24, sz * 0.24);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            // Длинное тяжёлое орудие 80мм
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 4.5;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(sz * 0.72, 0);
+            ctx.stroke();
+            // Дульный тормоз
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(sz * 0.64, -sz * 0.07, sz * 0.1, sz * 0.14);
+            // Командирская башенка
+            ctx.fillStyle = col.a;
+            ctx.beginPath();
+            ctx.arc(-sz * 0.1, -sz * 0.12, sz * 0.07, 0, Math.PI * 2);
+            ctx.fill();
         }
         
         if (['niska', 'javelin'].includes(u.type)) {
@@ -1912,8 +2010,35 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
             ctx.stroke();
         }
         
-        if (u.type === 'warden_artillery' || u.type === 'colonial_artillery') {
-            // Artillery barrel
+        // Ствольная артиллерия (все калибры обеих фракций) — гаубичный ствол
+        if (u.isArtillery && !u.isMortar) {
+            // Платформа/казённая часть
+            ctx.fillStyle = col.s;
+            ctx.fillRect(-sz * 0.3, -sz * 0.18, sz * 0.45, sz * 0.36);
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(-sz * 0.3, -sz * 0.18, sz * 0.45, sz * 0.36);
+            // Гаубичный ствол (длинный, с дульным тормозом)
+            const heavy = (u.type === 'warden_artillery150' || u.type === 'warden_artillery');
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = heavy ? 5 : 4;
+            ctx.beginPath();
+            ctx.moveTo(sz * 0.1, 0);
+            ctx.lineTo(sz * 0.72, 0);
+            ctx.stroke();
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(sz * 0.62, -sz * 0.06, sz * 0.1, sz * 0.12); // дульный тормоз
+            // Сошки
+            ctx.strokeStyle = col.p;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(sz * 0.45, 0);
+            ctx.lineTo(sz * 0.55, -sz * 0.2);
+            ctx.moveTo(sz * 0.45, 0);
+            ctx.lineTo(sz * 0.55, sz * 0.2);
+            ctx.stroke();
+        } else if (u.type === 'warden_artillery' || u.type === 'colonial_artillery') {
+            // Старые алиасы (сохранения): простая модель ствола
             ctx.strokeStyle = col.a;
             ctx.lineWidth = u.type === 'warden_artillery' ? 5 : 4;
             ctx.beginPath();
@@ -2009,14 +2134,29 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
     ctx.restore();
     
     // Draw selection and faction indicators (not rotated)
-    if (u.type === 'warden_artillery') {
+    if (u.isArtillery && !u.isMortar) {
+        // Маркер ствольной артиллерии: ★ у wardens, ▲ у colonials
+        if (u.faction === 'wardens') {
+            ctx.fillStyle = '#60a5fa';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('★', x, y - sz * 0.5);
+        } else {
+            ctx.fillStyle = '#4ade80';
+            ctx.beginPath();
+            ctx.moveTo(x, y - sz * 0.6);
+            ctx.lineTo(x - 4, y - sz * 0.45);
+            ctx.lineTo(x + 4, y - sz * 0.45);
+            ctx.closePath();
+            ctx.fill();
+        }
+    } else if (u.type === 'warden_artillery') {
         ctx.fillStyle = '#60a5fa';
         ctx.font = 'bold 10px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('★', x, y - sz * 0.5);
     } else if (u.type === 'colonial_artillery') {
         ctx.fillStyle = '#4ade80'; // зелёный маркер артиллерии колонистов
-        ctx.fillStyle = '#4ade80';
         ctx.beginPath();
         ctx.moveTo(x, y - sz * 0.6);
         ctx.lineTo(x - 4, y - sz * 0.45);

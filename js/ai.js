@@ -1,6 +1,6 @@
 // ===== AI SYSTEM - STRATEGIC BEHAVIOR =====
 import { dist, VEHICLE_COSTS } from './constants.js';
-import { createVehicle, isInfUnit } from './vehicles.js';
+import { createVehicle, isInfUnit, isTechUnit, isLogisticsUnit } from './vehicles.js';
 
 // Логирование действий бота в консоль (отключается: window.AI_LOG = false)
 let LOG_ENABLED = true;
@@ -41,12 +41,12 @@ export class AI {
         };
         this.aiResourceRate = 0.6; // Множитель скорости фарма (60% от игрока)
 
-        // ===== КВОТА «1 ТЕХНИКА НА 5 ПЕХОТИНЦЕВ» =====
+        // ===== КВОТА «1 ТЕХНИКА НА 3 ПЕХОТИНЦЕВ» =====
         // Фикс краша: методы/поля squadSizeOf / infantrySpawned / vehicleDebtTarget /
         // vehicleCount использовались в updateInner(), но НЕ были определены —
         // весь цикл ИИ падал с TypeError и бот «не строил технику».
         this.infantrySpawned = 0;   // сколько пехотинцев выпущено с момента последней техники
-        this.vehicleDebtTarget = 5; // нужно 5 пехоты -> 1 техника
+        this.vehicleDebtTarget = 3; // нужно 3 пехоты -> 1 техника
         this.vehicleCount = 0;      // всего произведено техники ИИ
         this.infantryCount = 0;     // всего произведено пехотинцев ИИ
 
@@ -83,14 +83,13 @@ export class AI {
 
     // Текущее соотношение пехота:техника «на поле» (живые юниты ИИ).
     // Используется для догоняющего производства техники: если пехоты больше
-    // чем 5x техники — ИИ наращивает технику, пока квота 1:5 не восстановится.
+    // чем 3x техники — ИИ наращивает технику, пока квота 1:3 не восстановится.
     getLiveCounts() {
         let inf = 0, veh = 0;
         for (const u of this.G.units) {
             if (u.faction !== this.G.ai || u.hp <= 0) continue;
             if (isInfUnit(u)) inf++;
-            else if (u.type !== 'truck' && u.type !== 'fuel_truck' &&
-                     u.type !== 'engineer' && u.type !== 'flatbed') veh++;
+            else if (!isLogisticsUnit(u)) veh++;
         }
         return { inf, veh };
     }
@@ -146,54 +145,69 @@ export class AI {
         const actualInfantryInterval = Math.round(baseInfantryInterval * spawnMultiplier);
         const actualVehicleInterval = Math.round(baseVehicleInterval * spawnMultiplier);
 
-        // ===== ПРОИЗВОДСТВО ИИ: КВОТА 1 ТЕХНИКА / 5 ПЕХОТЫ + ДОГОНЯЩЕЕ СТРОИТЕЛЬСТВО =====
+        // ===== ПРОИЗВОДСТВО ИИ: КВОТА 1 ТЕХНИКА / 3 ПЕХОТИНЦА + ДОГОНЯЮЩЕЕ СТРОИТЕЛЬСТВО =====
         // Правила:
-        //  1) На каждые выпущенных 5 пехотинцев ИИ обязан выпустить 1 технику.
-        //  2) Если техника ТЕРЯЕТСЯ в бою и живая пехота превышает 5x живую
-        //     технику — ИИ В ПРИОРИТЕТЕ наращивает технику, пока соотношение
-        //     1:5 не восстановится (фикс «бот спамит пехотой»).
-        //  3) Пока копятся ресурсы на технику — пехоту НЕ спавним вообще
-        //     (раньше именно это создавало спам: пехота сыпалась каждую
-        //     секунду и съедала весь бюджет).
-        const INF_PER_VEHICLE = 5;
+        //  1) Целевое соотношение сил на поле — 3 пехотинца на 1 единицу
+        //     техники (раньше было 1:5 — ИИ спамил пехотой).
+        //  2) Если пехоты БОЛЬШЕ чем 3x техники — ИИ в приоритете наращивает
+        //     технику, пока соотношение не восстановится.
+        //  3) Если техники БОЛЬШЕ чем пехоты/3 — ИИ добирает пехоту.
+        //  4) Стратегическая доктрина по контролю карты:
+        //       игрок захватил >50% точек  → преимущество АРТИЛЛЕРИЯ
+        //                                   (дальний обстрел с оборонительных
+        //                                    позиций — контратака превосходящего
+        //                                    противника);
+        //       игрок держит <=50% точек   → преимущество ТЕХНИКА
+        //                                   (броневой клин для развития
+        //                                    наступления).
+        const INF_PER_VEHICLE = 3;
         let spawnedThisTick = false;
 
         const liveInf = this.G.units.filter(u => u.faction === this.G.ai && isInfUnit(u) && u.hp > 0).length;
-        const liveVeh = this.G.units.filter(u => u.faction === this.G.ai && u.hp > 0 &&
-            !isInfUnit(u) && u.type !== 'truck' && u.type !== 'fuel_truck' &&
-            u.type !== 'engineer' && u.type !== 'flatbed').length;
-        // Соотношение «на поле»: пехоты больше 5x техники -> копим технику (debt)
+        const liveVeh = this.G.units.filter(u => u.faction === this.G.ai && isTechUnit(u)).length;
+        const liveArt = this.G.units.filter(u => u.faction === this.G.ai && u.hp > 0 && u.aoe).length;
+        // Соотношение «на поле»: пехоты больше 3x техники -> копим технику (debt)
         const debtTarget = liveVeh * INF_PER_VEHICLE;
         const needsCatchUp = liveInf > debtTarget;
+        // Обратный перекос: техники больше, чем пехота может прикрыть -> добираем пехоту
+        const needsInfCatchUp = liveVeh > 0 && liveInf < debtTarget;
 
-        // ===== ФИКС КРАША ИСХОДНОГО КОДА =====
-        // В оригинальной версии здесь был оборванный блок:
-        //     if (canProduceInfantry && ...) { if (this.canAffordInfantry()) {
-        // без закрывающих скобок и тела — из-за чего весь файл ai.js не
-        // разбирался (SyntaxError), модуль ИИ не загружался, методы класса
-        // AI (в т.ч. manageSnipers) не существовали, а updateInner() падал с
-        // «TypeError: this.manageSnipers is not a function». Цикл ИИ
-        // обрывался на середине, юниты переставали обновляться и «внезапно
-        // пропадали». Лишние строки удалены: ниже есть полный и корректный
-        // блок производства (завод / квота 1:5 / догоняющее строительство).
+        // Доктрина: >50% точек у игрока — артиллерия; иначе — бронетехника
+        const preferArtillery = playerDominance; // игрок держит >50% точек
+
         const hasFactory = this.G.buildings.some(b => b.faction === this.G.ai && b.type === 'factory');
         const canVehicleSlot = this.G.canProduceUnit('vehicle', this.G.ai);
         const canAffordVeh = this.canAffordVehicle();
         const quotaMet = this.infantrySpawned >= this.vehicleDebtTarget;
-        // Техника возможна только когда ЕСТЬ завод (иначе бот «копил» бы вечно
-        // без factory и не производил вообще ничего — фикс этого тупика):
         const vehiclePossible = hasFactory && canVehicleSlot && canAffordVeh;
 
-        // Пехоту спавним только когда она разрешена лимитами производства
-        // (canProduceInfantry) — раньше это условие терялось при восстановлении
-        // блока после синтаксической ошибки и бот игнорировал лимит пехоты.
         const allowInf = () => canProduceInfantry &&
             this.G.canProduceUnit('infantry', this.G.ai) && this.canAffordInfantry();
 
-        if (vehiclePossible && (quotaMet || needsCatchUp)) {
+        // Нужна ли сейчас ещё одна единица техники (по квоте 1:3 или из-за потерь)
+        const wantVehicle = (liveVeh * INF_PER_VEHICLE) < liveInf;
+
+        if (preferArtillery && vehiclePossible && this.timer % actualVehicleInterval === 0) {
+            // Игрок захватил >50% точек — преимущество АРТИЛЛЕРИИ: строим её
+            // в приоритете (с разумным потолком доли в составе). Если артy
+            // построить нельзя (нет ресурсов/потолок достигнут) — обычная
+            // техника по квоте, иначе пехота.
+            const combatTotal = liveVeh || 1;
+            const artCap = Math.max(2, Math.round(combatTotal * 0.4));
+            if (this.spawnDoctrineArtillery(liveArt, artCap)) {
+                spawnedThisTick = true;
+                aiLog(`[AI][DOCTRINE] т.${this.timer}: игрок держит >50% точек — ставка на АРТИЛЛЕРИЮ (пехота=${liveInf}, техника=${liveVeh}, арта=${liveArt}/${artCap})`);
+            } else if (wantVehicle || quotaMet) {
+                this.spawnVehicle(true);
+                this.vehicleCount++;
+                this.infantrySpawned = 0;
+                this.accumulatedForces += 2;
+                spawnedThisTick = true;
+            }
+        } else if (vehiclePossible && (wantVehicle || quotaMet)) {
             // Квота выполнена ИЛИ нужно догнать потери техники — выпускаем технику
             const before = this.G.units.length;
-            this.spawnVehicle();
+            this.spawnVehicle(false);
             if (this.G.units.length > before) {
                 this.vehicleCount++;
                 this.infantrySpawned = 0;
@@ -201,22 +215,16 @@ export class AI {
                 spawnedThisTick = true;
                 aiLog(`[AI][SPAWN] т.${this.timer}: ТЕХНИКА (${this.vehicleCount} всего). На поле: пехота=${liveInf}, техника=${liveVeh} (квота 1:${INF_PER_VEHICLE}${needsCatchUp ? ', ДОГОНЯЕМ ПОТЕРИ' : ''})`);
             }
-        } else if (vehiclePossible) {
-            // Завод есть, техника доступна, но квота ещё не набрана — копим пехоту
-            if (this.timer % actualInfantryInterval === 0 && allowInf()) {
-                this.spawnInfantrySquad();
-                this.infantrySpawned += this.squadSizeOf(this.difficulty);
-                this.accumulatedForces++;
-                spawnedThisTick = true;
-            }
-        } else if (!canVehicleSlot && canAffordVeh && needsCatchUp && hasFactory) {
-            // Догоняем потери, но слотов техники нет — ждём, пехоту НЕ спамим
         } else if (this.timer % actualInfantryInterval === 0 && allowInf()) {
-            // Нет завода / нет ресурсов на технику / лимит техники -> компенсируем пехотой
+            // Добираем пехоту: нет завода/ресурсов на технику, слотов техники нет,
+            // либо техники уже больше чем 1 на 3 пехотинцев (перекос в сторону техники)
             this.spawnInfantrySquad();
             this.infantrySpawned += this.squadSizeOf(this.difficulty);
             this.accumulatedForces++;
             spawnedThisTick = true;
+            if (needsInfCatchUp) {
+                aiLog(`[AI][SPAWN] т.${this.timer}: ДОБОР ПЕХОТЫ под технику (пехота=${liveInf}, техника=${liveVeh}, квота ${INF_PER_VEHICLE}:1)`);
+            }
         }
 
         // Активное расширение: юниты без приказа сами идут на ближайшие
@@ -830,7 +838,7 @@ export class AI {
         return this.aiResources.s >= t.s && this.aiResources.c >= t.c && this.aiResources.m >= t.m;
     }
 
-    spawnVehicle() {
+    spawnVehicle(useArtilleryBias = false) {
         const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory');
         if (!factory) return;
 
@@ -848,6 +856,7 @@ export class AI {
             if (this.difficulty >= 2) {
                 types.push('silverhand'); // Штурмовой танк
                 types.push('gallagher_highwayman'); // Крейсерский танк
+                types.push('gallagher_outlaw'); // Тяжёлый крейсер (новая модель)
             }
         } else {
             // Colonial. Javelin — обычный БТР (вместо Hoplite, который
@@ -861,51 +870,21 @@ export class AI {
             if (this.difficulty >= 2) {
                 types.push('nemesis'); // Штурмовой танк
                 types.push('falchion'); // Средний танк
+                types.push('spatha'); // Тяжёлый танк (новая модель)
             }
         }
         
-        // Миномётная поддержка (Hoplite у колонистов, Devitt MMR у wardens):
-        // производится реже и обрабатывается ИИ как артиллерия (AoE-уроны
-        // через manageArtillery), а НЕ как обычная бронетехника.
-        const mortarType = this.G.ai === 'colonials' ? 'hoplite' : 'devitt_mmr';
-        if (this.difficulty >= 1 && Math.random() < 0.15) {
-            const mCost = VEHICLE_COSTS[mortarType];
-            if (mCost && this.aiResources.s >= mCost.s && this.aiResources.c >= mCost.c && this.aiResources.m >= mCost.m) {
-                this.spendResources(mCost);
-                const mortar = createVehicle(mortarType, this.G.ai, factory.x + 60, factory.y + 60);
-                this.G.units.push(mortar);
-                mortar.isMortar = true;
-                mortar.isArtillery = true; // стоит на позиции, стреляет через manageArtillery
-                this.accumulatedForces += 2;
-                aiLog(`[AI][ARTILLERY] т.${this.timer}: произведена миномётная поддержка ${mortar.label}`);
-                return;
+        // Артиллерия/миномёты по доктрине (useArtilleryBias — игрок держит
+        // >50% точек: тогда арта строится заметно чаще обычного)
+        if (this.difficulty >= 1) {
+            const artChance = useArtilleryBias ? 0.6 : 0.15;
+            if (Math.random() < artChance) {
+                const combatTotal = this.G.units.filter(u => u.faction === this.G.ai && isTechUnit(u)).length;
+                const liveArtNow = this.G.units.filter(u => u.faction === this.G.ai && u.hp > 0 && u.aoe).length;
+                if (this.spawnDoctrineArtillery(liveArtNow, Math.max(2, Math.round(combatTotal * (useArtilleryBias ? 0.45 : 0.3))))) return;
             }
         }
 
-        // Добавляем артиллерию для дальнего обстрела (реже - 20% шанс)
-        if (this.difficulty >= 2 && Math.random() < 0.2) {
-            const artilleryType = this.G.ai === 'wardens' ? 'warden_artillery' : 'colonial_artillery';
-            const cost = VEHICLE_COSTS[artilleryType];
-            
-            if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
-                this.spendResources(cost);
-                const unit = createVehicle(artilleryType, this.G.ai, factory.x + 60, factory.y + 60);
-                this.G.units.push(unit);
-                this.accumulatedForces += 3; // Артиллерия очень ценна
-                
-                // ВАЖНОЕ ИСПРАВЛЕНИЕ ("арта пропадает после начала движения"):
-                // раньше артиллерии выдавался обычный приказ движения (tx/ty).
-                // По прибытии game.updateUnits() сбрасывал tx/ty, manageArtillery()
-                // тут же ставил новый приказ, и арта снова трогалась с места —
-                // уезжала на фронт и гибла. Теперь арта помнит, что она артиллерия
-                // (isArtillery): стоит на месте и сама выбирает позицию для
-                // стрельбы через setArtilleryPosition() в game.js.
-                unit.isArtillery = true;
-                aiLog(`[AI][ARTILLERY] т.${this.timer}: произведена ${unit.label} в (${Math.round(unit.x)}, ${Math.round(unit.y)}), range=${unit.range}, minRange=${unit.minRange}`);
-                return;
-            }
-        }
-        
         // Выбираем случайный тип техники
         const type = types[Math.floor(Math.random() * types.length)];
         const cost = VEHICLE_COSTS[type];
@@ -938,6 +917,46 @@ export class AI {
         }
     }
     
+    // ===== АРТИЛЛЕРИЯ ПО ДОКТРИНЕ =====
+    // Выпускает ствольную артиллерию (120/150 мм) или миномётную поддержку
+    // (hoplite/devitt_mmr) своей фракции, если хватает ресурсов.
+    // currentArt — сколько артиллерии уже на поле; artCap — потолок доли
+    // артиллерии в боевом составе. Возвращает true, если юнит произведён.
+    spawnDoctrineArtillery(currentArt = 0, artCap = 99) {
+        const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory');
+        if (!factory) return false;
+        if (!this.G.canProduceUnit('vehicle', this.G.ai)) return false;
+        if (currentArt >= artCap) return false;
+
+        const w = this.G.ai === 'wardens';
+        // Ствольная артиллерия: тяжёлая 150 мм или мобильная 120 мм
+        const barrelType = Math.random() < 0.5
+            ? (w ? 'warden_artillery150' : 'colonial_artillery150')
+            : (w ? 'warden_artillery120' : 'colonial_artillery120');
+        // Миномётная поддержка как запасной вариант
+        const mortarType = w ? 'devitt_mmr' : 'hoplite';
+
+        for (const t of [barrelType, mortarType]) {
+            const cost = VEHICLE_COSTS[t];
+            if (!cost) continue;
+            if (this.aiResources.s < cost.s || this.aiResources.c < cost.c ||
+                this.aiResources.m < cost.m) continue;
+
+            this.spendResources(cost);
+            const unit = createVehicle(t, this.G.ai, factory.x + 60, factory.y + 60);
+            this.G.units.push(unit);
+            // Все эти машины обрабатываются как артиллерия: стоят на позиции,
+            // стреляют через manageArtillery (AoE), получают снабжение flatbed.
+            unit.isArtillery = true;
+            if (t === 'hoplite' || t === 'devitt_mmr') unit.isMortar = true;
+            this.accumulatedForces += 3;
+
+            aiLog(`[AI][ARTILLERY] т.${this.timer}: произведена ${unit.label} (${Math.round(unit.x)}, ${Math.round(unit.y)}), range=${unit.range}`);
+            return true;
+        }
+        return false;
+    }
+
     assignScoutPatrol(unit) {
         // Разведывательные танки патрулируют периметр своих территорий
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
@@ -1137,10 +1156,8 @@ export class AI {
         // Ствольная артиллерия + миномётная поддержка (Hoplite у колонистов,
         // Devitt MMR у wardens): обе обрабатываются как артиллерия с AoE-уронами.
         const artillery = this.G.units.filter(u =>
-            u.faction === this.G.ai &&
-            (u.type === 'warden_artillery' || u.type === 'colonial_artillery' ||
-             u.isMortar === true) &&
-            u.hp > 0
+            u.faction === this.G.ai && u.hp > 0 &&
+            (u.isArtillery === true || u.isMortar === true || u.aoe === true)
         );
 
         if (artillery.length === 0) return;
