@@ -73,8 +73,9 @@ const VEHICLE_INFO = {
     silverhand: { name: 'Silverhand Mk.IV', icon: '💪', stats: 'HP:310 DMG:65 RNG:170 SPD:1.5 40мм+68мм', cost: VEHICLE_COSTS.silverhand },
     gallagher_highwayman: { name: 'Gallagher Highwayman', icon: '⚡', stats: 'HP:295 DMG:35 RNG:165 SPD:1.7 Буст', cost: VEHICLE_COSTS.gallagher_highwayman },
     niska: { name: 'Niska APC', icon: '🚙', stats: 'HP:260 DMG:10 RNG:150 SPD:1.8 БТР', cost: VEHICLE_COSTS.niska },
-    warden_artillery: { name: 'Warden Artillery', icon: '🎯', stats: 'HP:100 DMG:85 RNG:150-500 AoE:80 SPD:0.3', cost: VEHICLE_COSTS.warden_artillery },
-    
+    warden_artillery120: { name: 'Warden Artillery 120', icon: '🎯', stats: 'HP:100 DMG:85 RNG:150-500 AoE:80 SPD:0.3', cost: VEHICLE_COSTS.warden_artillery },
+    warden_artillery150: { name: 'Warden Artillery 150', icon: '🎯', stats: 'HP:100 DMG:85 RNG:150-500 AoE:80 SPD:0.3', cost: VEHICLE_COSTS.warden_artillery },
+
     // Colonials tanks
     hatchet: { name: 'H-5 Hatchet', icon: '🪓', stats: 'HP:195 DMG:45 RNG:160 SPD:1.6 40мм пушка', cost: VEHICLE_COSTS.hatchet },
     scorpion: { name: 'HC-2 Scorpion', icon: '🦂', stats: 'HP:330 DMG:20 RNG:130 SPD:1.3 Пулеметы x2', cost: VEHICLE_COSTS.scorpion },

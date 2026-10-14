@@ -803,7 +803,7 @@ export function createVehicle(type, faction, x, y) {
         silverhand: Silverhand,
         gallagher_highwayman: GallagherHighwayman,
         niska: Niska,
-        warden_artillery: WardenArtillery,
+        warden_artillery120: WardenArtillery120,
         // Colonials
         hatchet: Hatchet,
         scorpion: Scorpion,
@@ -825,7 +825,7 @@ export function createVehicle(type, faction, x, y) {
 
 // Доступная техника по фракциям
 export const FACTION_VEHICLES = {
-    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'gallagher_highwayman', 'niska', 'warden_artillery', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
+    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'gallagher_highwayman', 'niska', 'WardenArtillery150mm','WardenArtillery120mm', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
     colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'hoplite', 'colonial_artillery', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
 };
 

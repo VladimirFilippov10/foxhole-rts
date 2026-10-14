@@ -50,28 +50,30 @@ export const GAME_MODES = {
 export const VEHICLE_COSTS = {
     infantry: { s: 10, c: 0, m: 0, buildTime: 5 },      // стрелки (базовая пехота)
     rifleman: { s: 10, c: 0, m: 0, buildTime: 5 },      // то же, новое имя
-    mg_gunner: { s: 15, c: 2, m: 3, buildTime: 8 },     // пулемётчик — оборона
-    grenadier: { s: 18, c: 3, m: 5, buildTime: 10 },    // гранатомётчик — наступление
-    sniper: { s: 25, c: 5, m: 8, buildTime: 12 },       // снайпер — дальний бой
+    mg_gunner: { s: 25, c: 2, m: 2, buildTime: 8 },     // пулемётчик — оборона
+    grenadier: { s: 25, c: 3, m: 2, buildTime: 10 },    // гранатомётчик — наступление
+    sniper: { s: 30, c: 10, m: 5, buildTime: 25 },       // снайпер — дальний бой
     
     // Wardens tanks
-    king_spire: { s: 40, c: 30, m: 20, buildTime: 18 }, // Разведывательный танк
-    devitt: { s: 45, c: 35, m: 25, buildTime: 20 }, // Легкий танк (обновлен)
-    devitt_mmr: { s: 50, c: 38, m: 28, buildTime: 22 }, // Миномётная поддержка (Devitt MMR)
-    silverhand: { s: 80, c: 60, m: 45, buildTime: 30 }, // Штурмовой танк
+    king_spire: { s: 40, c: 30, m: 20, buildTime: 25 }, // Разведывательный танк
+    devitt: { s: 45, c: 35, m: 20, buildTime: 30 }, // Легкий танк (обновлен)
+    devitt_mmr: { s: 50, c: 38, m: 15, buildTime: 35 }, // Миномётная поддержка (Devitt MMR)
+    silverhand: { s: 80, c: 60, m: 40, buildTime: 30 }, // Штурмовой танк
     gallagher_highwayman: { s: 70, c: 50, m: 35, buildTime: 25 }, // Крейсерский танк
-    niska: { s: 40, c: 30, m: 20, buildTime: 18 }, // БТР
-    warden_artillery: { s: 55, c: 40, m: 30, buildTime: 30 }, // Артиллерия
+    niska: { s: 40, c: 30, m: 20, buildTime: 10 }, // БТР
+    warden_artillery150: { s: 55, c: 40, m: 30, buildTime: 40 }, // Артиллерия
+    warden_artillery120: { s: 55, c: 40, m: 10, buildTime: 35 }, // Артиллерия
     
     // Colonials tanks
-    hatchet: { s: 45, c: 35, m: 25, buildTime: 20 }, // Легкий танк (обновлен)
-    scorpion: { s: 55, c: 40, m: 30, buildTime: 22 }, // Пехотный танк
-    nemesis: { s: 85, c: 65, m: 50, buildTime: 32 }, // Штурмовой танк
-    falchion: { s: 55, c: 40, m: 30, buildTime: 22 }, // Средний танк
-    javelin: { s: 40, c: 30, m: 20, buildTime: 18 }, // БТР (аналог Niska)
-    hoplite: { s: 35, c: 25, m: 15, buildTime: 16 }, // Миномётная поддержка (Hoplite)
-    colonial_artillery: { s: 45, c: 30, m: 20, buildTime: 28 }, // Артиллерия
-    
+    hatchet: { s: 45, c: 35, m: 25, buildTime: 25 }, // Легкий танк (обновлен)
+    scorpion: { s: 55, c: 40, m: 30, buildTime: 20 }, // Пехотный танк
+    nemesis: { s: 85, c: 65, m: 60, buildTime: 40 }, // Штурмовой танк
+    falchion: { s: 55, c: 40, m: 30, buildTime: 30 }, // Средний танк
+    javelin: { s: 40, c: 30, m: 15, buildTime: 20 }, // БТР (аналог Niska)
+    hoplite: { s: 35, c: 25, m: 10, buildTime: 25 }, // Миномётная поддержка (Hoplite)
+    colonial_artillery: { s: 80, c: 30, m: 20, buildTime: 35 }, // Артиллерия
+    //colonial_artillery120: { s: 70, c: 30, m: 10, buildTime: 25 }, // Артиллерия
+
     // Логистика
     truck: { s: 25, c: 15, m: 10, buildTime: 10 }, // Грузовик - перевозит БК
     fuel_truck: { s: 30, c: 20, m: 15, buildTime: 12 }, // Бензовоз - перевозит топливо
