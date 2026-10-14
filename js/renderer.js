@@ -1649,28 +1649,275 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
         ctx.strokeRect(-sz / 2, -sz / 3, sz, sz * 0.65);
         
         // Light tanks (Devitt, Hatchet)
-        if (['hatchet', 'devitt'].includes(u.type)) {
-            // Turret
-            ctx.fillStyle = col.s;
-            ctx.beginPath();
-            ctx.arc(0, 0, sz * 0.28, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-            // 40mm barrel
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(sz * 0.6, 0);
-            ctx.stroke();
-            // Barrel tip
-            ctx.fillStyle = '#1a1a1a';
-            ctx.beginPath();
-            ctx.arc(sz * 0.6, 0, 2, 0, Math.PI * 2);
-            ctx.fill();
-        }
+    // ===== DEVITT (Warden Devitt Mk.III — канадский лёгкий танк) =====
+if (u.type === 'devitt') {
+    // ===== ГУСЕНИЦЫ (маленькие, обтекаемые) =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-sz * 0.46, -sz * 0.32, sz * 0.92, sz * 0.1);
+    ctx.fillRect(-sz * 0.46, sz * 0.22, sz * 0.92, sz * 0.1);
+    
+    // Катки (5 штук, маленькие)
+    ctx.fillStyle = '#374151';
+    for (let i = 0; i < 5; i++) {
+        const wx = -sz * 0.38 + i * sz * 0.19;
+        ctx.beginPath();
+        ctx.arc(wx, -sz * 0.27, sz * 0.032, 0, Math.PI * 2);
+        ctx.arc(wx, sz * 0.27, sz * 0.032, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // ===== КОРПУС (скруглённый, «обтекаемый» — характерно для Devitt) =====
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.48, -sz * 0.22);
+    ctx.lineTo(-sz * 0.4, -sz * 0.24);    // скос кормы
+    ctx.lineTo( sz * 0.34, -sz * 0.24);
+    ctx.quadraticCurveTo(sz * 0.46, -sz * 0.24, sz * 0.48, -sz * 0.14);  // скруглённый лоб
+    ctx.lineTo( sz * 0.48,  sz * 0.14);
+    ctx.quadraticCurveTo(sz * 0.46,  sz * 0.24, sz * 0.34,  sz * 0.24);
+    ctx.lineTo(-sz * 0.4,  sz * 0.24);
+    ctx.lineTo(-sz * 0.48,  sz * 0.22);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // ===== ПЕРЕДНЯЯ НАДСТРОЙКА (характерная «ступенька» Devitt) =====
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.16, -sz * 0.24);
+    ctx.lineTo( sz * 0.18, -sz * 0.24);
+    ctx.lineTo( sz * 0.28, -sz * 0.16);
+    ctx.lineTo( sz * 0.28,  sz * 0.16);
+    ctx.lineTo( sz * 0.18,  sz * 0.24);
+    ctx.lineTo(-sz * 0.16,  sz * 0.24);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // ===== КРУГЛАЯ БАШНЯ (низкая, скруглённая — как на картинке) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(0, 0, sz * 0.26, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Внутренний контур башни (объём)
+    ctx.beginPath();
+    ctx.arc(-sz * 0.03, -sz * 0.03, sz * 0.2, 0, Math.PI * 2);
+    ctx.strokeStyle = '#00000030';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    // Люк на крыше башни
+    ctx.fillStyle = col.a;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.06, -sz * 0.06, sz * 0.05, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ПУШКА (40мм, короткая, в маленькой маске) =====
+    // Маска пушки (характерная прямоугольная с выступом)
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.18, -sz * 0.1);
+    ctx.lineTo(sz * 0.32, -sz * 0.08);
+    ctx.lineTo(sz * 0.32,  sz * 0.08);
+    ctx.lineTo(sz * 0.18,  sz * 0.1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Ствол
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.3, 0);
+    ctx.lineTo(sz * 0.68, 0);
+    ctx.stroke();
+    
+    // Дульный срез
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.68, 0, sz * 0.022, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== СПАРЕННЫЙ ПУЛЕМЁТ (рядом с пушкой) =====
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.28, -sz * 0.05);
+    ctx.lineTo(sz * 0.42, -sz * 0.05);
+    ctx.stroke();
+    
+    // ===== КРУГЛЫЕ ЭЛЕМЕНТЫ НА КОРПУСЕ (характерные для Devitt) =====
+    // Левый круглый выступ (фара/прибор)
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.28, -sz * 0.02, sz * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Внутренний круг
+    ctx.fillStyle = col.a;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.28, -sz * 0.02, sz * 0.03, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ФАРА (спереди слева) =====
+    ctx.fillStyle = '#ffeb99';
+    ctx.beginPath();
+    ctx.arc(sz * 0.4, -sz * 0.18, sz * 0.03, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ВЫХЛОПНАЯ ТРУБА (сзади сбоку) =====
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.4, -sz * 0.2);
+    ctx.lineTo(-sz * 0.5, -sz * 0.28);
+    ctx.stroke();
+    
+    // ===== ЯЩИК ЗИП на надгусеничной полке =====
+    ctx.fillStyle = '#4b5563';
+    ctx.fillRect(-sz * 0.4, sz * 0.02, sz * 0.12, sz * 0.1);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sz * 0.4, sz * 0.02, sz * 0.12, sz * 0.1);
+}
+
+// ===== HATCHET (американский M24 Chaffee) =====
+if (u.type === 'hatchet') {
+    // ===== ГУСЕНИЦЫ (широкие, с характерными траками) =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-sz * 0.5, -sz * 0.34, sz, sz * 0.1);
+    ctx.fillRect(-sz * 0.5, sz * 0.24, sz, sz * 0.1);
+    
+    // Катки (5 штук, крупные — как у Chaffee)
+    ctx.fillStyle = '#374151';
+    for (let i = 0; i < 5; i++) {
+        const wx = -sz * 0.42 + i * sz * 0.21;
+        ctx.beginPath();
+        ctx.arc(wx, -sz * 0.29, sz * 0.042, 0, Math.PI * 2);
+        ctx.arc(wx, sz * 0.29, sz * 0.042, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // ===== КОРПУС (с наклонной лобовой броней) =====
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.5, -sz * 0.24);    // корма
+    ctx.lineTo( sz * 0.3, -sz * 0.24);    // верх до лба
+    ctx.lineTo( sz * 0.46, -sz * 0.14);   // скошенный лоб (верх)
+    ctx.lineTo( sz * 0.46,  sz * 0.14);   // скошенный лоб (низ)
+    ctx.lineTo( sz * 0.3,  sz * 0.24);    // низ лба
+    ctx.lineTo(-sz * 0.5,  sz * 0.24);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // ===== БАШНЯ (обтекаемая, скруглённая — характерная для Chaffee) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.2, -sz * 0.2);      // корма башни (верх)
+    ctx.quadraticCurveTo(-sz * 0.26, 0, -sz * 0.2, sz * 0.2);  // скруглённая корма
+    ctx.lineTo( sz * 0.16, sz * 0.2);
+    ctx.quadraticCurveTo(sz * 0.3, sz * 0.14, sz * 0.3, 0);    // скруглённый перед
+    ctx.quadraticCurveTo(sz * 0.3, -sz * 0.14, sz * 0.16, -sz * 0.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // ===== КОМАНДИРСКАЯ БАШЕНКА (характерная для Chaffee) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.1, -sz * 0.04, sz * 0.055, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Люк
+    ctx.beginPath();
+    ctx.arc(-sz * 0.1, -sz * 0.04, sz * 0.03, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // ===== ПУШКА M6 (75мм, средняя длина) =====
+    // Маска пушки (коническая, характерная для Chaffee)
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.24, -sz * 0.09);
+    ctx.lineTo(sz * 0.34, -sz * 0.06);
+    ctx.lineTo(sz * 0.34,  sz * 0.06);
+    ctx.lineTo(sz * 0.24,  sz * 0.09);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Ствол 75мм
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.32, 0);
+    ctx.lineTo(sz * 0.78, 0);
+    ctx.stroke();
+    
+    // Дульный тормоз
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.78, 0, sz * 0.025, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== СПАРЕННЫЙ ПУЛЕМЁТ M1919 =====
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.3, -sz * 0.04);
+    ctx.lineTo(sz * 0.44, -sz * 0.04);
+    ctx.stroke();
+    
+    // ===== КУРСОВОЙ ПУЛЕМЁТ (в лобовой части) =====
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.42, -sz * 0.12);
+    ctx.lineTo(sz * 0.54, -sz * 0.12);
+    ctx.stroke();
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.54, -sz * 0.12, sz * 0.015, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ФАРА (на лобовой броне) =====
+    ctx.fillStyle = '#ffeb99';
+    ctx.beginPath();
+    ctx.arc(sz * 0.42, -sz * 0.18, sz * 0.025, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ВЫХЛОПНЫЕ ТРУБЫ (по бокам сзади — характерно для Chaffee) =====
+   
+    
+    // ===== ЯЩИК ЗИП =====
+    ctx.fillStyle = '#4b5563';
+    ctx.fillRect(-sz * 0.46, sz * 0.02, sz * 0.14, sz * 0.12);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sz * 0.46, sz * 0.02, sz * 0.14, sz * 0.12);
+}
         
         // King Spire - Scout tank with antenna
         if (u.type === 'king_spire') {
@@ -1742,240 +1989,1021 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
         
         // Gallagher Outlaw Mk.II — тяжёлый крейсер: массивный корпус,
         // усиленная башня с одним длинным орудием и бронированными катками
-        if (u.type === 'gallagher_outlaw') {
-            // Гусеничные тележки (выступают за корпус — «тяжёлый» силуэт)
-            ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(-sz * 0.5, -sz * 0.34, sz * 1.0, sz * 0.1);
-            ctx.fillRect(-sz * 0.5, sz * 0.24, sz * 1.0, sz * 0.1);
-            // Катки
-            ctx.fillStyle = '#374151';
-            for (let i = 0; i < 4; i++) {
-                const wx = -sz * 0.38 + i * sz * 0.25;
-                ctx.beginPath();
-                ctx.arc(wx, -sz * 0.29, sz * 0.05, 0, Math.PI * 2);
-                ctx.arc(wx, sz * 0.29, sz * 0.05, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            // Массивная угловатая башня (трапеция)
-            ctx.fillStyle = col.s;
-            ctx.beginPath();
-            ctx.moveTo(-sz * 0.2, -sz * 0.22);
-            ctx.lineTo(sz * 0.18, -sz * 0.16);
-            ctx.lineTo(sz * 0.18, sz * 0.16);
-            ctx.lineTo(-sz * 0.2, sz * 0.22);
-            ctx.closePath();
-            ctx.fill();
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            // Усиленное спаренное орудие (утолщённый ствол + дульный тормоз)
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(sz * 0.1, -sz * 0.06);
-            ctx.lineTo(sz * 0.68, -sz * 0.06);
-            ctx.stroke();
-            ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(sz * 0.6, -sz * 0.11, sz * 0.09, sz * 0.1); // тормоз
-            // Кормовая ниша (доп. боеукладка — узнаваемая черта Outlaw)
-            ctx.strokeStyle = col.p;
-            ctx.lineWidth = 1.5;
-            ctx.strokeRect(-sz * 0.34, -sz * 0.12, sz * 0.12, sz * 0.24);
-            // Boost indicator
-            if (u.boosting) {
-                ctx.fillStyle = '#fbbf24';
-                ctx.beginPath();
-                ctx.arc(-sz * 0.42, 0, 3, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#ef4444';
-                ctx.beginPath();
-                ctx.moveTo(-sz * 0.5, -sz * 0.12);
-                ctx.lineTo(-sz * 0.74, 0);
-                ctx.lineTo(-sz * 0.5, sz * 0.12);
-                ctx.closePath();
-                ctx.fill();
-            }
-        }
+// ===== GALLAGHER OUTLAW (тяжёлый крейсерский, предшественник Highwayman) =====
+// ===== GALLAGHER OUTLAW (тяжёлый крейсерский) =====
+if (u.type === 'gallagher_outlaw') {
+    // ===== ГУСЕНИЦЫ (широкие, сильно выступают за корпус) =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-sz * 0.56, -sz * 0.4, sz * 1.12, sz * 0.11);
+    ctx.fillRect(-sz * 0.56,  sz * 0.29, sz * 1.12, sz * 0.11);
+    
+    // Траки
+    ctx.strokeStyle = '#0a0a0a';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 11; i++) {
+        const tx = -sz * 0.56 + i * (sz * 1.12 / 11);
+        ctx.beginPath();
+        ctx.moveTo(tx, -sz * 0.4); ctx.lineTo(tx, -sz * 0.29);
+        ctx.moveTo(tx,  sz * 0.29); ctx.lineTo(tx,  sz * 0.4);
+        ctx.stroke();
+    }
+    
+    // Катки (5 штук)
+    ctx.fillStyle = '#374151';
+    for (let i = 0; i < 5; i++) {
+        const wx = -sz * 0.44 + i * sz * 0.22;
+        ctx.beginPath();
+        ctx.arc(wx, -sz * 0.345, sz * 0.042, 0, Math.PI * 2);
+        ctx.arc(wx,  sz * 0.345, sz * 0.042, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // ===== КОРПУС (широкий, но с наклонными бортами — не квадрат) =====
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.52, -sz * 0.26);   // корма верх
+    ctx.lineTo( sz * 0.32, -sz * 0.26);
+    ctx.lineTo( sz * 0.48, -sz * 0.16);   // наклонный лоб (верх)
+    ctx.lineTo( sz * 0.5,  -sz * 0.08);   // скругление к носу
+    ctx.lineTo( sz * 0.5,   sz * 0.08);
+    ctx.lineTo( sz * 0.48,  sz * 0.16);
+    ctx.lineTo( sz * 0.32,  sz * 0.26);
+    ctx.lineTo(-sz * 0.52,  sz * 0.26);
+    ctx.lineTo(-sz * 0.54,  sz * 0.18);   // скос кормы
+    ctx.lineTo(-sz * 0.54, -sz * 0.18);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // ===== БАШНЯ (широкая низкая трапеция) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.3, -sz * 0.22);    // корма верх
+    ctx.lineTo( sz * 0.12, -sz * 0.18);   // крыша
+    ctx.lineTo( sz * 0.22, -sz * 0.12);   // скос к маске
+    ctx.lineTo( sz * 0.22,  sz * 0.12);
+    ctx.lineTo( sz * 0.12,  sz * 0.18);
+    ctx.lineTo(-sz * 0.3,   sz * 0.22);
+    ctx.lineTo(-sz * 0.32,  sz * 0.14);   // скос кормы башни
+    ctx.lineTo(-sz * 0.32, -sz * 0.14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Командирская башенка сзади
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.18, -sz * 0.06, sz * 0.055, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Люк
+    ctx.beginPath();
+    ctx.arc(-sz * 0.18, -sz * 0.06, sz * 0.028, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // ===== МАСКА ОРУДИЯ =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.18, -sz * 0.11);
+    ctx.lineTo(sz * 0.3,  -sz * 0.09);
+    ctx.lineTo(sz * 0.3,   sz * 0.09);
+    ctx.lineTo(sz * 0.18,  sz * 0.11);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // ===== СПАРЕННОЕ ОРУДИЕ (тонкие стволы) =====
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.28, -sz * 0.04);
+    ctx.lineTo(sz * 0.72, -sz * 0.04);
+    ctx.moveTo(sz * 0.28,  sz * 0.04);
+    ctx.lineTo(sz * 0.72,  sz * 0.04);
+    ctx.stroke();
+    
+    // Дульные срезы
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.72, -sz * 0.04, sz * 0.014, 0, Math.PI * 2);
+    ctx.arc(sz * 0.72,  sz * 0.04, sz * 0.014, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== КОРМОВАЯ НИША (характерная для Outlaw) =====
+    ctx.fillStyle = col.p;
+    ctx.fillRect(-sz * 0.48, -sz * 0.13, sz * 0.12, sz * 0.26);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-sz * 0.48, -sz * 0.13, sz * 0.12, sz * 0.26);
+    
+    // ===== ФАРА =====
+    ctx.fillStyle = '#ffeb99';
+    ctx.beginPath();
+    ctx.arc(sz * 0.44, -sz * 0.2, sz * 0.025, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== BOOST =====
+    if (u.boosting) {
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(-sz * 0.44, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.moveTo(-sz * 0.52, -sz * 0.14);
+        ctx.lineTo(-sz * 0.78, 0);
+        ctx.lineTo(-sz * 0.52,  sz * 0.14);
+        ctx.closePath();
+        ctx.fill();
+    }
+}
 
-        // Gallagher Highwayman - Cruiser tank with boost
-        if (u.type === 'gallagher_highwayman') {
-            // Turret
-            ctx.fillStyle = col.s;
-            ctx.beginPath();
-            ctx.arc(0, 0, sz * 0.26, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-            // Twin 14.5mm guns
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, -sz * 0.05);
-            ctx.lineTo(sz * 0.55, -sz * 0.05);
-            ctx.moveTo(0, sz * 0.05);
-            ctx.lineTo(sz * 0.55, sz * 0.05);
-            ctx.stroke();
-            // Boost indicator
-            if (u.boosting) {
-                ctx.fillStyle = '#fbbf24';
-                ctx.beginPath();
-                ctx.arc(-sz * 0.4, 0, 3, 0, Math.PI * 2);
-                ctx.fill();
-                // Boost flames
-                ctx.fillStyle = '#ef4444';
-                ctx.beginPath();
-                ctx.moveTo(-sz * 0.5, -sz * 0.1);
-                ctx.lineTo(-sz * 0.7, 0);
-                ctx.lineTo(-sz * 0.5, sz * 0.1);
-                ctx.closePath();
-                ctx.fill();
-            }
-        }
+// ===== GALLAGHER HIGHWAYMAN (Dual 20mm Cruiser Tank) =====
+if (u.type === 'gallagher_highwayman') {
+    // ===== ГУСЕНИЦЫ (широкие) =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-sz * 0.54, -sz * 0.38, sz * 1.08, sz * 0.1);
+    ctx.fillRect(-sz * 0.54,  sz * 0.28, sz * 1.08, sz * 0.1);
+    
+    // Траки
+    ctx.strokeStyle = '#0a0a0a';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 11; i++) {
+        const tx = -sz * 0.54 + i * (sz * 1.08 / 11);
+        ctx.beginPath();
+        ctx.moveTo(tx, -sz * 0.38); ctx.lineTo(tx, -sz * 0.28);
+        ctx.moveTo(tx,  sz * 0.28); ctx.lineTo(tx,  sz * 0.38);
+        ctx.stroke();
+    }
+    
+    // Катки (5 штук)
+    ctx.fillStyle = '#374151';
+    for (let i = 0; i < 5; i++) {
+        const wx = -sz * 0.44 + i * sz * 0.22;
+        ctx.beginPath();
+        ctx.arc(wx, -sz * 0.33, sz * 0.042, 0, Math.PI * 2);
+        ctx.arc(wx,  sz * 0.33, sz * 0.042, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // ===== КОРПУС (низкий, широкий, с закруглённым носом) =====
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.5, -sz * 0.24);
+    ctx.lineTo( sz * 0.3, -sz * 0.24);
+    ctx.quadraticCurveTo(sz * 0.46, -sz * 0.24, sz * 0.5, -sz * 0.12);
+    ctx.lineTo(sz * 0.5,  sz * 0.12);
+    ctx.quadraticCurveTo(sz * 0.46,  sz * 0.24, sz * 0.3,  sz * 0.24);
+    ctx.lineTo(-sz * 0.5,  sz * 0.24);
+    ctx.lineTo(-sz * 0.52,  sz * 0.16);
+    ctx.lineTo(-sz * 0.52, -sz * 0.16);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // ===== ОСНОВНАЯ БАШНЯ (широкая, скруглённая — как на рендере) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.3, -sz * 0.2);
+    ctx.quadraticCurveTo(-sz * 0.36, 0, -sz * 0.3, sz * 0.2);
+    ctx.lineTo( sz * 0.14,  sz * 0.2);
+    ctx.quadraticCurveTo(sz * 0.26,  sz * 0.16, sz * 0.28, 0);
+    ctx.quadraticCurveTo(sz * 0.26, -sz * 0.16, sz * 0.14, -sz * 0.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Рёбра на башне (заклёпки)
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.22, -sz * 0.16);
+    ctx.lineTo(-sz * 0.22,  sz * 0.16);
+    ctx.moveTo( sz * 0.06, -sz * 0.18);
+    ctx.lineTo( sz * 0.06,  sz * 0.18);
+    ctx.stroke();
+    
+    // ===== ВРАЩАЮЩАЯСЯ ПУЛЕМЁТНАЯ БАШЕНКА (фишка Highwayman) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.08, -sz * 0.03, sz * 0.09, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Люк
+    ctx.beginPath();
+    ctx.arc(-sz * 0.08, -sz * 0.03, sz * 0.045, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Пулемёт 12.7мм вбок
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.02, -sz * 0.08);
+    ctx.lineTo(sz * 0.26, -sz * 0.08);
+    ctx.stroke();
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.26, -sz * 0.08, sz * 0.012, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== МАСКА ОРУДИЯ (широкая, с двумя тонкими стволами) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.26, -sz * 0.1);
+    ctx.lineTo(sz * 0.34, -sz * 0.06);
+    ctx.lineTo(sz * 0.34,  sz * 0.06);
+    ctx.lineTo(sz * 0.26,  sz * 0.1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // ===== СПАРЕННЫЕ 20мм ПУШКИ (тонкие длинные стволы) =====
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.32, -sz * 0.038);
+    ctx.lineTo(sz * 0.82, -sz * 0.038);
+    ctx.moveTo(sz * 0.32,  sz * 0.038);
+    ctx.lineTo(sz * 0.82,  sz * 0.038);
+    ctx.stroke();
+    
+    // Дульные срезы
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.82, -sz * 0.038, sz * 0.011, 0, Math.PI * 2);
+    ctx.arc(sz * 0.82,  sz * 0.038, sz * 0.011, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ФАРА =====
+    ctx.fillStyle = '#ffeb99';
+    ctx.beginPath();
+    ctx.arc(sz * 0.44, -sz * 0.2, sz * 0.022, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ВЫХЛОПНЫЕ ТРУБЫ =====
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.52, -sz * 0.16);
+    ctx.lineTo(-sz * 0.62, -sz * 0.26);
+    ctx.moveTo(-sz * 0.52,  sz * 0.16);
+    ctx.lineTo(-sz * 0.62,  sz * 0.26);
+    ctx.stroke();
+    
+    // ===== BOOST =====
+    if (u.boosting) {
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(-sz * 0.42, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.moveTo(-sz * 0.52, -sz * 0.12);
+        ctx.lineTo(-sz * 0.74, 0);
+        ctx.lineTo(-sz * 0.52, sz * 0.12);
+        ctx.closePath();
+        ctx.fill();
+    }
+}
         
         // Scorpion - Light infantry tank with twin MGs
-        if (u.type === 'scorpion') {
-            // Turret
-            ctx.fillStyle = col.s;
-            ctx.beginPath();
-            ctx.arc(0, 0, sz * 0.28, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-            // Twin 12.7mm machine guns
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, -sz * 0.08);
-            ctx.lineTo(sz * 0.5, -sz * 0.08);
-            ctx.moveTo(0, sz * 0.08);
-            ctx.lineTo(sz * 0.5, sz * 0.08);
-            ctx.stroke();
-            // Reveal radius indicator (if selected)
-            if (selected.includes(u.id) && u.revealRadius) {
-                ctx.restore();
-                ctx.save();
-                ctx.strokeStyle = '#60a5fa40';
-                ctx.lineWidth = 1;
-                ctx.setLineDash([5, 5]);
-                ctx.beginPath();
-                ctx.arc(x, y, u.revealRadius, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.translate(x, y);
-                ctx.rotate(u.direction || 0);
-            }
-        }
+if (u.type === 'scorpion') {
+    // ===== РАЗВОРОТ НА 180° =====
+    ctx.save();
+    ctx.rotate(Math.PI);
+    
+    // ===== ГУСЕНИЦЫ =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-sz * 0.46, -sz * 0.34, sz * 0.92, sz * 0.09);
+    ctx.fillRect(-sz * 0.46, sz * 0.25, sz * 0.92, sz * 0.09);
+    
+    // Катки (6 штук)
+    ctx.fillStyle = '#374151';
+    for (let i = 0; i < 6; i++) {
+        const wx = -sz * 0.38 + i * sz * 0.152;
+        ctx.beginPath();
+        ctx.arc(wx, -sz * 0.295, sz * 0.035, 0, Math.PI * 2);
+        ctx.arc(wx, sz * 0.295, sz * 0.035, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // ===== ПРЯМОУГОЛЬНЫЙ КОРПУС =====
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.44, -sz * 0.25);
+    ctx.lineTo( sz * 0.42, -sz * 0.25);
+    ctx.lineTo( sz * 0.48, -sz * 0.18);
+    ctx.lineTo( sz * 0.48,  sz * 0.18);
+    ctx.lineTo( sz * 0.42,  sz * 0.25);
+    ctx.lineTo(-sz * 0.44,  sz * 0.25);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // ===== ДВЕ МИНИ-РУБКИ =====
+    // Левая рубка
+    ctx.fillStyle = col.s;
+    ctx.fillRect(-sz * 0.24, -sz * 0.22, sz * 0.2, sz * 0.16);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-sz * 0.24, -sz * 0.22, sz * 0.2, sz * 0.16);
+    
+    // Правая рубка
+    ctx.fillStyle = col.s;
+    ctx.fillRect(-sz * 0.24, sz * 0.06, sz * 0.2, sz * 0.16);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-sz * 0.24, sz * 0.06, sz * 0.2, sz * 0.16);
+    
+    // ===== ПУЛЕМЁТЫ =====
+    // Левый пулемёт
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.04, -sz * 0.14);
+    ctx.lineTo( sz * 0.44, -sz * 0.14);
+    ctx.stroke();
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.44, -sz * 0.14, sz * 0.018, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Правый пулемёт
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.04, sz * 0.14);
+    ctx.lineTo( sz * 0.44, sz * 0.14);
+    ctx.stroke();
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.44, sz * 0.14, sz * 0.018, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ПРИЦЕЛЫ / ЛЮКИ =====
+    ctx.fillStyle = col.a;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.14, -sz * 0.14, sz * 0.03, 0, Math.PI * 2);
+    ctx.arc(-sz * 0.14,  sz * 0.14, sz * 0.03, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ВЫХЛОПНЫЕ ТРУБЫ =====
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.44, -sz * 0.14);
+    ctx.lineTo(-sz * 0.54, -sz * 0.22);
+    ctx.moveTo(-sz * 0.44,  sz * 0.14);
+    ctx.lineTo(-sz * 0.54,  sz * 0.22);
+    ctx.stroke();
+    
+    // ===== ФАРА =====
+    ctx.fillStyle = '#ffeb99';
+    ctx.beginPath();
+    ctx.arc(sz * 0.44, -sz * 0.1, sz * 0.022, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
+    
+    // ===== Reveal radius indicator (if selected) =====
+    if (selected.includes(u.id) && u.revealRadius) {
+        ctx.restore();
+        ctx.save();
+        ctx.strokeStyle = '#60a5fa40';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.arc(x, y, u.revealRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.translate(x, y);
+        ctx.rotate(u.direction || 0);
+    }
+}
         
         // Nemesis - Assault tank with grenade launcher
-        if (u.type === 'nemesis') {
-            // Large turret
-            ctx.fillStyle = col.s;
-            ctx.beginPath();
-            ctx.arc(0, 0, sz * 0.32, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            // 68mm main gun
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(sz * 0.65, 0);
-            ctx.stroke();
-            // 4-tube grenade launcher (on top)
-            ctx.fillStyle = '#4b5563';
-            ctx.fillRect(-sz * 0.1, -sz * 0.35, sz * 0.2, sz * 0.15);
-            // Grenade tubes
-            ctx.fillStyle = '#1a1a1a';
-            for (let i = 0; i < 4; i++) {
-                ctx.beginPath();
-                ctx.arc(-sz * 0.05 + i * sz * 0.05, -sz * 0.28, 2, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-        
-        // Falchion - Medium tank
-        if (u.type === 'falchion') {
-            // Turret
-            ctx.fillStyle = col.s;
-            ctx.beginPath();
-            ctx.arc(0, 0, sz * 0.3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            // Main gun
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 3.5;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(sz * 0.6, 0);
-            ctx.stroke();
-        }
+if (u.type === 'nemesis') {
+    // ===== ГУСЕНИЦЫ =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-sz * 0.56, -sz * 0.32, sz * 1.12, sz * 0.09);
+    ctx.fillRect(-sz * 0.56, sz * 0.23, sz * 1.12, sz * 0.09);
+    
+    // Катки (7 штук)
+    ctx.fillStyle = '#374151';
+    for (let i = 0; i < 7; i++) {
+        const wx = -sz * 0.48 + i * sz * 0.16;
+        ctx.beginPath();
+        ctx.arc(wx, -sz * 0.275, sz * 0.035, 0, Math.PI * 2);
+        ctx.arc(wx, sz * 0.275, sz * 0.035, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // ===== КОРПУС (вытянутый, со скошенным лбом) =====
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.54, -sz * 0.24);
+    ctx.lineTo(-sz * 0.42, -sz * 0.19);
+    ctx.lineTo( sz * 0.44, -sz * 0.19);
+    ctx.lineTo( sz * 0.54, -sz * 0.10);
+    ctx.lineTo( sz * 0.54,  sz * 0.10);
+    ctx.lineTo( sz * 0.44,  sz * 0.19);
+    ctx.lineTo(-sz * 0.42,  sz * 0.19);
+    ctx.lineTo(-sz * 0.54,  sz * 0.24);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // ===== ТОНКАЯ ВЫТЯНУТАЯ БАШНЯ (сдвинута вперёд) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.20, -sz * 0.16);
+    ctx.lineTo(-sz * 0.14, -sz * 0.22);
+    ctx.lineTo( sz * 0.36, -sz * 0.22);
+    ctx.lineTo( sz * 0.44, -sz * 0.14);
+    ctx.lineTo( sz * 0.44,  sz * 0.14);
+    ctx.lineTo( sz * 0.36,  sz * 0.22);
+    ctx.lineTo(-sz * 0.14,  sz * 0.22);
+    ctx.lineTo(-sz * 0.20,  sz * 0.16);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // ===== КОМАНДИРСКАЯ БАШЕНКА =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.04, -sz * 0.1, sz * 0.055, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Люк на башенке
+    ctx.beginPath();
+    ctx.arc(-sz * 0.04, -sz * 0.1, sz * 0.03, 0, Math.PI * 2);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    // ===== ПУШКА ЗИС-С-53 (85мм) =====
+    // Маска пушки
+    ctx.fillStyle = col.a;
+    ctx.beginPath();
+    ctx.arc(sz * 0.44, 0, sz * 0.055, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Ствол
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.46, 0);
+    ctx.lineTo(sz * 0.92, 0);
+    ctx.stroke();
+    
+    // Дульный срез
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.92, 0, sz * 0.022, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== КУРСОВОЙ ПУЛЕМЁТ ДТ =====
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.52, -sz * 0.06);
+    ctx.lineTo(sz * 0.62, -sz * 0.06);
+    ctx.stroke();
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.62, -sz * 0.06, sz * 0.015, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ФАРА =====
+    ctx.fillStyle = '#ffeb99';
+    ctx.beginPath();
+    ctx.arc(sz * 0.5, -sz * 0.12, sz * 0.022, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ВЫХЛОПНАЯ ТРУБА =====
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.54, -sz * 0.12);
+    ctx.lineTo(-sz * 0.64, -sz * 0.22);
+    ctx.stroke();
+    
+    // ===== ЯЩИК ЗИП =====
+    ctx.fillStyle = '#4b5563';
+    ctx.fillRect(-sz * 0.52, sz * 0.05, sz * 0.1, sz * 0.09);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sz * 0.52, sz * 0.05, sz * 0.1, sz * 0.09);
+}
 
-        // Spatha — тяжёлый танк колонистов: угловатая массивная башня,
-        // длинное мощное орудие с дульным тормозом, дополнительные экраны
-        if (u.type === 'spatha') {
-            // Экраны по бортам корпуса (тяжёлая защита)
-            ctx.fillStyle = col.p;
-            ctx.fillRect(-sz * 0.5, -sz * 0.3, sz, sz * 0.06);
-            ctx.fillRect(-sz * 0.5, sz * 0.24, sz, sz * 0.06);
-            // Гусеницы
-            ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(-sz * 0.48, -sz * 0.26, sz * 0.96, sz * 0.07);
-            ctx.fillRect(-sz * 0.48, sz * 0.19, sz * 0.96, sz * 0.07);
-            // Угловатая трапециевидная башня (отличается от круглой Falchion)
-            ctx.fillStyle = col.s;
-            ctx.beginPath();
-            ctx.moveTo(-sz * 0.24, -sz * 0.24);
-            ctx.lineTo(sz * 0.16, -sz * 0.2);
-            ctx.lineTo(sz * 0.24, 0);
-            ctx.lineTo(sz * 0.16, sz * 0.2);
-            ctx.lineTo(-sz * 0.24, sz * 0.24);
-            ctx.closePath();
-            ctx.fill();
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            // Длинное тяжёлое орудие 80мм
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 4.5;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(sz * 0.72, 0);
-            ctx.stroke();
-            // Дульный тормоз
-            ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(sz * 0.64, -sz * 0.07, sz * 0.1, sz * 0.14);
-            // Командирская башенка
-            ctx.fillStyle = col.a;
-            ctx.beginPath();
-            ctx.arc(-sz * 0.1, -sz * 0.12, sz * 0.07, 0, Math.PI * 2);
-            ctx.fill();
-        }
+        // Falchion - Medium tank
+// ===== FALCHION (средний танк) =====
+if (u.type === 'falchion') {
+    // ===== ГУСЕНИЦЫ =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-sz * 0.5, -sz * 0.32, sz * 1.0, sz * 0.09);
+    ctx.fillRect(-sz * 0.5,  sz * 0.23, sz * 1.0, sz * 0.09);
+    
+    // Траки
+    ctx.strokeStyle = '#0a0a0a';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 10; i++) {
+        const tx = -sz * 0.5 + i * (sz / 10);
+        ctx.beginPath();
+        ctx.moveTo(tx, -sz * 0.32); ctx.lineTo(tx, -sz * 0.23);
+        ctx.moveTo(tx,  sz * 0.23); ctx.lineTo(tx,  sz * 0.32);
+        ctx.stroke();
+    }
+    
+    // Катки (5 штук)
+    ctx.fillStyle = '#374151';
+    for (let i = 0; i < 5; i++) {
+        const wx = -sz * 0.4 + i * sz * 0.2;
+        ctx.beginPath();
+        ctx.arc(wx, -sz * 0.275, sz * 0.038, 0, Math.PI * 2);
+        ctx.arc(wx,  sz * 0.275, sz * 0.038, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // ===== КОРПУС (с наклонным лбом) =====
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.48, -sz * 0.21);
+    ctx.lineTo( sz * 0.32, -sz * 0.21);
+    ctx.lineTo( sz * 0.46, -sz * 0.12);
+    ctx.lineTo( sz * 0.46,  sz * 0.12);
+    ctx.lineTo( sz * 0.32,  sz * 0.21);
+    ctx.lineTo(-sz * 0.48,  sz * 0.21);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // ===== КРУГЛАЯ БАШНЯ (характерна для Falchion) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(0, 0, sz * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Командирская башенка
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.08, -sz * 0.06, sz * 0.06, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Люк
+    ctx.beginPath();
+    ctx.arc(-sz * 0.08, -sz * 0.06, sz * 0.03, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // ===== ОСНОВНОЕ ОРУДИЕ (среднее, тонкий ствол) =====
+    // Маска
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(sz * 0.26, 0, sz * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Ствол
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.3, 0);
+    ctx.lineTo(sz * 0.72, 0);
+    ctx.stroke();
+    
+    // Дульный срез
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.72, 0, sz * 0.016, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ФАРА =====
+    ctx.fillStyle = '#ffeb99';
+    ctx.beginPath();
+    ctx.arc(sz * 0.42, -sz * 0.16, sz * 0.022, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ВЫХЛОП =====
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.48, -sz * 0.14);
+    ctx.lineTo(-sz * 0.56, -sz * 0.22);
+    ctx.stroke();
+}
+
+// ===== SPATHA (тяжёлый танк — по картинке) =====
+if (u.type === 'spatha') {
+    // ===== ГУСЕНИЦЫ (широкие, с траками) =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-sz * 0.54, -sz * 0.36, sz * 1.08, sz * 0.1);
+    ctx.fillRect(-sz * 0.54,  sz * 0.26, sz * 1.08, sz * 0.1);
+    
+    // Траки
+    ctx.strokeStyle = '#0a0a0a';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 11; i++) {
+        const tx = -sz * 0.54 + i * (sz * 1.08 / 11);
+        ctx.beginPath();
+        ctx.moveTo(tx, -sz * 0.36); ctx.lineTo(tx, -sz * 0.26);
+        ctx.moveTo(tx,  sz * 0.26); ctx.lineTo(tx,  sz * 0.36);
+        ctx.stroke();
+    }
+    
+    // Катки (5 штук, крупные)
+    ctx.fillStyle = '#374151';
+    for (let i = 0; i < 5; i++) {
+        const wx = -sz * 0.42 + i * sz * 0.21;
+        ctx.beginPath();
+        ctx.arc(wx, -sz * 0.31, sz * 0.045, 0, Math.PI * 2);
+        ctx.arc(wx,  sz * 0.31, sz * 0.045, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // ===== ЭКРАНЫ ПО БОРТАМ (тяжёлая защита — характерно для Spatha) =====
+    ctx.fillStyle = col.p;
+    ctx.fillRect(-sz * 0.52, -sz * 0.32, sz * 1.04, sz * 0.06);
+    ctx.fillRect(-sz * 0.52,  sz * 0.26, sz * 1.04, sz * 0.06);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sz * 0.52, -sz * 0.32, sz * 1.04, sz * 0.06);
+    ctx.strokeRect(-sz * 0.52,  sz * 0.26, sz * 1.04, sz * 0.06);
+    
+    // ===== КОРПУС (массивный, с наклонным лбом) =====
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.5, -sz * 0.24);
+    ctx.lineTo( sz * 0.3, -sz * 0.24);
+    ctx.lineTo( sz * 0.46, -sz * 0.14);
+    ctx.lineTo( sz * 0.46,  sz * 0.14);
+    ctx.lineTo( sz * 0.3,  sz * 0.24);
+    ctx.lineTo(-sz * 0.5,  sz * 0.24);
+    ctx.lineTo(-sz * 0.52,  sz * 0.16);
+    ctx.lineTo(-sz * 0.52, -sz * 0.16);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // ===== УГЛОВАТАЯ МНОГОГРАННАЯ БАШНЯ (как на картинке) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    // Задняя часть (широкая)
+    ctx.moveTo(-sz * 0.3, -sz * 0.24);   // корма верх
+    ctx.lineTo( sz * 0.06, -sz * 0.26);  // крыша задняя
+    ctx.lineTo( sz * 0.14, -sz * 0.2);   // грань крыши
+    ctx.lineTo( sz * 0.22, -sz * 0.12);  // передняя грань верх
+    ctx.lineTo( sz * 0.26, 0);           // нос башни
+    ctx.lineTo( sz * 0.22,  sz * 0.12);  // передняя грань низ
+    ctx.lineTo( sz * 0.14,  sz * 0.2);
+    ctx.lineTo( sz * 0.06,  sz * 0.26);
+    ctx.lineTo(-sz * 0.3,   sz * 0.24);  // корма низ
+    ctx.lineTo(-sz * 0.32,  sz * 0.16);  // скос кормы
+    ctx.lineTo(-sz * 0.32, -sz * 0.16);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Рёбра башни (грани — для узнаваемости)
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo( sz * 0.06, -sz * 0.26);
+    ctx.lineTo( sz * 0.06,  sz * 0.26);
+    ctx.moveTo( sz * 0.14, -sz * 0.2);
+    ctx.lineTo( sz * 0.14,  sz * 0.2);
+    ctx.moveTo( sz * 0.22, -sz * 0.12);
+    ctx.lineTo( sz * 0.22,  sz * 0.12);
+    ctx.stroke();
+    
+    // ===== КОМАНДИРСКАЯ БАШЕНКА (сзади на крыше) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.14, -sz * 0.08, sz * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Люк
+    ctx.beginPath();
+    ctx.arc(-sz * 0.14, -sz * 0.08, sz * 0.035, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // ===== ДЛИННОЕ ТЯЖЁЛОЕ ОРУДИЕ 80мм =====
+    // Маска (массивная, угловатая)
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.24, -sz * 0.12);
+    ctx.lineTo(sz * 0.34, -sz * 0.09);
+    ctx.lineTo(sz * 0.34,  sz * 0.09);
+    ctx.lineTo(sz * 0.24,  sz * 0.12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Ствол (длинный)
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.32, 0);
+    ctx.lineTo(sz * 0.82, 0);
+    ctx.stroke();
+    
+    // Дульный тормоз
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(sz * 0.74, -sz * 0.05, sz * 0.1, sz * 0.1);
+    
+    // ===== ФАРА =====
+    ctx.fillStyle = '#ffeb99';
+    ctx.beginPath();
+    ctx.arc(sz * 0.42, -sz * 0.18, sz * 0.025, 0, Math.PI * 2);
+    ctx.fill();
+    
+    
+    // ===== ЯЩИК ЗИП =====
+    ctx.fillStyle = '#4b5563';
+    ctx.fillRect(-sz * 0.46, sz * 0.04, sz * 0.14, sz * 0.12);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sz * 0.46, sz * 0.04, sz * 0.14, sz * 0.12);
+}
         
-        if (['niska', 'javelin'].includes(u.type)) {
-            // БТР: корпус с боевым отделением и пулемётной турелью
-            ctx.fillStyle = col.s;
-            ctx.fillRect(-sz * 0.3, -sz * 0.2, sz * 0.6, sz * 0.4);
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 1;
-            ctx.strokeRect(-sz * 0.3, -sz * 0.2, sz * 0.6, sz * 0.4);
-            // Пулемётная турель
-            ctx.fillStyle = col.a;
-            ctx.beginPath();
-            ctx.arc(0, 0, sz * 0.12, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = col.a;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(sz * 0.4, 0);
-            ctx.stroke();
-        }
+      // ===== NISKA (немецкий Hanomag Sd.Kfz. 251) =====
+if (u.type === 'niska') {
+    // ===== ГУСЕНИЦЫ (полугусеничный — гусеницы только сзади) =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-sz * 0.5, -sz * 0.34, sz * 0.6, sz * 0.1);
+    ctx.fillRect(-sz * 0.5, sz * 0.24, sz * 0.6, sz * 0.1);
+    
+    // Катки гусениц (4 штуки, сзади)
+    ctx.fillStyle = '#374151';
+    for (let i = 0; i < 4; i++) {
+        const wx = -sz * 0.44 + i * sz * 0.14;
+        ctx.beginPath();
+        ctx.arc(wx, -sz * 0.29, sz * 0.038, 0, Math.PI * 2);
+        ctx.arc(wx, sz * 0.29, sz * 0.038, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // ===== ПЕРЕДНИЕ КОЛЁСА (не гусеницы — полугусеничная схема) =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.36, -sz * 0.3, sz * 0.075, 0, Math.PI * 2);
+    ctx.arc(sz * 0.36,  sz * 0.3, sz * 0.075, 0, Math.PI * 2);
+    ctx.fill();
+    // Ступицы колёс
+    ctx.fillStyle = '#374151';
+    ctx.beginPath();
+    ctx.arc(sz * 0.36, -sz * 0.3, sz * 0.035, 0, Math.PI * 2);
+    ctx.arc(sz * 0.36,  sz * 0.3, sz * 0.035, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== КОРПУС (со скошенным лбом, характерным для Ханомага) =====
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.5, -sz * 0.22);    // корма (верх)
+    ctx.lineTo(-sz * 0.44, -sz * 0.22);
+    ctx.lineTo( sz * 0.2, -sz * 0.22);    // верх до скоса
+    ctx.lineTo( sz * 0.48, -sz * 0.1);    // скошенный лоб (верх)
+    ctx.lineTo( sz * 0.48,  sz * 0.1);    // скошенный лоб (низ)
+    ctx.lineTo( sz * 0.2,  sz * 0.22);    // низ лба
+    ctx.lineTo(-sz * 0.44,  sz * 0.22);
+    ctx.lineTo(-sz * 0.5,  sz * 0.26);    // скос кормы
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // ===== ОТКРЫТОЕ БОЕВОЕ ОТДЕЛЕНИЕ (сверху, характерно для Ханомага) =====
+    // Внутренняя часть (тёмный прямоугольник)
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(-sz * 0.42, -sz * 0.15, sz * 0.5, sz * 0.3);
+    
+    // Борта боевого отделения
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    // Левый борт
+    ctx.moveTo(-sz * 0.42, -sz * 0.15);
+    ctx.lineTo(-sz * 0.42, sz * 0.15);
+    // Правый борт
+    ctx.moveTo( sz * 0.08, -sz * 0.15);
+    ctx.lineTo( sz * 0.08, sz * 0.15);
+    ctx.stroke();
+    
+    // ===== ПУЛЕМЁТНАЯ ТУРЕЛЬ (спереди, на правом борту) =====
+    // Основание турели
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(sz * 0.0, -sz * 0.08, sz * 0.09, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Пулемёт MG-42
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.0, -sz * 0.08);
+    ctx.lineTo(sz * 0.42, -sz * 0.08);
+    ctx.stroke();
+    
+    // Дульный срез
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.42, -sz * 0.08, sz * 0.015, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ФАРА (на скошенном лбе) =====
+    ctx.fillStyle = '#ffeb99';
+    ctx.beginPath();
+    ctx.arc(sz * 0.4, -sz * 0.16, sz * 0.025, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ВЫХЛОПНАЯ ТРУБА (сбоку сзади) =====
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.44, -sz * 0.2);
+    ctx.lineTo(-sz * 0.52, -sz * 0.28);
+    ctx.stroke();
+    
+    // ===== ЯЩИК ЗИП на надгусеничной полке =====
+    ctx.fillStyle = '#4b5563';
+    ctx.fillRect(-sz * 0.46, sz * 0.06, sz * 0.12, sz * 0.1);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sz * 0.46, sz * 0.06, sz * 0.12, sz * 0.1);
+}
+
+// ===== JAVELIN (американский M3 Half-track) =====
+if (u.type === 'javelin') {
+    // ===== ГУСЕНИЦЫ (полугусеничный — гусеницы сзади) =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-sz * 0.5, -sz * 0.34, sz * 0.6, sz * 0.1);
+    ctx.fillRect(-sz * 0.5, sz * 0.24, sz * 0.6, sz * 0.1);
+    
+    // Катки гусениц (4 штуки, сзади)
+    ctx.fillStyle = '#374151';
+    for (let i = 0; i < 4; i++) {
+        const wx = -sz * 0.44 + i * sz * 0.14;
+        ctx.beginPath();
+        ctx.arc(wx, -sz * 0.29, sz * 0.038, 0, Math.PI * 2);
+        ctx.arc(wx, sz * 0.29, sz * 0.038, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // ===== ПЕРЕДНИЕ КОЛЁСА (характерная черта халф-трака) =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.36, -sz * 0.3, sz * 0.08, 0, Math.PI * 2);
+    ctx.arc(sz * 0.36,  sz * 0.3, sz * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+    // Ступицы
+    ctx.fillStyle = '#374151';
+    ctx.beginPath();
+    ctx.arc(sz * 0.36, -sz * 0.3, sz * 0.038, 0, Math.PI * 2);
+    ctx.arc(sz * 0.36,  sz * 0.3, sz * 0.038, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== КОРПУС (коробчатый, с наклонным лбом как у M3) =====
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.5, -sz * 0.22);
+    ctx.lineTo( sz * 0.1, -sz * 0.22);    // верхняя часть моторного отсека
+    ctx.lineTo( sz * 0.28, -sz * 0.14);   // наклонный лоб (верх)
+    ctx.lineTo( sz * 0.48, -sz * 0.14);   // капот
+    ctx.lineTo( sz * 0.48,  sz * 0.14);   // капот (низ)
+    ctx.lineTo( sz * 0.28,  sz * 0.14);
+    ctx.lineTo( sz * 0.1,  sz * 0.22);    // низ лба
+    ctx.lineTo(-sz * 0.5,  sz * 0.22);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // ===== КАБИНА (открытая сверху, характерна для M3) =====
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(-sz * 0.2, -sz * 0.18, sz * 0.35, sz * 0.36);
+    
+    // Борта кабины
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.2, -sz * 0.18);
+    ctx.lineTo(-sz * 0.2, sz * 0.18);
+    ctx.moveTo( sz * 0.15, -sz * 0.18);
+    ctx.lineTo( sz * 0.15, sz * 0.18);
+    ctx.stroke();
+    
+    // ===== ПУЛЕМЁТНАЯ ТУРЕЛЬ (на крыше кабины, как M2 Browning) =====
+    // Основание кольца турели
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.02, 0, sz * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Кожух пулемёта M2 .50 cal
+    ctx.fillStyle = col.a;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.02, 0, sz * 0.05, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Ствол M2
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.02, 0);
+    ctx.lineTo(sz * 0.48, 0);
+    ctx.stroke();
+    
+    // Дульный срез
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.48, 0, sz * 0.018, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ФАРА (на капоте) =====
+    ctx.fillStyle = '#ffeb99';
+    ctx.beginPath();
+    ctx.arc(sz * 0.42, -sz * 0.08, sz * 0.025, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== РЕШЁТКА РАДИАТОРА (на капоте) =====
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) {
+        const ry = -sz * 0.1 + i * sz * 0.08;
+        ctx.beginPath();
+        ctx.moveTo(sz * 0.3, ry);
+        ctx.lineTo(sz * 0.46, ry);
+        ctx.stroke();
+    }
+    
+    // ===== ВЫХЛОПНАЯ ТРУБА =====
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.44, -sz * 0.2);
+    ctx.lineTo(-sz * 0.52, -sz * 0.28);
+    ctx.stroke();
+    
+    // ===== ЯЩИК ЗИП =====
+    ctx.fillStyle = '#4b5563';
+    ctx.fillRect(-sz * 0.48, sz * 0.04, sz * 0.14, sz * 0.12);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sz * 0.48, sz * 0.04, sz * 0.14, sz * 0.12);
+}
 
         // ===== Миномётная поддержка (Hoplite, Devitt MMR) — отдельная модель =====
         if (u.isMortar || ['hoplite', 'devitt_mmr'].includes(u.type)) {
