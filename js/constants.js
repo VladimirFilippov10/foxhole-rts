@@ -73,8 +73,9 @@ export const VEHICLE_COSTS = {
     spatha : { s: 80, c: 50, m: 40, buildTime: 30 },
     javelin: { s: 40, c: 30, m: 15, buildTime: 20 }, // БТР (аналог Niska)
     hoplite: { s: 35, c: 25, m: 10, buildTime: 25 }, // Миномётная поддержка (Hoplite)
-    colonial_artillery: { s: 80, c: 30, m: 20, buildTime: 35 }, // Артиллерия
-    //colonial_artillery120: { s: 70, c: 30, m: 10, buildTime: 25 }, // Артиллерия
+    colonial_artillery: { s: 80, c: 30, m: 20, buildTime: 35 }, // Артиллерия (алиас 150 мм)
+    colonial_artillery150: { s: 80, c: 30, m: 20, buildTime: 35 }, // Артиллерия 150 мм
+    colonial_artillery120: { s: 70, c: 30, m: 10, buildTime: 25 }, // Артиллерия 120 мм
 
     // Логистика
     truck: { s: 25, c: 15, m: 10, buildTime: 10 }, // Грузовик - перевозит БК
