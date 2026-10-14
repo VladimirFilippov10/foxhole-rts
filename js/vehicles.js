@@ -254,22 +254,29 @@ export class Devitt extends Vehicle {
     }
 }
 
+// Devitt MMR — миномётная версия (поддержка/AoE). Отдельный тип 'devitt_mmr',
+// чтобы ИИ и рендер отличали её от обычного лёгкого танка Devitt.
 export class DevittMMR extends Vehicle {
     constructor(faction, x, y) {
-        super('devitt', faction, x, y);
-        this.hp = this.maxHp = 160; // 
-        this.dmg = 25; // 
+        super('devitt_mmr', faction, x, y);
+        this.hp = this.maxHp = 160;
+        this.dmg = 25;
         this.range = 240;
-        this.spd = 1.1; // 
-        this.offRoadSpd = 1.0; //
-        this.cd = 300; // 
+        this.minRange = 90; // миномёт: не стреляет в упор
+        this.spd = 1.1;
+        this.offRoadSpd = 1.0;
+        this.cd = 300;
         this.size = 22;
         this.armor = 30;
         this.label = 'Devitt MMR';
         this.tracked = true;
         this.crew = 3;
+        this.isMortar = true; // поддержка: обрабатывается как артиллерия
         this.aoe = true; // Area of Effect attack
-        this.aoeRadius = 30; 
+        this.aoeRadius = 30;
+        // БК порезан на 30% для баланса (было 100)
+        this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.7);
+        this.ammo = this.maxAmmo;
     }
 }
 
@@ -418,9 +425,10 @@ export class Falchion extends Vehicle {
     }
 }
 
+// Javelin — БТР колонистов (обычная бронетехника, вкладка «Техника»)
 export class Javelin extends Vehicle {
     constructor(faction, x, y) {
-        super('Javelin', faction, x, y);
+        super('javelin', faction, x, y);
         this.hp = this.maxHp = 200;
         this.dmg = 7;
         this.range = 140;
@@ -433,20 +441,27 @@ export class Javelin extends Vehicle {
     }
 }
 
-export class Hoplite extends Vehicle { //в арту
+// Hoplite — миномётная поддержка колонистов (вкладка «Поддержка»).
+// Обрабатывается ИИ как артиллерия (AoE-урон), а не как бронетехника.
+export class Hoplite extends Vehicle {
     constructor(faction, x, y) {
-        super('Hoplite', faction, x, y);
+        super('hoplite', faction, x, y);
         this.hp = this.maxHp = 150;
         this.dmg = 25;
         this.range = 180;
-        this.spd = 1.3; // Самый быстрый
+        this.minRange = 80; // миномёт: не стреляет в упор
+        this.spd = 1.3;
         this.cd = 150;
         this.size = 20;
         this.armor = 15;
-        this.label = 'Javelin APC';
-        this.tracked = true; // Гусеничный БТР
+        this.label = 'Hoplite Mortar';
+        this.tracked = true; // Гусеничная база
+        this.isMortar = true; // поддержка: обрабатывается как артиллерия
         this.aoe = true; // Area of Effect attack
         this.aoeRadius = 30; // Большой радиус поражения
+        // БК порезан на 30% для баланса (было 100)
+        this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.7);
+        this.ammo = this.maxAmmo;
     }
 }
 
@@ -712,6 +727,7 @@ export function createVehicle(type, faction, x, y) {
         // Wardens
         king_spire: KingSpire,
         devitt: Devitt,
+        devitt_mmr: DevittMMR,
         silverhand: Silverhand,
         gallagher_highwayman: GallagherHighwayman,
         niska: Niska,
@@ -721,6 +737,7 @@ export function createVehicle(type, faction, x, y) {
         scorpion: Scorpion,
         nemesis: Nemesis,
         falchion: Falchion,
+        javelin: Javelin,
         hoplite: Hoplite,
         colonial_artillery: ColonialArtillery,
         // Logistics
@@ -736,8 +753,8 @@ export function createVehicle(type, faction, x, y) {
 
 // Доступная техника по фракциям
 export const FACTION_VEHICLES = {
-    wardens: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska', 'warden_artillery', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
-    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'hoplite', 'colonial_artillery', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
+    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'gallagher_highwayman', 'niska', 'warden_artillery', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
+    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'hoplite', 'colonial_artillery', 'truck', 'fuel_truck', 'engineer', 'flatbed'],
 };
 
 // ===== Помощники по видам пехоты =====
@@ -765,9 +782,10 @@ export function isInfUnit(u) {
 // Юнит — техника? Всё, что производится во вкладке «🚗 Техника»
 // (TAB_TYPES.vehicles в main.js): тяжёлые и лёгкие боевые машины обеих
 // фракций. Используется для бонуса обороны +15% урона по технике (уровень 3).
+// Миномёты-поддержка (hoplite, devitt_mmr) и артиллерия техникой не считаются.
 export const TECHNIC_VEHICLE_TYPES = [
     'king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska',
-    'hatchet', 'scorpion', 'nemesis', 'falchion', 'hoplite',
+    'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin',
 ];
 
 export function isTechVehicle(u) {

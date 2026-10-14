@@ -57,6 +57,7 @@ export const VEHICLE_COSTS = {
     // Wardens tanks
     king_spire: { s: 40, c: 30, m: 20, buildTime: 18 }, // Разведывательный танк
     devitt: { s: 45, c: 35, m: 25, buildTime: 20 }, // Легкий танк (обновлен)
+    devitt_mmr: { s: 50, c: 38, m: 28, buildTime: 22 }, // Миномётная поддержка (Devitt MMR)
     silverhand: { s: 80, c: 60, m: 45, buildTime: 30 }, // Штурмовой танк
     gallagher_highwayman: { s: 70, c: 50, m: 35, buildTime: 25 }, // Крейсерский танк
     niska: { s: 40, c: 30, m: 20, buildTime: 18 }, // БТР
@@ -67,7 +68,8 @@ export const VEHICLE_COSTS = {
     scorpion: { s: 55, c: 40, m: 30, buildTime: 22 }, // Пехотный танк
     nemesis: { s: 85, c: 65, m: 50, buildTime: 32 }, // Штурмовой танк
     falchion: { s: 55, c: 40, m: 30, buildTime: 22 }, // Средний танк
-    hoplite: { s: 35, c: 25, m: 15, buildTime: 16 }, // БТР
+    javelin: { s: 40, c: 30, m: 20, buildTime: 18 }, // БТР (аналог Niska)
+    hoplite: { s: 35, c: 25, m: 15, buildTime: 16 }, // Миномётная поддержка (Hoplite)
     colonial_artillery: { s: 45, c: 30, m: 20, buildTime: 28 }, // Артиллерия
     
     // Логистика

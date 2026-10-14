@@ -1859,12 +1859,57 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
             ctx.stroke();
         }
         
-        if (['niska', 'hoplite'].includes(u.type)) {
+        if (['niska', 'javelin'].includes(u.type)) {
+            // БТР: корпус с боевым отделением и пулемётной турелью
             ctx.fillStyle = col.s;
             ctx.fillRect(-sz * 0.3, -sz * 0.2, sz * 0.6, sz * 0.4);
             ctx.strokeStyle = col.a;
             ctx.lineWidth = 1;
             ctx.strokeRect(-sz * 0.3, -sz * 0.2, sz * 0.6, sz * 0.4);
+            // Пулемётная турель
+            ctx.fillStyle = col.a;
+            ctx.beginPath();
+            ctx.arc(0, 0, sz * 0.12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(sz * 0.4, 0);
+            ctx.stroke();
+        }
+
+        // ===== Миномётная поддержка (Hoplite, Devitt MMR) — отдельная модель =====
+        if (u.isMortar || ['hoplite', 'devitt_mmr'].includes(u.type)) {
+            // Низкий гусеничный корпус
+            ctx.fillStyle = col.s;
+            ctx.fillRect(-sz * 0.45, -sz * 0.18, sz * 0.9, sz * 0.36);
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-sz * 0.45, -sz * 0.18, sz * 0.9, sz * 0.36);
+            // Гусеницы
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(-sz * 0.45, -sz * 0.26, sz * 0.9, sz * 0.07);
+            ctx.fillRect(-sz * 0.45, sz * 0.19, sz * 0.9, sz * 0.07);
+            // Осевая миномётная ствола (короткая, толстая — характерный миномёт)
+            ctx.strokeStyle = col.a;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(-sz * 0.05, 0);
+            ctx.lineTo(sz * 0.32, -sz * 0.28);
+            ctx.stroke();
+            // Дульный срез
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(sz * 0.32, -sz * 0.28, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            // Опора плиты под миномётом
+            ctx.strokeStyle = col.p;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-sz * 0.05, 0);
+            ctx.lineTo(-sz * 0.2, sz * 0.15);
+            ctx.stroke();
         }
         
         if (u.type === 'warden_artillery' || u.type === 'colonial_artillery') {
