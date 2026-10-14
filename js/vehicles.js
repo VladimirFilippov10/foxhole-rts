@@ -183,13 +183,13 @@ export class InfantryColonist extends InfantryBase {
 export class MgGunner extends InfantryBase {
     constructor(faction, x, y) {
         super('mg_gunner', faction, x, y);
-        this.hp = this.maxHp = 45;      // крепче стрелка — держит оборону
+        this.hp = this.maxHp = 65;      // крепче стрелка — держит оборону
         this.dmg = 10;                   // небольшой урон...
-        this.range = 95;                // ...зато короткая дистанция
+        this.range = 130;                // ...зато короткая дистанция
         this.spd = 0.2;                // почти неподвижен — позиционная роль
-        this.cd = 30;                   // очень скорострельный пулемёт
+        this.cd = 40;                   // очень скорострельный пулемёт
         this.antiInfantry = true;       // эффективен против пехоты
-        this.infantryMultiplier = 2.0;  // x2 урона по пехоте
+        this.infantryMultiplier = 1.5;  // x2 урона по пехоте
         this.label = 'Пулемётчик';
     }
 }
@@ -201,7 +201,7 @@ export class SniperVarden extends InfantryBase {
         this.dmg = 45;                  // высокий одиночный урон
         this.range = 260;               // стреляет с дальней дистанции
         this.spd = 0.4;                // чуть быстрее обычной пехоты — доходит до позиции
-        this.cd = 950;                  // редкие, но точные выстрелы
+        this.cd = 900;                  // редкие, но точные выстрелы
         this.label = 'Снайпер';
     }
 }
@@ -223,11 +223,11 @@ export class SniperColonist extends InfantryBase {
 export class GrenadierVarden extends InfantryBase {
     constructor(faction, x, y) {
         super('grenadier', faction, x, y);
-        this.hp = this.maxHp = 40;
+        this.hp = this.maxHp = 60;
         this.dmg = 65;
-        this.range = 100;
-        this.spd = 0.5;
-        this.cd = 300;
+        this.range = 110;
+        this.spd = 0.8;
+        this.cd = 250;
         this.grenadeLauncher = true;    // AoE по пехоте вокруг цели (game.js)
         this.grenadeRadius = 15;
         this.label = 'Гранатомётчик';
@@ -237,13 +237,13 @@ export class GrenadierVarden extends InfantryBase {
 export class GrenadierColonist extends InfantryBase {
     constructor(faction, x, y) {
         super('grenadier', faction, x, y);
-        this.hp = this.maxHp = 40;
-        this.dmg = 35;
-        this.range = 80;
-        this.spd = 0.5;
-        this.cd = 240;
+        this.hp = this.maxHp = 50;
+        this.dmg = 40;
+        this.range = 120;
+        this.spd = 0.9;
+        this.cd = 200;
         this.grenadeLauncher = true;    // AoE по пехоте вокруг цели (game.js)
-        this.grenadeRadius = 25;
+        this.grenadeRadius = 30;
         this.label = 'Гренадер';
     }
 }
