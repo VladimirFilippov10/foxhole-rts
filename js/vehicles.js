@@ -272,12 +272,12 @@ export class KingSpire extends Vehicle {
 export class NobleWidow extends Vehicle {
     constructor(faction, x, y) {
         super('noble_widow', faction, x, y);
-        this.hp = this.maxHp = 450;
-        this.dmg = 140; // Тяжёлые пушки
-        this.range = 230;
+        this.hp = this.maxHp = 420;
+        this.dmg = 150; // Тяжёлые пушки
+        this.range = 250;
         this.spd = 0.2; // 7.75 м/с нормализовано
         this.offRoadSpd = 0.15; // 5.42 м/с
-        this.cd = 650; // Тяжелые пушки
+        this.cd = 700; // Тяжелые пушки
         this.size = 28;
         this.armor = 70;
         this.label = 'Noble Widow';
