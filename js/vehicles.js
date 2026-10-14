@@ -466,7 +466,25 @@ export class Hoplite extends Vehicle {
 }
 
 // ===== ARTILLERY (фракционная) =====
-export class WardenArtillery extends Vehicle {
+export class WardenArtillery120 extends Vehicle {
+    constructor(faction, x, y) {
+        super('warden_artillery', faction, x, y);
+        this.hp = this.maxHp = 100; // Хуже живучесть
+        this.dmg = 60; // Больше урона
+        this.range = 600; // Дальность 500
+        this.minRange = 100; // Минимальная дальность - не может стрелять в упор
+        this.spd = 0.6; // Очень медленная
+        this.cd = 400; // 8 секунд при 60 FPS
+        this.size = 24;
+        this.armor = 25; // Без брони
+        this.label = 'Warden Artillery 120mm';
+        this.aoe = true; // Area of Effect attack
+        this.aoeRadius = 65; // Большой радиус поражения
+        this.tracked = true; // Гусеничная артиллерия
+    }
+}
+
+export class WardenArtillery150mm extends Vehicle {
     constructor(faction, x, y) {
         super('warden_artillery', faction, x, y);
         this.hp = this.maxHp = 80; // Хуже живучесть
@@ -474,30 +492,48 @@ export class WardenArtillery extends Vehicle {
         this.range = 550; // Дальность 500
         this.minRange = 180; // Минимальная дальность - не может стрелять в упор
         this.spd = 0.3; // Очень медленная
-        this.cd = 520; // 8 секунд при 60 FPS
+        this.cd = 550; // 8 секунд при 60 FPS
         this.size = 24;
         this.armor = 30; // Без брони
-        this.label = 'Warden Artillery';
+        this.label = 'Warden Artillery 150mm';
         this.aoe = true; // Area of Effect attack
         this.aoeRadius = 100; // Большой радиус поражения
         this.tracked = true; // Гусеничная артиллерия
     }
 }
 
-export class ColonialArtillery extends Vehicle {
+export class ColonialArtillery150mm extends Vehicle {
     constructor(faction, x, y) {
         super('colonial_artillery', faction, x, y);
         this.hp = this.maxHp = 90; // Чуть лучше живучесть
-        this.dmg = 65; // Немного меньше урона
-        this.range = 380; // Дальность 400
+        this.dmg = 85; // Немного меньше урона
+        this.range = 550; // Дальность 400
         this.minRange = 150; // Минимальная дальность - не может стрелять в упор
-        this.spd = 0.7; // В 2 раза быстрее Wardens
+        this.spd = 0.5; // В 2 раза быстрее Wardens
         this.cd = 450; // 7 секунд при 60 FPS
         this.size = 22;
-        this.armor = 30; // Немного брони
-        this.label = 'Colonial Artillery';
+        this.armor = 15; // Немного брони
+        this.label = 'Colonial Artillery 150mm';
         this.aoe = true; // Area of Effect attack
-        this.aoeRadius = 70; // Средний радиус поражения
+        this.aoeRadius = 80; // Средний радиус поражения
+        this.tracked = true; // Гусеничная артиллерия
+    }
+}
+
+export class ColonialArtillery120mm extends Vehicle {
+    constructor(faction, x, y) {
+        super('colonial_artillery', faction, x, y);
+        this.hp = this.maxHp = 60; // Чуть лучше живучесть
+        this.dmg = 55; // Немного меньше урона
+        this.range = 400; // Дальность 400
+        this.minRange = 60; // Минимальная дальность - не может стрелять в упор
+        this.spd = 0.7; // В 2 раза быстрее Wardens
+        this.cd = 400; // 7 секунд при 60 FPS
+        this.size = 22;
+        this.armor = 15; // Немного брони
+        this.label = 'Colonial Artillery 120mm';
+        this.aoe = true; // Area of Effect attack
+        this.aoeRadius = 45; // Средний радиус поражения
         this.tracked = true; // Гусеничная артиллерия
     }
 }
