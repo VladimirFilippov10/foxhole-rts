@@ -104,7 +104,7 @@ const VEHICLE_INFO = {
 const DEFENSE_UPGRADE_INFO = [
     { level: 1, name: 'Уровень 1', icon: '🛡️', stats: 'DMG:15 RNG:240 HP:300', cost: { s: 50, c: 30, m: 40 } },
     { level: 2, name: 'Уровень 2', icon: '🛡️🛡️', stats: 'DMG:25 RNG:300 HP:600', cost: { s: 100, c: 60, m: 80 } },
-    { level: 3, name: 'Уровень 3', icon: '🛡️🛡️🛡️', stats: 'DMG:40 RNG:360 HP:1000 +15% по технике, защита от артиллерии', cost: { s: 150, c: 90, m: 120 } },
+    { level: 3, name: 'Уровень 3', icon: '🛡️🛡️🛡️', stats: 'DMG:40 RNG:360 HP:1000 +30% по технике, защита от артиллерии', cost: { s: 150, c: 90, m: 120 } },
 ];
 
 // ===== ИСПРАВЛЕНИЕ "showMapSelect is not defined" =====
