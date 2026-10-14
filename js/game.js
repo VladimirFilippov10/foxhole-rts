@@ -1565,10 +1565,16 @@ export class Game {
     }
     
     updateConstruction() {
+        // Живые юниты собираем ОДИН раз. Раньше поиск врагов шёл внутри
+        // forEach по зданиям, а «return» на кулдауне первого бункера
+        // пропускал обработку ВСЕХ остальных зданий — из-за этого оборона
+        // ИИ почти никогда не стреляла («не атакует юнитов игрока»).
+        const livingUnits = this.units.filter(u => u.hp > 0);
+
         this.buildings.forEach(b => {
             if (b.isBuilding && b.buildProgress !== undefined) {
                 b.buildProgress += 100 / b.buildTime;
-                
+
                 if (b.buildProgress >= 100) {
                     b.buildProgress = 100;
                     b.isBuilding = false;
@@ -1578,29 +1584,37 @@ export class Game {
                     b.hp = Math.floor(b.maxHp * (b.buildProgress / 100));
                 }
             }
-            
+
             // Бункеры атакуют врагов в радиусе действия (только если достроены)
             if (b.type && b.type.startsWith('bunker_') && !b.isBuilding && b.range > 0) {
                 // Инициализация таймера атаки
                 if (b.lastAtk === undefined) b.lastAtk = 0;
-                
-                // Проверяем кулдаун (2 секунды между выстрелами)
+
+                // Кулдаун (2 секунды между выстрелами). return здесь теперь
+                // безопасен: список врагов уже собран выше и другие здания
+                // обрабатываются независимо.
                 if (this.time - b.lastAtk < 120) return;
-                
-                // Ищем ближайшего врага в радиусе действия
+
+                // Ищем ближайшего врага в радиусе действия.
+                // Приоритет цели: бронетехника > остальное (ПТО-логика).
                 let nearestEnemy = null;
                 let nearestDist = Infinity;
-                
-                this.units.forEach(u => {
-                    if (u.faction !== b.faction && u.hp > 0) {
-                        const d = dist(b.x, b.y, u.x, u.y);
-                        if (d <= b.range && d < nearestDist) {
-                            nearestDist = d;
-                            nearestEnemy = u;
-                        }
+                let bestVehicle = null;
+                let bestVehicleDist = Infinity;
+
+                for (const u of livingUnits) {
+                    if (u.faction === b.faction) continue;
+                    if (!Number.isFinite(u.x) || !Number.isFinite(u.y)) continue;
+                    const d = dist(b.x, b.y, u.x, u.y);
+                    if (d > b.range) continue;
+                    if (isTechVehicle(u)) {
+                        if (d < bestVehicleDist) { bestVehicleDist = d; bestVehicle = u; }
+                    } else if (d < nearestDist) {
+                        nearestDist = d; nearestEnemy = u;
                     }
-                });
-                
+                }
+                if (bestVehicle) nearestEnemy = bestVehicle;
+
                 // Атакуем если нашли врага
                 if (nearestEnemy) {
                     b.lastAtk = this.time;
@@ -1611,7 +1625,7 @@ export class Game {
                         damage = Math.round(damage * 1.15);
                     }
                     nearestEnemy.takeDamage(damage);
-                    
+
                     // Визуальный эффект выстрела
                     this.addTracer(b.x, b.y, nearestEnemy.x, nearestEnemy.y, 'defense');
                     this.addParticles(nearestEnemy.x, nearestEnemy.y, '#ffcc00', 3);
@@ -1633,19 +1647,26 @@ export class Game {
                 // Проверяем кулдаун (2 секунды между выстрелами)
                 if (this.time - cp.lastAtk < 120) return;
                 
-                // Ищем ближайшего врага в радиусе действия
+                // Ищем ближайшего врага в радиусе действия.
+                // Приоритет цели: бронетехника игрока > остальные юниты —
+                // оборона должна «держать» технику, а не только пехоту.
                 let nearestEnemy = null;
                 let nearestDist = Infinity;
-                
-                this.units.forEach(u => {
-                    if (u.faction !== cp.owner && u.hp > 0) {
-                        const d = dist(cp.x, cp.y, u.x, u.y);
-                        if (d <= stats.range && d < nearestDist) {
-                            nearestDist = d;
-                            nearestEnemy = u;
-                        }
+                let bestVehicle = null;
+                let bestVehicleDist = Infinity;
+
+                for (const u of livingUnits) {
+                    if (u.faction === cp.owner) continue;
+                    if (!Number.isFinite(u.x) || !Number.isFinite(u.y)) continue;
+                    const d = dist(cp.x, cp.y, u.x, u.y);
+                    if (d > stats.range) continue;
+                    if (isTechVehicle(u)) {
+                        if (d < bestVehicleDist) { bestVehicleDist = d; bestVehicle = u; }
+                    } else if (d < nearestDist) {
+                        nearestDist = d; nearestEnemy = u;
                     }
-                });
+                }
+                if (bestVehicle) nearestEnemy = bestVehicle;
                 
                 // Атакуем если нашли врага
                 if (nearestEnemy) {
@@ -1678,8 +1699,12 @@ export class Game {
                         let artilleryDist = Infinity;
                         
                         this.units.forEach(u => {
-                            if (u.faction !== cp.owner && u.hp > 0 && 
-                                (u.type === 'warden_artillery' || u.type === 'colonial_artillery')) {
+                            // ФИКС: раньше проверялись только старые алиасы
+                            // типов артиллерии — новые типы с суффиксами
+                            // (warden_artillery120/150, colonial_artillery120/150)
+                            // не распознавались и контибатри не работал.
+                            if (u.faction !== cp.owner && u.hp > 0 &&
+                                typeof u.type === 'string' && u.type.includes('artillery')) {
                                 // Проверяем если артиллерия обстреливает эту точку
                                 if (u.aoeTarget && dist(u.aoeTarget.x, u.aoeTarget.y, cp.x, cp.y) < cp.radius) {
                                     const d = dist(cp.x, cp.y, u.x, u.y);
