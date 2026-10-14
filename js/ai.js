@@ -542,7 +542,9 @@ export class AI {
         if (t.includes('artillery')) return 'artillery';
         if (t === 'truck' || t === 'fuel_truck' || t === 'flatbed') return 'supply';
         if (t === 'engineer') return 'engineer';
-        if (t === 'niska' || t === 'hoplite') return 'apc';
+        if (t === 'niska' || t === 'javelin') return 'apc';
+        // Миномётная поддержка (Hoplite, Devitt MMR) — артиллерия, не бронетехника
+        if (u.isMortar || t === 'hoplite' || t === 'devitt_mmr') return 'artillery';
         return 'tank';
     }
 
@@ -836,7 +838,7 @@ export class AI {
         let types = [];
         
         if (this.G.ai === 'wardens') {
-            // Базовая техника
+            // Базовая техника (Niska — БТР wardens)
             types = ['devitt', 'niska'];
             
             // Добавляем новые танки в зависимости от сложности
@@ -848,8 +850,9 @@ export class AI {
                 types.push('gallagher_highwayman'); // Крейсерский танк
             }
         } else {
-            // Colonial
-            types = ['hatchet', 'hoplite'];
+            // Colonial. Javelin — обычный БТР (вместо Hoplite, который
+            // теперь миномётная поддержка во вкладке «Поддержка»)
+            types = ['hatchet', 'javelin'];
             
             // Добавляем новые танки в зависимости от сложности
             if (this.difficulty >= 1) {
@@ -861,6 +864,24 @@ export class AI {
             }
         }
         
+        // Миномётная поддержка (Hoplite у колонистов, Devitt MMR у wardens):
+        // производится реже и обрабатывается ИИ как артиллерия (AoE-уроны
+        // через manageArtillery), а НЕ как обычная бронетехника.
+        const mortarType = this.G.ai === 'colonials' ? 'hoplite' : 'devitt_mmr';
+        if (this.difficulty >= 1 && Math.random() < 0.15) {
+            const mCost = VEHICLE_COSTS[mortarType];
+            if (mCost && this.aiResources.s >= mCost.s && this.aiResources.c >= mCost.c && this.aiResources.m >= mCost.m) {
+                this.spendResources(mCost);
+                const mortar = createVehicle(mortarType, this.G.ai, factory.x + 60, factory.y + 60);
+                this.G.units.push(mortar);
+                mortar.isMortar = true;
+                mortar.isArtillery = true; // стоит на позиции, стреляет через manageArtillery
+                this.accumulatedForces += 2;
+                aiLog(`[AI][ARTILLERY] т.${this.timer}: произведена миномётная поддержка ${mortar.label}`);
+                return;
+            }
+        }
+
         // Добавляем артиллерию для дальнего обстрела (реже - 20% шанс)
         if (this.difficulty >= 2 && Math.random() < 0.2) {
             const artilleryType = this.G.ai === 'wardens' ? 'warden_artillery' : 'colonial_artillery';
@@ -1113,9 +1134,12 @@ export class AI {
     
     manageArtillery() {
         // Находим всю живую артиллерию ИИ
+        // Ствольная артиллерия + миномётная поддержка (Hoplite у колонистов,
+        // Devitt MMR у wardens): обе обрабатываются как артиллерия с AoE-уронами.
         const artillery = this.G.units.filter(u =>
             u.faction === this.G.ai &&
-            (u.type === 'warden_artillery' || u.type === 'colonial_artillery') &&
+            (u.type === 'warden_artillery' || u.type === 'colonial_artillery' ||
+             u.isMortar === true) &&
             u.hp > 0
         );
 
@@ -1218,7 +1242,7 @@ export class AI {
             u !== artillery &&
             (isInfUnit(u) || u.type === 'devitt' || u.type === 'hatchet' || 
              u.type === 'gallagher_highwayman' || u.type === 'falchion' || 
-             u.type === 'niska' || u.type === 'hoplite')
+             u.type === 'niska' || u.type === 'javelin')
         );
         
         // Отправляем 2-3 юнита в сопровождение
