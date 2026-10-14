@@ -443,13 +443,15 @@ export class Game {
                 dist(u.x, u.y, b.x, b.y) < SUPPLY_SYSTEM.baseSupplyRadius
             );
             if (isInBase) {
-                // Постепенное пополнение каждый тик
+                // Постепенное пополнение: передаём gameTime, иначе троттлинг
+                // regenerateAtBase не срабатывал и база чинила по 1% КАЖДЫЙ тик
+                // (полный ремонт за ~100 тиков вместо ~10000).
                 if (u.regenerateAtBase) {
-                    u.regenerateAtBase();
+                    u.regenerateAtBase(this.time);
                 }
-                // Пополнение логистики на базе
+                // Пополнение логистики на базе (тоже с gameTime — тот же троттлинг)
                 if (u.replenishAtBase) {
-                    u.replenishAtBase();
+                    u.replenishAtBase(this.time);
                 }
                 // Юнит доехал до базы за БК/топливом — пополнение выполнен,
                 // снимаем приказ возврата, чтобы он снова мог получать бои.
