@@ -36,7 +36,7 @@ export class Vehicle {
         this.maxFuel = SUPPLY_SYSTEM.maxFuel;
     }
     
-    takeDamage(dmg) {
+    takeDamage(dmg, src = null) {
         // ===== ФИКС ПРИЧИН ПОВРЕЖДЕНИЯ КООРДИНАТ (источник №2) =====
         // Если урон/броня пришли повреждёнными (NaN/undefined), HP юнита
         // превращался в NaN — дальше по цепочке (сепарация расталкивала
@@ -45,8 +45,27 @@ export class Vehicle {
         // Повреждены координаты). Теперь HP не может стать NaN.
         const d = Number(dmg);
         if (!Number.isFinite(d)) return;
-        const a = Number(this.armor);
-        this.hp -= Math.max(1, d - (Number.isFinite(a) ? a : 0));
+        let effective = d;
+        // ===== УНИКАЛЬНАЯ МЕХАНИКА «Talos» (armorPierce): бронепробитие =====
+        // Talos наносит урон с учётом брони ЦЕЛИ (своей armorPierce), а не
+        // вычитанием собственной брони: чем НИЖЕ броня цели — тем БОЛЬШЕ
+        // коэффициент урона (прогрессионно). Порог = armorPierce (70):
+        //   броня >= 70          → коэффициент 0.5 (урон вдвое слабее)
+        //   35 <= броня < 70     → коэффициент 1.0
+        //   0 <= броня < 35      → от 1.0 до 3.0 прогрессивно (броня 0 → x3)
+        if (src && src.armorPierce) {
+            const pa = Number(src.armorPierce);
+            const srcArmor = Number(this.armor);
+            const tArmor = Math.max(0, Number.isFinite(srcArmor) ? srcArmor : 0);
+            const half = pa / 2; // 35 при пороге 70
+            let mult;
+            if (tArmor >= pa) mult = 0.5;
+            else if (tArmor >= half) mult = 1.0;
+            else mult = 1 + (half - tArmor) / half; // 1 → 3 прогрессивно
+            effective = d * mult;
+        }
+        const a2 = Number(this.armor);
+        this.hp -= Math.max(1, effective - (Number.isFinite(a2) ? a2 : 0));
     }
     
     canAttack() {
@@ -317,6 +336,29 @@ export class Silverhand extends Vehicle {
     }
 }
 
+// Noble Widow — тяжёлая самоходка Wardens (силуэт истребителя танков
+// «Хетцер»): низкий безбашенный корпус с наклонной рубкой и длинным
+// орудием, смещённым вправо. Тяжёлые пушки: урон 140 при броне 70,
+// медлительная (0.2), БК урезан до 80%.
+export class NobleWidow extends Vehicle {
+    constructor(faction, x, y) {
+        super('noble_widow', faction, x, y);
+        this.hp = this.maxHp = 450;
+        this.dmg = 140; // Тяжёлые пушки
+        this.range = 230;
+        this.spd = 0.2; // 7.75 м/с нормализовано
+        this.offRoadSpd = 0.15; // 5.42 м/с
+        this.cd = 650; // Тяжелые пушки
+        this.size = 28;
+        this.armor = 70;
+        this.label = 'Noble Widow';
+        this.tracked = true;
+        this.crew = 4;
+        this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.8);
+        this.ammo = this.maxAmmo;
+    }
+}
+
 // Gallagher Highwayman Mk. III - Крейсерский танк
 export class GallagherHighwayman extends Vehicle {
     constructor(faction, x, y) {
@@ -482,6 +524,28 @@ export class Falchion extends Vehicle {
         this.armor = 35;
         this.label = 'Falchion';
         this.tracked = true; // Гусеничный танк
+    }
+}
+
+// Talos — тяжёлый штурмовой танк колонистов (силуэт советского КВ-2:
+// высокий коробчатый корпус и большая прямоугольная «самоходная» башня
+// с массивным орудием). УНИКАЛЬНАЯ МЕХАНИКА armorPierce (бронепробитие):
+// урон зависит от брони ЦЕЛИ — при броне цели >= 70 коэффициент 0.5,
+// от 70 до 35 — коэффициент 1, ниже 35 прогрессивно растёт до x3
+// (броня 0 → тройной урон). Реализация — в Vehicle.takeDamage(dmg, src).
+export class Talos extends Vehicle {
+    constructor(faction, x, y) {
+        super('talos', faction, x, y);
+        this.hp = this.maxHp = 400;
+        this.dmg = 95;
+        this.range = 150;
+        this.spd = 0.8;
+        this.cd = 800;
+        this.size = 26;
+        this.armor = 45;
+        this.label = 'Talos';
+        this.tracked = true; // Гусеничный танк
+        this.armorPierce = 70; // порог бронепробития (см. takeDamage)
     }
 }
 
@@ -881,6 +945,7 @@ export function createVehicle(type, faction, x, y) {
         devitt: Devitt,
         devitt_mmr: DevittMMR,
         silverhand: Silverhand,
+        noble_widow: NobleWidow,
         gallagher_highwayman: GallagherHighwayman,
         gallagher_outlaw: GallagherOutlaw,
         niska: Niska,
@@ -892,6 +957,7 @@ export function createVehicle(type, faction, x, y) {
         scorpion: Scorpion,
         nemesis: Nemesis,
         falchion: Falchion,
+        talos: Talos,
         spatha: Spatha,
         javelin: Javelin,
         hoplite: Hoplite,
@@ -911,8 +977,8 @@ export function createVehicle(type, faction, x, y) {
 
 // Доступная техника по фракциям
 export const FACTION_VEHICLES = {
-    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'gallagher_highwayman', 'niska', 'warden_artillery150', 'warden_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'gallagher_outlaw'],
-    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'hoplite', 'colonial_artillery150', 'colonial_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha'],
+    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'noble_widow', 'gallagher_highwayman', 'niska', 'warden_artillery150', 'warden_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'gallagher_outlaw'],
+    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin', 'hoplite', 'colonial_artillery150', 'colonial_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha'],
 };
 
 // ===== Помощники по видам пехоты =====
