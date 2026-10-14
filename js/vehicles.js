@@ -473,13 +473,13 @@ export class Nemesis extends Vehicle {
 export class Falchion extends Vehicle {
     constructor(faction, x, y) {
         super('falchion', faction, x, y);
-        this.hp = this.maxHp = 450;
-        this.dmg = 70;
+        this.hp = this.maxHp = 400;
+        this.dmg = 65;
         this.range = 150;
         this.spd = 0.8;
         this.cd = 460;
         this.size = 26;
-        this.armor = 50;
+        this.armor = 35;
         this.label = 'Falchion';
         this.tracked = true; // Гусеничный танк
     }
