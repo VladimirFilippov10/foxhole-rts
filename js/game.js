@@ -125,6 +125,8 @@ export class Game {
         // («Вымирание»: farmMultiplier плавно падает к 0 со временем игры)
         const pts = this.cps.filter(c => c.owner === this.faction).length;
         const modeMultiplier = getModeFlags(this).farmMultiplier(this.time);
+        // Запоминаем множитель фарма — UI показывает по нему доход в секунду
+        this.farmMult = modeMultiplier;
         this.res.s += pts * 0.03 * modeMultiplier;
         this.res.c += pts * 0.015 * modeMultiplier;
         this.res.m += pts * 0.01 * modeMultiplier;
@@ -1414,6 +1416,26 @@ export class Game {
         };
     }
     
+    // ===== Доход ресурсов в секунду (для HUD) =====
+    // Точки захвата дают 0.03/0.015/0.01 за тик (60 тиков = 1 сек), шахты —
+    // фиксированный бонус за тик. Множитель «Вымирания» уже учтён в farmMult.
+    getIncomePerSec() {
+        const pts = this.cps.filter(c => c.owner === this.faction).length;
+        const mult = this.farmMult ?? 1;
+        let mineS = 0, mineC = 0, mineM = 0;
+        for (const mine of this.mines) {
+            if (mine.owner !== this.faction) continue;
+            if (mine.type === 'supplies') mineS += 0.05;
+            if (mine.type === 'components') mineC += 0.03;
+            if (mine.type === 'materials') mineM += 0.03;
+        }
+        return {
+            s: (pts * 0.03 + mineS) * mult,
+            c: (pts * 0.015 + mineC) * mult,
+            m: (pts * 0.01 + mineM) * mult,
+        };
+    }
+
     canProduceUnit(type, faction) {
         // Настройки режима игры: запрещённый режимом юнит нельзя производить
         // (ни игроку, ни ИИ — проверка идёт по game.restriction/game.economy).
