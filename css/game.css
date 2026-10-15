@@ -296,11 +296,12 @@
         margin-bottom: 2rem;
       }
       .faction-btn {
-        width: 240px;
-        height: 280px;
+        position: relative;
+        width: 420px;
+        height: 480px;
         border: 2px solid;
         border-radius: 12px;
-        padding: 1.5rem;
+        overflow: hidden;
         cursor: pointer;
         transition: all 0.3s;
         display: flex;
@@ -316,6 +317,42 @@
         background: linear-gradient(135deg, #14532d, #15803d);
         border-color: #22c55e;
       }
+      .faction-bg {
+        position: absolute;
+        inset: 0;
+        background-repeat: repeat-x;
+        background-position: left center;
+        background-size: auto 100%;
+        opacity: 0.5;
+        animation: factionPan 25s linear infinite;
+        pointer-events: none;
+      }
+      .faction-btn.wardens .faction-bg {
+        background-image: url("../img/war.png");
+      }
+      .faction-btn.colonials .faction-bg {
+        background-image: url("../img/col.png");
+      }
+      @keyframes factionPan {
+        from {
+          background-position: 0% center;
+        }
+        to {
+          background-position: -3840px center;
+        }
+      }
+      .faction-content {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(2px);
+      }
       .faction-btn:hover {
         transform: scale(1.05);
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
@@ -325,14 +362,16 @@
         margin-bottom: 0.75rem;
       }
       .faction-btn h2 {
-        font-size: 1.5rem;
+        font-size: 2rem;
         margin-bottom: 0.5rem;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
       }
       .faction-btn p {
-        font-size: 0.8rem;
-        color: rgba(255, 255, 255, 0.7);
+        font-size: 1rem;
+        color: rgba(255, 255, 255, 0.85);
         text-align: center;
         line-height: 1.4;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
       }
 
       .mode-row {
