@@ -1,7 +1,18 @@
 // ===== GAME LOGIC =====
-import { dist, distToSeg, GAME_MODES, SUPPLY_SYSTEM, getModeFlags, isUnitAllowedByRestriction, isBuildingAllowedByRestriction, DEFAULT_RESTRICTION, DEFAULT_ECONOMY } from './constants.js';
+import { dist, distToSeg, GAME_MODES, SUPPLY_SYSTEM, getModeFlags, isUnitAllowedByRestriction, isBuildingAllowedByRestriction, DEFAULT_RESTRICTION, DEFAULT_ECONOMY, MAP_W, MAP_H, detailScale } from './constants.js';
 import { AI } from './ai.js';
 import { createVehicle, isInfUnit, isTechVehicle, INFANTRY_TYPES, getDefenseDamageVsTech, getUnitAttackDamage, ARTILLERY_TYPES, LOGISTICS_TYPES } from './vehicles.js';
+
+// ===== МАСШТАБ ГРАФИКИ (минимализм / классический) =====
+// Базовые значения констант — для режима «Минимализм» (GM = 1). В режиме
+// «Классический» карта ×2 (MAP_W/MAP_H из constants.js), а радиусы боя,
+// дальности и зоны пополнения умножаются на detailScale(). Это позволяет
+// увеличенной карте корректно работать: юниты стреляют/двигаются в тех же
+// пропорциях, что и объекты карты.
+const DS = () => detailScale();
+
+// Радиус пополнения на базе с учётом масштаба графики
+function baseSupplyRadius() { return SUPPLY_SYSTEM.baseSupplyRadius * DS(); }
 
 // Логирование (console.log) — используется и здесь, и в ai.js.
 // ИСПРАВЛЕНИЕ: раньше game.js вызывал aiLog(...), который был определён только
