@@ -614,18 +614,18 @@ export class GodLoader extends Vehicle {
     constructor(faction, x, y) {
         super('god_loader', faction, x, y);
         this.hp = this.maxHp = 500;
-        this.dmg = 140;
-        this.range = 700;
-        this.minRange = 340; //  не стреляет в упор
-        this.spd = 0.15;
-        this.cd = 1200;
-        this.size = 60;
+        this.dmg = 180;
+        this.range = 1500;
+        this.minRange = 400; //  не стреляет в упор
+        this.spd = 0.05;
+        this.cd = 2500;
+        this.size = 40;
         this.armor = 40;
         this.label = 'God Loader 200 mm';
         this.tracked = true; // Гусеничная база
         this.isMortar = true; // поддержка: обрабатывается как артиллерия
         this.aoe = true; // Area of Effect attack
-        this.aoeRadius = 90; // Большой радиус поражения
+        this.aoeRadius = 250; // Большой радиус поражения
         // БК порезан на 30% для баланса (было 100)
         this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.3);
         this.ammo = this.maxAmmo;
