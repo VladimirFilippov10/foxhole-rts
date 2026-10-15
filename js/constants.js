@@ -145,6 +145,7 @@ export function attritionMultiplier(time) {
 export const BARREL_ARTILLERY_TYPES = [
     'warden_artillery120', 'warden_artillery150',
     'colonial_artillery120', 'colonial_artillery150',
+    'god_loader', // тяжёлая САУ 200 мм (Colonials)
     'warden_artillery', 'colonial_artillery', // старые алиасы из сохранений
 ];
 

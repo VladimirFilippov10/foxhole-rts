@@ -154,7 +154,7 @@ const VEHICLE_INFO = {
     javelin: { name: 'Javelin APC', icon: '🛡️', stats: 'HP:200 DMG:7 RNG:140 SPD:1.65 ARM:25 БТР CD:1.1с', cost: VEHICLE_COSTS.javelin },
     colonial_artillery120: { name: 'Colonial Artillery 120мм', icon: '🎯', stats: 'HP:60 DMG:55 RNG:60-400 AoE:45 SPD:0.7 ARM:15 Быстрая лёгкая арта CD:6.7с БК:70', cost: VEHICLE_COSTS.colonial_artillery120 },
     colonial_artillery150: { name: 'Colonial Artillery 150мм', icon: '🎯', stats: 'HP:90 DMG:85 RNG:150-550 AoE:80 SPD:0.5 ARM:15 CD:7.5с', cost: VEHICLE_COSTS.colonial_artillery150 },
-    god_loader: { name: 'God Loader 200мм', icon: '🎯', stats: 'HP:90 DMG:85 RNG:150-550 AoE:80 SPD:0.5 ARM:15 CD:7.5с', cost: VEHICLE_COSTS.god_loader },
+    god_loader: { name: 'God Loader 200мм', icon: '🎯', stats: 'САУ 200мм: HP:500 DMG:140 RNG:340-700 AoE:90 SPD:0.15 ARM:40 CD:12с БК:30', cost: VEHICLE_COSTS.god_loader },
 
     truck: { name: 'Грузовик', icon: '🚚', stats: 'HP:100 SPD:1.5 Без оружия Пополняет БК (запас 400)', cost: VEHICLE_COSTS.truck },
     fuel_truck: { name: 'Бензовоз', icon: '⛽', stats: 'HP:80 SPD:1.3 Без оружия Пополняет топливо (запас 400)', cost: VEHICLE_COSTS.fuel_truck },
