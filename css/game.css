@@ -324,7 +324,7 @@
         background-position: left center;
         background-size: auto 100%;
         opacity: 0.5;
-        animation: factionPan 25s linear infinite;
+        animation: factionPan 130s linear infinite;
         pointer-events: none;
       }
       .faction-btn.wardens .faction-bg {
