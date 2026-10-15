@@ -1,6 +1,22 @@
 // ===== AI SYSTEM - STRATEGIC BEHAVIOR =====
-import { dist, VEHICLE_COSTS } from './constants.js';
+import { dist, VEHICLE_COSTS, getModeFlags, attritionMultiplier } from './constants.js';
 import { createVehicle, isInfUnit, isTechUnit, isLogisticsUnit } from './vehicles.js';
+
+// ===== ПОМОЩНИКИ РЕЖИМОВ ИГРЫ ДЛЯ ИИ =====
+// Ограничение режима (classic / infantry_only / vehicles_only / no_artillery)
+function aiRestriction(G) { return G.restriction || 'classic'; }
+// Разрешён ли юнит данного типа текущим режимом ограничений
+function aiAllow(G, type) {
+    return getModeFlags(G).allowUnit(type);
+}
+// Есть ли в бою ХОТЬ ОДНА сторона с пехотой и хоть одна — с техникой.
+// В режимах «только пехота» / «только техника» одна из сторон лишена
+// целого класса, поэтому квота «1 техника на 3 пехотинца» теряет смысл —
+// её надо полностью отключить (см. updateInner).
+function classesCoexist(G) {
+    const r = aiRestriction(G);
+    return r !== 'infantry_only' && r !== 'vehicles_only';
+}
 
 // Логирование действий бота в консоль (отключается: window.AI_LOG = false)
 let LOG_ENABLED = true;
@@ -172,8 +188,11 @@ export class AI {
         // Обратный перекос: техники больше, чем пехота может прикрыть -> добираем пехоту
         const needsInfCatchUp = liveVeh > 0 && liveInf < debtTarget;
 
-        // Доктрина: >50% точек у игрока — артиллерия; иначе — бронетехника
-        const preferArtillery = playerDominance; // игрок держит >50% точек
+        // Доктрина: >50% точек у игрока — артиллерия; иначе — бронетехника.
+        // РЕЖИМ «без артиллерии»: ствольная арта запрещена — доктрина
+        // отключается (миномёты поддержки остаются обычным производством).
+        const noArtMode = aiRestriction(this.G) === 'no_artillery';
+        const preferArtillery = playerDominance && !noArtMode;
 
         const hasFactory = this.G.buildings.some(b => b.faction === this.G.ai && b.type === 'factory');
         const canVehicleSlot = this.G.canProduceUnit('vehicle', this.G.ai);
@@ -186,6 +205,52 @@ export class AI {
 
         // Нужна ли сейчас ещё одна единица техники (по квоте 1:3 или из-за потерь)
         const wantVehicle = (liveVeh * INF_PER_VEHICLE) < liveInf;
+
+        // ===== РЕЖИМЫ «ТОЛЬКО ПЕХОТА» / «ТОЛЬКО ТЕХНИКА» =====
+        // Квота 1 техника : 3 пехотинца в этих режимах бессмысленна (целый
+        // класс запрещён), поэтому она полностью обходится: бот спавнит то,
+        // на что хватает ресурсов и слотов, с обычными интервалами.
+        // Состав внутри класса выбирается случайно из доступных позиций
+        // (см. spawnVehicle / spawnInfantrySquad — они фильтруют типы по
+        // режиму через aiAllow()).
+        if (!classesCoexist(this.G)) {
+            const onlyInfantry = aiRestriction(this.G) === 'infantry_only';
+            if (onlyInfantry) {
+                // Только пехота: стабильный поток отрядов по интервалу
+                if (this.timer % actualInfantryInterval === 0 && allowInf()) {
+                    this.spawnInfantrySquad();
+                    this.infantrySpawned += this.squadSizeOf(this.difficulty);
+                    this.accumulatedForces++;
+                    spawnedThisTick = true;
+                    aiLog(`[AI][SPAWN] т.${this.timer}: РЕЖИМ «ТОЛЬКО ПЕХОТА» — отряд без квоты (пехота=${liveInf})`);
+                }
+            } else {
+                // Только техника: спавним при любой возможности, не проверяя
+                // соотношение пехоты/техники; если хватает на несколько
+                // позиций — берём случайную из доступных по цене
+                if (vehiclePossible && this.timer % actualVehicleInterval === 0) {
+                    const before = this.G.units.length;
+                    this.spawnVehicle(false);
+                    if (this.G.units.length > before) {
+                        this.vehicleCount++;
+                        this.accumulatedForces += 2;
+                        spawnedThisTick = true;
+                        aiLog(`[AI][SPAWN] т.${this.timer}: РЕЖИМ «ТОЛЬКО ТЕХНИКА» — машина без квоты (техника=${liveVeh}, выбор случайный из доступных)`);
+                    }
+                }
+            }
+            // Производство в этом тике уже решено — дальше только тактика
+            this.expandAndCapture();
+            this.maintainGarrisons();
+            if (typeof this.manageSnipers === 'function') this.manageSnipers();
+            this.strategicBehavior();
+            this.manageArtillery();
+            this.manageLogistics();
+            this.handleDamagedVehicles();
+            this.buildFortifications();
+            if (!spawnedThisTick) this.defensiveReactions();
+            return;
+        }
 
         if (preferArtillery && vehiclePossible && this.timer % actualVehicleInterval === 0) {
             // Игрок захватил >50% точек — преимущество АРТИЛЛЕРИИ: строим её
@@ -380,6 +445,9 @@ export class AI {
 
     // ===== Логистика ИИ: ремонтники / БК / топливо к нуждающейся технике =====
     manageLogistics() {
+        // ЭКОНОМИКА «Дефицит»: восстановление только на главной базе —
+        // полевую логистику бот не гоняет вовсе.
+        if (!getModeFlags(this.G).logisticsAllowed) return;
         if (this.timer % 90 !== 0) return; // приказ раз в 1.5 секунды
 
         const sendToNeedy = (logType, predicate) => {
@@ -679,10 +747,24 @@ export class AI {
         // ИИ получает ресурсы медленнее чем игрок
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai).length;
         const modeMultiplier = this.G.gameMode === 'realism' ? 0.3 : this.G.gameMode === 'fast' ? 2.5 : 1.0;
-        
-        this.aiResources.s += aiPoints * 0.03 * this.aiResourceRate * modeMultiplier;
-        this.aiResources.c += aiPoints * 0.015 * this.aiResourceRate * modeMultiplier;
-        this.aiResources.m += aiPoints * 0.01 * this.aiResourceRate * modeMultiplier;
+
+        // ЭКОНОМИКА «Вымирание»: фарм обеих сторон стремится к 0 со временем —
+        // применяем тот же множитель, что игра использует для дохода игрока.
+        const flags = getModeFlags(this.G);
+        const farmMult = flags.farmMultiplier ? flags.farmMultiplier(this.G.time) : 1;
+
+        // Шахты, захваченные ИИ (как у игрока): прибавка за тик по типу шахты
+        let mineS = 0, mineC = 0, mineM = 0;
+        for (const mine of (this.G.mines || [])) {
+            if (mine.owner !== this.G.ai) continue;
+            if (mine.type === 'supplies') mineS += 0.05;
+            else if (mine.type === 'components') mineC += 0.03;
+            else if (mine.type === 'materials') mineM += 0.03;
+        }
+
+        this.aiResources.s += (aiPoints * 0.03 + mineS) * this.aiResourceRate * modeMultiplier * farmMult;
+        this.aiResources.c += (aiPoints * 0.015 + mineC) * this.aiResourceRate * modeMultiplier * farmMult;
+        this.aiResources.m += (aiPoints * 0.01 + mineM) * this.aiResourceRate * modeMultiplier * farmMult;
     }
     
     canAffordInfantry() {
@@ -692,9 +774,44 @@ export class AI {
                this.aiResources.m >= cost.m;
     }
     
+    // ===== ПОМОЩНИКИ ВЫБОРА ТЕХНИКИ С УЧЁТОМ РЕЖИМА =====
+    // Список боевых типов техники фракции ИИ (без артиллерии).
+    vehicleRoster() {
+        return this.G.ai === 'wardens'
+            ? ['devitt', 'niska', 'king_spire', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw']
+            : ['hatchet', 'javelin', 'scorpion', 'nemesis', 'falchion', 'spatha'];
+    }
+
+    // Стоимость самого дешёвого РАЗРЕШЁННОГО режимом типа техники.
+    getCheapestAllowedVehicleCost() {
+        let best = null;
+        for (const t of this.vehicleRoster()) {
+            const c = VEHICLE_COSTS[t];
+            if (!c || !aiAllow(this.G, t)) continue;
+            if (!best || c.s < best.s) best = c;
+        }
+        return best;
+    }
+
+    // Случайный тип техники из РАЗРЕШЁННЫХ режимом и доступных по ресурсам.
+    // Если хватает на несколько позиций — выбор случайный из них.
+    pickAffordableVehicleType() {
+        const affordable = this.vehicleRoster().filter(t => {
+            const c = VEHICLE_COSTS[t];
+            return c && aiAllow(this.G, t) &&
+                this.aiResources.s >= c.s && this.aiResources.c >= c.c && this.aiResources.m >= c.m;
+        });
+        if (affordable.length === 0) return null;
+        return affordable[Math.floor(Math.random() * affordable.length)];
+    }
+
     canAffordVehicle() {
-        // Проверяем можем ли позволить себе хотя бы самый дешёвый танк
-        const cheapestVehicle = this.G.ai === 'wardens' ? VEHICLE_COSTS.devitt : VEHICLE_COSTS.hatchet;
+        // Проверяем можем ли позволить себе хотя бы самый дешёвый танк.
+        // РЕЖИМЫ: если техника запрещена режимом — не позволяем ничего;
+        // иначе считаем доступность по самому дешёвому РАЗРЕШЁННОМУ типу.
+        if (!classesCoexist(this.G) && aiRestriction(this.G) === 'infantry_only') return false;
+        const cheapestVehicle = this.getCheapestAllowedVehicleCost();
+        if (!cheapestVehicle) return false;
         return this.aiResources.s >= cheapestVehicle.s && 
                this.aiResources.c >= cheapestVehicle.c && 
                this.aiResources.m >= cheapestVehicle.m;
@@ -801,6 +918,7 @@ export class AI {
             b.faction === this.G.ai && b.type === 'barracks' && b.hp > 0);
         if (!barracks) return null;
         if (!this.G.canProduceUnit('infantry', this.G.ai)) return null;
+        if (!aiAllow(this.G, 'sniper')) return null; // режим без пехоты
 
         const cost = VEHICLE_COSTS.sniper || VEHICLE_COSTS.infantry;
         if (this.aiResources.s < cost.s || this.aiResources.c < cost.c ||
@@ -885,8 +1003,23 @@ export class AI {
             }
         }
 
-        // Выбираем случайный тип техники
-        const type = types[Math.floor(Math.random() * types.length)];
+        // РЕЖИМЫ: отбрасываем типы, запрещённые настройками игры
+        // («только пехота» сюда вообще не доходит, «без артиллерии» убирает
+        // ствольную арту, «только техника» снимает только пехотные лимиты).
+        types = types.filter(t => aiAllow(this.G, t));
+
+        // Выбираем случайный тип техники среди РАЗРЕШЁННЫХ режимом.
+        // В режиме «только техника»: если ресурсов хватает на несколько
+        // позиций — берём случайную из доступных (спец-запрос), иначе —
+        // обычный случайный выбор с проверкой цены ниже.
+        let type = null;
+        if (!classesCoexist(this.G) && aiRestriction(this.G) === 'vehicles_only') {
+            type = this.pickAffordableVehicleType();
+            if (!type) type = types[Math.floor(Math.random() * types.length)];
+        } else {
+            type = types[Math.floor(Math.random() * types.length)];
+        }
+        if (!type) return; // режим не оставляет доступной техники
         const cost = VEHICLE_COSTS[type];
         
         // Проверяем хватает ли ресурсов
@@ -929,7 +1062,9 @@ export class AI {
         if (currentArt >= artCap) return false;
 
         const w = this.G.ai === 'wardens';
-        // Ствольная артиллерия: тяжёлая 150 мм или мобильная 120 мм
+        // Ствольная артиллерия: тяжёлая 150 мм или мобильная 120 мм.
+        // РЕЖИМ «без артиллерии»: ствольные типы запрещены — остаётся
+        // только миномётная поддержка (она не считается артиллерией).
         const barrelType = Math.random() < 0.5
             ? (w ? 'warden_artillery150' : 'colonial_artillery150')
             : (w ? 'warden_artillery120' : 'colonial_artillery120');
@@ -937,6 +1072,7 @@ export class AI {
         const mortarType = w ? 'devitt_mmr' : 'hoplite';
 
         for (const t of [barrelType, mortarType]) {
+            if (!aiAllow(this.G, t)) continue; // режим запретил этот тип
             const cost = VEHICLE_COSTS[t];
             if (!cost) continue;
             if (this.aiResources.s < cost.s || this.aiResources.c < cost.c ||
