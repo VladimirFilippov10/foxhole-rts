@@ -47,6 +47,100 @@ export const GAME_MODES = {
     },
 };
 
+// ===== ДОПОЛНИТЕЛЬНЫЕ НАСТРОЙКИ ИГРЫ (переключатели) =====
+// В каждой группе можно выбрать ровно ОДНО значение (radio-поведение).
+// Значения по умолчанию — 'classic' в обеих группах (прежняя игра «как есть»).
+export const RESTRICTION_OPTIONS = [
+    { id: 'classic',      name: 'Классический',   icon: '🎯', description: 'Всё оружие доступно: пехота, техника, артиллерия' },
+    { id: 'infantry_only', name: 'Только пехота', icon: '🔫', description: 'Техника и артиллерия запрещены — в бою только пехота' },
+    { id: 'vehicles_only', name: 'Только техника', icon: '🚗', description: 'Пехота запрещена — только боевая техника' },
+    { id: 'no_artillery', name: 'Без артиллерии', icon: '🚫', description: 'Ствольная артиллерия запрещена (миномёты-поддержка остаются)' },
+];
+
+export const ECONOMY_OPTIONS = [
+    { id: 'classic',    name: 'Классический', icon: '⚖️', description: 'Обычный фарм очков и снабжение: ремонт/БК/топливо доступны на базе и у логистики' },
+    { id: 'attrition',  name: 'Вымирание',    icon: '📉', description: 'Фарм очков стремится к 0 со временем (чем дольше игра — тем меньше ресурсов)' },
+    { id: 'scarcity',   name: 'Дефицит',      icon: '🏚️', description: 'Восстановление топлива/БК/прочности — только на главной базе (вкладка «Снабжение» недоступна)' },
+];
+
+// Настройки по умолчанию
+export const DEFAULT_RESTRICTION = 'classic';
+export const DEFAULT_ECONOMY = 'classic';
+
+// ===== ЛОГИСТИКА (вкладка «Снабжение») — единый список для всех модулей =====
+export const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed'];
+
+// ===== ЭКОНОМИКА «ВЫМИРАНИЕ» =====
+// Множитель фарма падает с 1.0 до ATTRITION_MIN за ATTRITION_DECAY_TICKS
+// тиков (~60 минут игры при 60 тик/с), далее остаётся на минимуме.
+export const ATTRITION_START_PCT = 3600;  // ~1 мин — начало плавного спада
+export const ATTRITION_DECAY_TICKS = 216000; // длительность спада (тики)
+export const ATTRITION_MIN = 0.05;         // пол: фарм не исчезает полностью
+
+// Множитель фарма «Вымирания» по времени игры (тики)
+export function attritionMultiplier(time) {
+    if (time <= ATTRITION_START_PCT) return 1;
+    const p = Math.min(1, (time - ATTRITION_START_PCT) / ATTRITION_DECAY_TICKS);
+    return Math.max(ATTRITION_MIN, 1 - p * (1 - ATTRITION_MIN));
+}
+
+// ===== ОГРАНИЧЕНИЯ ПО СОСТАВУ АРМИИ =====
+// Типы ствольной артиллерии (запрещаются режимом «без артиллерии»).
+// Миномётные машины поддержки (devitt_mmr, hoplite) — НЕ артиллерия.
+export const BARREL_ARTILLERY_TYPES = [
+    'warden_artillery120', 'warden_artillery150',
+    'colonial_artillery120', 'colonial_artillery150',
+    'warden_artillery', 'colonial_artillery', // старые алиасы из сохранений
+];
+
+// Пехота (базовый тип 'infantry' + виды)
+export const INFANTRY_UNIT_TYPES = ['infantry', 'rifleman', 'mg_gunner', 'grenadier', 'sniper'];
+
+// Проверка типа юнита (по строке type — работает и для объектов юнитов)
+export function isInfantryTypeStr(t) { return INFANTRY_UNIT_TYPES.includes(t); }
+export function isArtilleryTypeStr(t) { return BARREL_ARTILLERY_TYPES.includes(t); }
+export function isLogisticsTypeStr(t) { return LOGISTICS_TYPES.includes(t); }
+
+// ===== Главная проверка: можно ли производить/спавнить юнит данного типа =====
+// в выбранном режиме ограничений. Учитывает ВСЕ настройки сразу.
+// Возвращает true — разрешено, false — запрещено режимом.
+export function isUnitAllowedByRestriction(type, restriction) {
+    const r = restriction || DEFAULT_RESTRICTION;
+    if (r === 'infantry_only') return isInfantryTypeStr(type);
+    if (r === 'vehicles_only') return !isInfantryTypeStr(type);
+    if (r === 'no_artillery') return !isArtilleryTypeStr(type);
+    return true; // classic
+}
+
+// Запрещён ли режимом данный класс построек (казармы/завод)
+export function isBuildingAllowedByRestriction(btype, restriction) {
+    const r = restriction || DEFAULT_RESTRICTION;
+    if (btype === 'barracks' && r === 'vehicles_only') return false;
+    if (btype === 'factory' && r === 'infantry_only') return false;
+    return true;
+}
+
+// ===== Единый помощник «что разрешено текущими настройками» =====
+// Принимает объект игры (game) — читает game.restriction / game.economy.
+// Используется и UI игрока (вкладки производства), и ИИ (ai.js).
+export function getModeFlags(game) {
+    const restriction = game?.restriction || DEFAULT_RESTRICTION;
+    const economy = game?.economy || DEFAULT_ECONOMY;
+    return {
+        restriction,
+        economy,
+        // логистика (вкладка «Снабжение») запрещена в режиме «Дефицит»
+        logisticsAllowed: economy !== 'scarcity',
+        allowUnit(type) { return isUnitAllowedByRestriction(type, restriction); },
+        allowBuilding(btype) { return isBuildingAllowedByRestriction(btype, restriction); },
+        // Множитель фарма ресурсов с учётом экономики «Вымирание»
+        farmMultiplier(time) {
+            const base = GAME_MODES[game?.gameMode]?.resourceMultiplier ?? 1;
+            return economy === 'attrition' ? base * attritionMultiplier(time || 0) : base;
+        },
+    };
+}
+
 export const VEHICLE_COSTS = {
     infantry: { s: 10, c: 0, m: 0, buildTime: 5 },      // стрелки (базовая пехота)
     rifleman: { s: 10, c: 0, m: 0, buildTime: 5 },      // то же, новое имя
