@@ -70,16 +70,29 @@ export class Vehicle {
         this.hp -= Math.max(1, effective - (Number.isFinite(a2) ? a2 : 0));
     }
     
-    canAttack() {
-        // Артиллерия расходует за выстрел artilleryAmmoConsumption снарядов
-        if (this.isArtillery) return this.ammo >= SUPPLY_SYSTEM.artilleryAmmoConsumption;
-        return this.ammo >= SUPPLY_SYSTEM.ammoConsumption;
+    // ===== ФИКС «ОБСТРЕЛ ПО ПЛОЩАДИ ДЕЛАЕТ ВСЕГО 1 ВЫСТРЕЛ» =====
+    // Расход БК за залп должен определяться по факту AoE-оружия (aoe/isMortar),
+    // а не только по флагу isArtillery. Миномёты (devitt_mmr, hoplite) и
+    // God Loader помечаются лишь isMortar/aoe: раньше они тратили обычный
+    // расход (ammoConsumption=10) при maxAmmo 70 — после первого же залпа
+    // остаток (60) не проходил порог canAttack() (>= 70), и второй снаряд
+    // никогда не летел: приказ обстрела площади умирал ровно на одном
+    // выстреле. Теперь все AoE-юниты честно тратят artilleryAmmoConsumption
+    // (5) за залп и отрабатывают полный цикл обстрела.
+    ammoCostPerShot() {
+        if (this.isArtillery || this.isMortar || this.aoe) {
+            return SUPPLY_SYSTEM.artilleryAmmoConsumption;
+        }
+        return SUPPLY_SYSTEM.ammoConsumption;
     }
-    
+
+    canAttack() {
+        // Артиллерия/миномёты расходуют за выстрел artilleryAmmoConsumption снарядов
+        return this.ammo >= this.ammoCostPerShot();
+    }
+
     useAmmo() {
-        const cost = this.isArtillery ? SUPPLY_SYSTEM.artilleryAmmoConsumption
-                                      : SUPPLY_SYSTEM.ammoConsumption;
-        this.ammo = Math.max(0, this.ammo - cost);
+        this.ammo = Math.max(0, this.ammo - this.ammoCostPerShot());
     }
     
     useFuel() {
