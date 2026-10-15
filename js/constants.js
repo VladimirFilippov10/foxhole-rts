@@ -96,6 +96,20 @@ export const BARREL_ARTILLERY_TYPES = [
 // Пехота (базовый тип 'infantry' + виды)
 export const INFANTRY_UNIT_TYPES = ['infantry', 'rifleman', 'mg_gunner', 'grenadier', 'sniper'];
 
+// Все боевые/вспомогательные юниты (для фильтрации карточек производства в UI)
+export const ALL_UNIT_TYPES = [
+    ...INFANTRY_UNIT_TYPES,
+    // Техника wardens
+    'king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw',
+    'niska', 'spatha', 'talos', 'noble_widow', 'devitt_mmr',
+    // Техника colonials
+    'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'hoplite',
+    // Артиллерия (ствольная)
+    ...BARREL_ARTILLERY_TYPES,
+    // Логистика
+    ...LOGISTICS_TYPES,
+];
+
 // Проверка типа юнита (по строке type — работает и для объектов юнитов)
 export function isInfantryTypeStr(t) { return INFANTRY_UNIT_TYPES.includes(t); }
 export function isArtilleryTypeStr(t) { return BARREL_ARTILLERY_TYPES.includes(t); }

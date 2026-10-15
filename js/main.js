@@ -1,5 +1,7 @@
 // ===== MAIN ENTRY POINT =====
-import { VEHICLE_COSTS, dist, GAME_MODES, FIXED_STEP_MS, MAX_STEPS_PER_FRAME } from './constants.js';
+import { VEHICLE_COSTS, dist, GAME_MODES, FIXED_STEP_MS, MAX_STEPS_PER_FRAME,
+    RESTRICTION_OPTIONS, ECONOMY_OPTIONS, DEFAULT_RESTRICTION, DEFAULT_ECONOMY,
+    getModeFlags } from './constants.js';
 import { createVehicle, FACTION_VEHICLES, FACTION_INFANTRY, INFANTRY_TYPES } from './vehicles.js';
 import { getCapturePointsInWorld, getResourcePointsInWorld } from './map.js';
 import { Game } from './game.js';
@@ -12,6 +14,12 @@ const globalKeys = {};
 let selectedMap = 'deadlands';
 let selectedFaction = 'wardens';
 let selectedGameMode = 'normal';
+// Дополнительные настройки режима (выбираются на экране «Настройки игры»,
+// в каждой группе ровно одно значение — radio-поведение):
+//  selectedRestriction: classic | infantry_only | vehicles_only | no_artillery
+//  selectedEconomy:     classic | attrition (Вымирание) | scarcity (Дефицит)
+let selectedRestriction = DEFAULT_RESTRICTION;
+let selectedEconomy = DEFAULT_ECONOMY;
 let lastClickTime = 0;
 let factoryMenuOpen = false;
 let aoeMode = false;
@@ -205,8 +213,43 @@ window.selectMap = function(map) {
 window.selectFaction = function(faction) {
     selectedFaction = faction;
     document.getElementById('factionScreen').classList.add('hidden');
+    // Экран настроек: режим + переключатели «Ограничения» и «Экономика».
+    renderModeToggles();
     document.getElementById('settingsScreen').classList.remove('hidden');
 };
+
+// ===== ПЕРЕКЛЮЧАТЕЛИ РЕЖИМОВ НА ЭКРАНЕ НАСТРОЕК =====
+// В каждой группе («Ограничения», «Экономика») можно выбрать ровно ОДНО
+// значение — как radio-группа. Списки берутся из constants.js
+// (RESTRICTION_OPTIONS / ECONOMY_OPTIONS), чтобы игра, UI и ИИ использовали
+// одни и те же id.
+function renderToggleRow(containerId, options, current, onSelect) {
+    const row = document.getElementById(containerId);
+    if (!row) return;
+    row.innerHTML = '';
+    options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'toggle-btn' + (opt.id === current ? ' active' : '');
+        btn.dataset.value = opt.id;
+        btn.innerHTML = `
+            <div class="t-name">${opt.icon} ${opt.name}</div>
+            <div class="t-desc">${opt.description}</div>
+        `;
+        btn.onclick = () => {
+            onSelect(opt.id);
+            // Перерисовываем ряд: активным становится ровно один переключатель
+            renderToggleRow(containerId, options, opt.id, onSelect);
+        };
+        row.appendChild(btn);
+    });
+}
+
+function renderModeToggles() {
+    renderToggleRow('restrictionRow', RESTRICTION_OPTIONS, selectedRestriction,
+        id => { selectedRestriction = id; });
+    renderToggleRow('economyRow', ECONOMY_OPTIONS, selectedEconomy,
+        id => { selectedEconomy = id; });
+}
 
 window.selectGameMode = function(mode) {
     selectedGameMode = mode;
@@ -236,15 +279,21 @@ function startGame() {
         badge.className = 'faction-badge ' + selectedFaction;
         badge.innerHTML = selectedFaction === 'wardens' ? '🛡️ WARDENS' : '⚔️ COLONIALS';
         
-        // Show game mode in HUD
+        // Show game mode in HUD (режим + активные переключатели «Ограничения»/«Экономика»)
         const modeInfo = document.getElementById('gameModeInfo');
         if (modeInfo) {
             const mode = GAME_MODES[selectedGameMode];
-            modeInfo.textContent = `${mode.icon} ${mode.name}`;
+            let txt = `${mode.icon} ${mode.name}`;
+            const rOpt = RESTRICTION_OPTIONS.find(o => o.id === selectedRestriction);
+            const eOpt = ECONOMY_OPTIONS.find(o => o.id === selectedEconomy);
+            if (rOpt && rOpt.id !== 'classic') txt += ` · ${rOpt.icon} ${rOpt.name}`;
+            if (eOpt && eOpt.id !== 'classic') txt += ` · ${eOpt.icon} ${eOpt.name}`;
+            modeInfo.textContent = txt;
+            modeInfo.title = `Ограничения: ${rOpt ? rOpt.name : '—'}\nЭкономика: ${eOpt ? eOpt.name : '—'}`;
         }
         
         // Create game with selected mode
-        game = new Game(selectedFaction, selectedGameMode);
+        game = new Game(selectedFaction, selectedGameMode, selectedRestriction, selectedEconomy);
         // Передаём текущее состояние клавиш в игру (см. globalKeys выше)
         game.keys = globalKeys;
         
@@ -290,26 +339,39 @@ function startGame() {
         const units = [];
         
         // Player units - use faction-specific vehicles
-        units.push(createVehicle('infantry', selectedFaction, playerBase.x + 30, playerBase.y + 50));
-        units.push(createVehicle('infantry', selectedFaction, playerBase.x + 50, playerBase.y + 50));
-        units.push(createVehicle('infantry', selectedFaction, playerBase.x + 70, playerBase.y + 50));
+        // Стартовые юниты создаются только если они разрешены выбранным
+        // режимом ограничений (например, в «Только пехота» стартовый танк не спавнится)
+        const startFlags = getModeFlags(game);
+        if (startFlags.allowUnit('infantry')) {
+            units.push(createVehicle('infantry', selectedFaction, playerBase.x + 30, playerBase.y + 50));
+            units.push(createVehicle('infantry', selectedFaction, playerBase.x + 50, playerBase.y + 50));
+            units.push(createVehicle('infantry', selectedFaction, playerBase.x + 70, playerBase.y + 50));
+        }
         
         // Wardens start with Devitt, Colonials with Hatchet
         const playerLightTank = selectedFaction === 'wardens' ? 'devitt' : 'hatchet';
-        units.push(createVehicle(playerLightTank, selectedFaction, playerBase.x, playerBase.y + 120));
+        if (startFlags.allowUnit(playerLightTank)) {
+            units.push(createVehicle(playerLightTank, selectedFaction, playerBase.x, playerBase.y + 120));
+        }
         
         // AI units
-        units.push(createVehicle('infantry', game.ai, aiBase.x - 30, aiBase.y + 50));
-        units.push(createVehicle('infantry', game.ai, aiBase.x - 50, aiBase.y + 50));
-        units.push(createVehicle('infantry', game.ai, aiBase.x - 70, aiBase.y + 50));
+        if (startFlags.allowUnit('infantry')) {
+            units.push(createVehicle('infantry', game.ai, aiBase.x - 30, aiBase.y + 50));
+            units.push(createVehicle('infantry', game.ai, aiBase.x - 50, aiBase.y + 50));
+            units.push(createVehicle('infantry', game.ai, aiBase.x - 70, aiBase.y + 50));
+        }
         
         // Стартовый БТР ИИ: у wardens — Niska, у colonials — Javelin
         // (Hoplite теперь миномётная поддержка, не БТР)
         const aiAPC = game.ai === 'wardens' ? 'niska' : 'javelin';
-        units.push(createVehicle(aiAPC, game.ai, aiBase.x, aiBase.y + 120));
+        if (startFlags.allowUnit(aiAPC)) {
+            units.push(createVehicle(aiAPC, game.ai, aiBase.x, aiBase.y + 120));
+        }
         
         const aiAssaultTank = game.ai === 'wardens' ? 'gallagher_highwayman' : 'falchion';
-        units.push(createVehicle(aiAssaultTank, game.ai, aiBase.x + 50, aiBase.y - 30));
+        if (startFlags.allowUnit(aiAssaultTank)) {
+            units.push(createVehicle(aiAssaultTank, game.ai, aiBase.x + 50, aiBase.y - 30));
+        }
         
         // Initialize game
         game.init(cps, mines, buildings, units);

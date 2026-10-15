@@ -14,10 +14,14 @@ function aiLog(...args) {
 }
 
 export class Game {
-    constructor(faction, gameMode = 'normal') {
+    constructor(faction, gameMode = 'normal', restriction = DEFAULT_RESTRICTION, economy = DEFAULT_ECONOMY) {
         this.faction = faction;
         this.ai = faction === 'wardens' ? 'colonials' : 'wardens';
         this.gameMode = gameMode;
+        // Дополнительные настройки (переключатели из экрана «Настройки игры»):
+        // restriction — ограничения состава армии, economy — режим экономики.
+        this.restriction = restriction || DEFAULT_RESTRICTION;
+        this.economy = economy || DEFAULT_ECONOMY;
         this.units = [];
         this.buildings = [];
         this.cps = [];
@@ -117,9 +121,10 @@ export class Game {
         this.cam.x = Math.max(0, Math.min(mapW - window.innerWidth, this.cam.x));
         this.cam.y = Math.max(0, Math.min(mapH - window.innerHeight, this.cam.y));
 
-        // Resource generation with game mode multiplier
+        // Resource generation with game mode multiplier + economy settings
+        // («Вымирание»: farmMultiplier плавно падает к 0 со временем игры)
         const pts = this.cps.filter(c => c.owner === this.faction).length;
-        const modeMultiplier = GAME_MODES[this.gameMode].resourceMultiplier;
+        const modeMultiplier = getModeFlags(this).farmMultiplier(this.time);
         this.res.s += pts * 0.03 * modeMultiplier;
         this.res.c += pts * 0.015 * modeMultiplier;
         this.res.m += pts * 0.01 * modeMultiplier;
@@ -1410,6 +1415,11 @@ export class Game {
     }
     
     canProduceUnit(type, faction) {
+        // Настройки режима игры: запрещённый режимом юнит нельзя производить
+        // (ни игроку, ни ИИ — проверка идёт по game.restriction/game.economy).
+        const flags = getModeFlags(this);
+        if (!flags.allowUnit(type)) return false;
+
         const limits = faction === this.faction ? this.unitLimits : this.aiUnitLimits;
         const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed'];
         const units = this.units.filter(u => u.faction === faction && u.hp > 0);
@@ -1530,6 +1540,12 @@ export class Game {
     }
     
     handleLogistics(unit) {
+        // ЭКОНОМИКА «ДЕФИЦИТ»: восстановление топлива/БК/прочности доступно
+        // только на главной базе (town_hall). Полевая логистика из вкладки
+        // «Снабжение» не пополняет запасы — машины просто едут к нуждающимся,
+        // но помощь оказывает только база.
+        if (!getModeFlags(this).logisticsAllowed) return;
+
         // ИСПРАВЛЕНИЕ «чинит/пополняет один раз и не полностью»:
         // 1) раньше цель выбиралась как «ближайший сосед на дистанции <50» —
         //    инженер мог «чинить» уже целого юнита или самого себя косвенно,
