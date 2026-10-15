@@ -37,10 +37,14 @@ export let CELL_H = 150;
 export let MAP_W = MAP_COLS * CELL_W; // 3000 (×2 = 6000 в классическом)
 export let MAP_H = MAP_ROWS * CELL_H; // 2250 (×2 = 4500 в классическом)
 
+// Базовые размеры клетки (для режима «Минимализм», GM = 1)
+export const BASE_CELL_W = 250;
+export const BASE_CELL_H = 150;
+
 // Применить масштаб карты (вызывается из setGraphicsMode и при старте игры)
 function applyMapScale() {
-    CELL_W = 250 * _gm;
-    CELL_H = 150 * _gm;
+    CELL_W = BASE_CELL_W * _gm;
+    CELL_H = BASE_CELL_H * _gm;
     MAP_W = MAP_COLS * CELL_W;
     MAP_H = MAP_ROWS * CELL_H;
 }

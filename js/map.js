@@ -87,14 +87,22 @@ export const CAPTURE_POINTS = [
     { name: 'The Salt March', col: 7, row: 11, radius: 150 * GM, owner: 'colonials', defenseLevel: 0 },
 ];
 
+// Базовые радиусы (для «Минимализма», GM = 1). В CAPTURE_POINTS значения уже
+// умножены на GM — делим обратно, чтобы получить масштаб независимо от того,
+// в каком режиме графики был импортирован модуль.
+const BASE_CAP_RADIUS = CAPTURE_POINTS[0].radius / GM;
+
 // Функция для получения точек захвата с гарантированной инициализацией defenseLevel
+// Радиус пересчитывается по ТЕКУЩЕМУ масштабу графики (getGraphicsScale()) —
+// поэтому выбор режима в настройках перед стартом корректно увеличивает карту.
 export function getCapturePointsInWorld() {
+    const gm = getGraphicsScale();
     return CAPTURE_POINTS.map((cp, i) => ({
         id: 'cp' + i,
         name: cp.name,
         x: gx(cp.col),
         y: gy(cp.row),
-        radius: cp.radius,
+        radius: Math.round(BASE_CAP_RADIUS * gm),
         owner: cp.owner,
         progress: cp.owner === 'neutral' ? 0 : 100,
         capturing: null,
@@ -296,12 +304,15 @@ export function getLocationsInWorld() {
 }
 
 export function getResourcePointsInWorld() {
+    const gm = getGraphicsScale();
     return RESOURCE_POINTS.map((rp, i) => ({
         id: 'mine' + i,
         name: rp.name,
         x: gx(rp.col),
         y: gy(rp.row),
-        radius: rp.radius,
+        // Радиус пересчитывается по текущему масштабу (базовое значение —
+        // radius / GM при импорте модуля)
+        radius: Math.round((rp.radius / GM) * gm),
         owner: 'neutral',
         progress: 0,
         type: rp.type,
