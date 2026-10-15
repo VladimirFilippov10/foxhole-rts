@@ -610,6 +610,28 @@ export class Hoplite extends Vehicle {
     }
 }
 
+export class GodLoader extends Vehicle {
+    constructor(faction, x, y) {
+        super('god_loader', faction, x, y);
+        this.hp = this.maxHp = 500;
+        this.dmg = 140;
+        this.range = 700;
+        this.minRange = 340; //  не стреляет в упор
+        this.spd = 0.15;
+        this.cd = 1200;
+        this.size = 60;
+        this.armor = 40;
+        this.label = 'God Loader 200 mm';
+        this.tracked = true; // Гусеничная база
+        this.isMortar = true; // поддержка: обрабатывается как артиллерия
+        this.aoe = true; // Area of Effect attack
+        this.aoeRadius = 90; // Большой радиус поражения
+        // БК порезан на 30% для баланса (было 100)
+        this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.3);
+        this.ammo = this.maxAmmo;
+    }
+}
+
 // ===== ARTILLERY (фракционная) =====
 // Канонические типы юнитов (совпадают с ключами VEHICLE_COSTS):
 //   wardens:   warden_artillery120 / warden_artillery150
@@ -714,7 +736,7 @@ const ColonialArtillery = ColonialArtillery150mm;
 // Все виды ствольной артиллерии (для проверок по типу)
 export const ARTILLERY_TYPES = [
     'warden_artillery120', 'warden_artillery150',
-    'colonial_artillery120', 'colonial_artillery150',
+    'colonial_artillery120', 'colonial_artillery150', 'god_loader'
 ];
 
 // Юнит — ствольная артиллерия? (учитывает старые типы из сохранений)
@@ -971,6 +993,7 @@ export function createVehicle(type, faction, x, y) {
         colonial_artillery120: ColonialArtillery120mm,
         colonial_artillery150: ColonialArtillery150mm,
         colonial_artillery: ColonialArtillery150mm,
+        god_loader:GodLoader,
         // Logistics
         truck: Truck,
         fuel_truck: FuelTruck,
@@ -985,7 +1008,7 @@ export function createVehicle(type, faction, x, y) {
 // Доступная техника по фракциям
 export const FACTION_VEHICLES = {
     wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'noble_widow', 'gallagher_highwayman', 'niska', 'warden_artillery150', 'warden_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'gallagher_outlaw','niska_blinder'],
-    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin', 'hoplite', 'colonial_artillery150', 'colonial_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha'],
+    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin', 'hoplite', 'colonial_artillery150', 'colonial_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha', 'god_loader'],
 };
 
 // ===== Помощники по видам пехоты =====
@@ -1034,7 +1057,7 @@ export function isTechUnit(u) {
 export const TECHNIC_VEHICLE_TYPES = [
     'king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska', 'gallagher_outlaw',
     'noble_widow',
-    'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'spatha', 'talos'
+    'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'spatha', 'talos', 'god_loader'
 ];
 
 // Множитель урона обороны (бункеры и территория 3 уровня) по технике.

@@ -242,6 +242,7 @@ export const VEHICLE_COSTS = {
     colonial_artillery: { s: 80, c: 30, m: 20, buildTime: 35 }, // Артиллерия (алиас 150 мм)
     colonial_artillery150: { s: 45, c: 30, m: 20, buildTime: 35 }, // Артиллерия 150 мм
     colonial_artillery120: { s: 30, c: 30, m: 10, buildTime: 25 }, // Артиллерия 120 мм
+    god_loader: { s: 70, c: 200, m: 110, buildTime: 80 }, // Артиллерия 120 мм
 
     // Логистика
     truck: { s: 25, c: 15, m: 5, buildTime: 10 }, // Грузовик - перевозит БК

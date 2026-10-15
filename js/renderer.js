@@ -3634,7 +3634,185 @@ if (u.type === 'devitt_mmr') {
     ctx.lineWidth = 1;
     ctx.strokeRect(-sz * 0.42, sz * 0.02, sz * 0.12, sz * 0.1);
 }
-        
+// ===== GOD LOADER 200mm (тяжёлая САУ на шасси типа Karl) =====
+if (u.type === 'god_loader') {
+    // ===== ШИРОКИЕ ГУСЕНИЦЫ (тяжёлое шасси — как у Karl-Gerät) =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-sz * 0.6, -sz * 0.42, sz * 1.2, sz * 0.12);
+    ctx.fillRect(-sz * 0.6,  sz * 0.3,  sz * 1.2, sz * 0.12);
+    
+    // Траки (крупные сегменты)
+    ctx.strokeStyle = '#0a0a0a';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 12; i++) {
+        const tx = -sz * 0.6 + i * (sz * 1.2 / 12);
+        ctx.beginPath();
+        ctx.moveTo(tx, -sz * 0.42); ctx.lineTo(tx, -sz * 0.3);
+        ctx.moveTo(tx,  sz * 0.3);  ctx.lineTo(tx,  sz * 0.42);
+        ctx.stroke();
+    }
+    
+    // Катки (7 штук, крупные)
+    ctx.fillStyle = '#374151';
+    for (let i = 0; i < 7; i++) {
+        const wx = -sz * 0.5 + i * sz * 0.167;
+        ctx.beginPath();
+        ctx.arc(wx, -sz * 0.36, sz * 0.05, 0, Math.PI * 2);
+        ctx.arc(wx,  sz * 0.36, sz * 0.05, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // ===== КОРПУС (массивный, прямоугольный — как у Karl) =====
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.58, -sz * 0.3);
+    ctx.lineTo( sz * 0.3, -sz * 0.3);
+    ctx.lineTo( sz * 0.52, -sz * 0.2);
+    ctx.lineTo( sz * 0.52,  sz * 0.2);
+    ctx.lineTo( sz * 0.3,  sz * 0.3);
+    ctx.lineTo(-sz * 0.58,  sz * 0.3);
+    ctx.lineTo(-sz * 0.62,  sz * 0.22);
+    ctx.lineTo(-sz * 0.62, -sz * 0.22);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Заклёпки по бортам (характерно для Karl)
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+        const rx = -sz * 0.5 + i * sz * 0.2;
+        ctx.beginPath();
+        ctx.moveTo(rx, -sz * 0.3);
+        ctx.lineTo(rx, -sz * 0.24);
+        ctx.moveTo(rx,  sz * 0.24);
+        ctx.lineTo(rx,  sz * 0.3);
+        ctx.stroke();
+    }
+    
+    // ===== ОТКРЫТАЯ РУБКА (характерна для Karl) =====
+    // Внутреннее тёмное пространство
+    ctx.fillStyle = '#2a2a2a';
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.42, -sz * 0.22);
+    ctx.lineTo( sz * 0.1, -sz * 0.22);
+    ctx.lineTo( sz * 0.16, -sz * 0.14);
+    ctx.lineTo( sz * 0.16,  sz * 0.14);
+    ctx.lineTo( sz * 0.1,  sz * 0.22);
+    ctx.lineTo(-sz * 0.42,  sz * 0.22);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Борта рубки
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.42, -sz * 0.22);
+    ctx.lineTo(-sz * 0.42,  sz * 0.22);
+    ctx.moveTo( sz * 0.1, -sz * 0.22);
+    ctx.lineTo( sz * 0.16, -sz * 0.14);
+    ctx.lineTo( sz * 0.16,  sz * 0.14);
+    ctx.lineTo( sz * 0.1,  sz * 0.22);
+    ctx.stroke();
+    
+    // ===== МАСКА ОРУДИЯ (массивная, в передней части рубки) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.moveTo( sz * 0.16, -sz * 0.2);
+    ctx.lineTo( sz * 0.3,  -sz * 0.16);
+    ctx.lineTo( sz * 0.34, -sz * 0.08);
+    ctx.lineTo( sz * 0.34,  sz * 0.08);
+    ctx.lineTo( sz * 0.3,   sz * 0.16);
+    ctx.lineTo( sz * 0.16,  sz * 0.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // ===== ДЛИННОЕ ОРУДИЕ 200мм =====
+    // Ствол (длинный, толстый)
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.32, 0);
+    ctx.lineTo(sz * 1.05, 0);
+    ctx.stroke();
+    
+    // Утолщение у основания ствола
+    ctx.fillStyle = col.s;
+    ctx.fillRect(sz * 0.32, -sz * 0.05, sz * 0.12, sz * 0.1);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(sz * 0.32, -sz * 0.05, sz * 0.12, sz * 0.1);
+    
+    // Дульный тормоз (массивный, характерный для тяжёлых орудий)
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(sz * 0.94, -sz * 0.07, sz * 0.14, sz * 0.14);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(sz * 0.94, -sz * 0.07, sz * 0.14, sz * 0.14);
+    
+    // Отверстия дульного тормоза
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(sz * 0.97, -sz * 0.04, sz * 0.03, sz * 0.08);
+    ctx.fillRect(sz * 1.02, -sz * 0.04, sz * 0.03, sz * 0.08);
+    
+    // ===== ПРОТИВООТКАТНЫЕ УПОРЫ (характерны для Karl — опускаются сзади) =====
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.58, sz * 0.22);
+    ctx.lineTo(-sz * 0.72, sz * 0.34);
+    ctx.moveTo(-sz * 0.58, -sz * 0.22);
+    ctx.lineTo(-sz * 0.72, -sz * 0.34);
+    ctx.stroke();
+    
+    // Опорные плиты упоров
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-sz * 0.78, sz * 0.28, sz * 0.08, sz * 0.12);
+    ctx.fillRect(-sz * 0.78, -sz * 0.4, sz * 0.08, sz * 0.12);
+    
+    // ===== КОМАНДИРСКАЯ БАШЕНКА (сзади на рубке) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.3, -sz * 0.08, sz * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Люк
+    ctx.beginPath();
+    ctx.arc(-sz * 0.3, -sz * 0.08, sz * 0.035, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // ===== ФАРА =====
+    ctx.fillStyle = '#ffeb99';
+    ctx.beginPath();
+    ctx.arc(sz * 0.5, -sz * 0.16, sz * 0.025, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ЯЩИК ЗИП =====
+    ctx.fillStyle = '#4b5563';
+    ctx.fillRect(-sz * 0.54, sz * 0.08, sz * 0.16, sz * 0.14);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sz * 0.54, sz * 0.08, sz * 0.16, sz * 0.14);
+    
+    // ===== ЗАРЯДЫ / СНАРЯДЫ (открыто лежат на корме — характерно для САУ) =====
+    ctx.fillStyle = '#6b7280';
+    ctx.fillRect(-sz * 0.5, -sz * 0.12, sz * 0.08, sz * 0.1);
+    ctx.fillRect(-sz * 0.5, -sz * 0.0,  sz * 0.08, sz * 0.1);
+    ctx.fillRect(-sz * 0.5,  sz * 0.12, sz * 0.08, sz * 0.1);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sz * 0.5, -sz * 0.12, sz * 0.08, sz * 0.1);
+    ctx.strokeRect(-sz * 0.5, -sz * 0.0,  sz * 0.08, sz * 0.1);
+    ctx.strokeRect(-sz * 0.5,  sz * 0.12, sz * 0.08, sz * 0.1);
+}     
         // Ствольная артиллерия (все калибры обеих фракций) — гаубичный ствол
 // ===== WARDEN ARTILLERY 120 (объект 261 на базе ИС-7) =====
 // ===== WARDEN ARTILLERY 120 (объект 261) =====
