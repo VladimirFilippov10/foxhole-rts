@@ -435,6 +435,15 @@ function gameLoop(now) {
         document.getElementById('rSup').textContent = Math.floor(game.res.s);
         document.getElementById('rComp').textContent = Math.floor(game.res.c);
         document.getElementById('rMat').textContent = Math.floor(game.res.m);
+        // Прибавка ресурсов в секунду (учитывает множитель режима и «Вымирание»)
+        const income = game.getIncomePerSec();
+        const setRate = (id, v) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = '+' + v.toFixed(2) + '/с';
+        };
+        setRate('rSupRate', income.s);
+        setRate('rCompRate', income.c);
+        setRate('rMatRate', income.m);
         document.getElementById('tCount').textContent = game.cps.filter(c => c.owner === game.faction).length;
         
         // Update unit limits display
@@ -768,7 +777,16 @@ function openFactoryMenu(factory, mx, my) {
 
 function renderFactoryTabs(tabsEl, factory, grid) {
     tabsEl.innerHTML = '';
-    PRODUCTION_TABS.forEach(tab => {
+    // В режиме экономики «Дефицит» вкладка «Снабжение» (полевая логистика)
+    // недоступна — полностью скрываем её кнопку.
+    const flags = getModeFlags(game);
+    const visibleTabs = PRODUCTION_TABS.filter(tab =>
+        !(tab.id === 'supply' && !flags.logisticsAllowed));
+    // Если активная вкладка стала скрытой — переключаемся на первую видимую
+    if (!visibleTabs.some(t => t.id === factoryTab)) {
+        factoryTab = visibleTabs[0]?.id || 'infantry';
+    }
+    visibleTabs.forEach(tab => {
         const btn = document.createElement('button');
         btn.textContent = tab.label;
         const active = tab.id === factoryTab;
@@ -810,14 +828,20 @@ function renderTabUnits(grid, factory) {
         const info = VEHICLE_INFO[type];
         const name = factionUnitName(type, info);
         const canAfford = game.res.s >= info.cost.s && game.res.c >= info.cost.c && game.res.m >= info.cost.m;
+        // Юнит запрещён выбранным режимом ограничений — подсвечиваем его
+        // как недоступный (карточка остаётся видна, но неактивна).
+        const allowedByMode = getModeFlags(game).allowUnit(type);
         const card = document.createElement('div');
-        card.className = 'unit-card' + (canAfford ? '' : ' disabled');
+        card.className = 'unit-card' + ((canAfford && allowedByMode) ? '' : ' disabled') + (allowedByMode ? '' : ' restricted');
         card.innerHTML = `
-            <div class="unit-name">${info.icon} ${name}</div>
+            <div class="unit-name">${info.icon} ${name}${allowedByMode ? '' : ' 🔒'}</div>
             <div class="unit-stats">${info.stats}</div>
             <div class="unit-cost">S:${info.cost.s} C:${info.cost.c} M:${info.cost.m}</div>
+            ${allowedByMode ? '' : '<div class="unit-restricted-lbl">Недоступно в этом режиме</div>'}
         `;
-        if (canAfford) {
+        if (!allowedByMode) {
+            card.title = 'Этот юнит запрещён выбранным режимом ограничений';
+        } else if (canAfford) {
             card.onclick = () => {
                 trainUnit(type, factory);
             };
