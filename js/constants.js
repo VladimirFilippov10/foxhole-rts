@@ -19,7 +19,7 @@ export const MAX_STEPS_PER_FRAME = 5;        // защита от «зависа
 // импортируются как let-привязки ES-модулей, поэтому live-переключение
 // setGraphicsMode() мгновенно действует на все модули (map/game/renderer/ai).
 export const GRAPHICS_OPTIONS = [
-    { id: 'minimal', name: 'Минимализм', icon: '⬜', description: 'Текущая графика: компактная карта, лёгкая детализация' },
+    { id: 'minimal',     name: 'Минимализм',   icon: '⬜', description: 'Текущая графика: компактная карта, лёгкая детализация' },
     { id: 'classic_map', name: 'Классический', icon: '🏞️', description: 'Карта ×2, повышенная детализация карты, юнитов и обороны' },
 ];
 export const DEFAULT_GRAPHICS = 'minimal';
@@ -30,12 +30,29 @@ export function setGraphicsMode(id) { _gm = (id === 'classic_map') ? 2 : 1; appl
 // Множитель детализации юнитов и укреплений обороны (карта — через CELL_W/H)
 export function detailScale() { return _gm; }
 
+// ===== ХЕЛПЕРЫ МАСШТАБА (используются в main.js / game.js / renderer.js) =====
+// scaleRange: базовый радиус/дальность × масштаб графики.
+//   Пример: u.range = scaleRange(u.baseRange) для юнитов,
+//           клик по флагу — 30 * detailScale().
+// hitRadius: базовый радиус клика/выделения юнита × масштаб.
+//   Пример: dist(u.x, u.y, worldX, worldY) < hitRadius(25).
+export function scaleRange(r) { return r * _gm; }
+export function hitRadius(r)   { return r * _gm; }
+
 export const MAP_COLS = 12; // A-L
 export const MAP_ROWS = 15; // 1-15
 export let CELL_W = 250;
 export let CELL_H = 150;
 export let MAP_W = MAP_COLS * CELL_W; // 3000 (×2 = 6000 в классическом)
 export let MAP_H = MAP_ROWS * CELL_H; // 2250 (×2 = 4500 в классическом)
+
+// ===== АКСЕССОРЫ MAP_W / MAP_H =====
+// Некоторые модули (например, renderer.js для миникарты) не могут корректно
+// использовать let-привязки MAP_W/MAP_H — при импорте они получают значение
+// на момент импорта и не видят последующих изменений. Эти функции ВСЕГДА
+// возвращают актуальное значение с учётом текущего масштаба.
+export function getMapWidth()  { return MAP_W; }
+export function getMapHeight() { return MAP_H; }
 
 // Базовые размеры клетки (для режима «Минимализм», GM = 1)
 export const BASE_CELL_W = 250;
@@ -139,7 +156,7 @@ export const ALL_UNIT_TYPES = [
     ...INFANTRY_UNIT_TYPES,
     // Техника wardens
     'king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw',
-    'niska', 'spatha', 'talos', 'noble_widow', 'devitt_mmr',
+    'niska', 'spatha', 'talos', 'noble_widow', 'devitt_mmr', 'niska_blinder',
     // Техника colonials
     'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'hoplite',
     // Артиллерия (ствольная)
@@ -208,7 +225,8 @@ export const VEHICLE_COSTS = {
     gallagher_highwayman: { s: 70, c: 50, m: 35, buildTime: 25 }, // Крейсерский танк
     gallagher_outlaw: {s: 50, c: 80, m: 20, buildTime: 30},
     noble_widow: {s: 60, c: 120, m: 50, buildTime: 55},
-    niska: { s: 40, c: 60, m: 10, buildTime: 10 }, // БТР
+    niska: { s: 40, c: 60, m: 10, buildTime: 15 }, // БТР niska_blinder
+    niska_blinder: { s: 50, c: 100, m: 25, buildTime: 25 },
     warden_artillery150: { s: 55, c: 40, m: 30, buildTime: 40 }, // Артиллерия
     warden_artillery120: { s: 55, c: 40, m: 10, buildTime: 35 }, // Артиллерия
     

@@ -288,6 +288,8 @@ export class NobleWidow extends Vehicle {
     }
 }
 
+
+
 // Devitt Mk. III - Легкий танк (обновленный)
 export class Devitt extends Vehicle {
     constructor(faction, x, y) {
@@ -392,11 +394,7 @@ export class GallagherHighwayman extends Vehicle {
     }
 }
 
-// Gallagher Outlaw Mk. II — тяжёлый крейсер на базе Highwayman:
-// усиленное орудие (45 урона), броня 30, дальность 190, буст.
-// ФИКС: раньше класс вызывал super('gallagher_highwayman', ...) — из-за этого
-// createVehicle('gallagher_outlaw') возвращал обычный Highwayman (тип не
-// совпадал ни с VEHICLE_COSTS, ни с моделью рендера).
+
 export class GallagherOutlaw extends Vehicle {
     constructor(faction, x, y) {
         super('gallagher_outlaw', faction, x, y);
@@ -441,6 +439,21 @@ export class Niska extends Vehicle {
         this.size = 22;
         this.armor = 20;
         this.label = 'Niska APC';
+        this.tracked = true; // Гусеничный БТР
+    }
+}
+
+export class NiskaBlinder extends Vehicle {
+    constructor(faction, x, y) {
+        super('niska_blinder', faction, x, y);
+        this.hp = this.maxHp = 320;
+        this.dmg = 100;
+        this.range = 190;
+        this.spd = 1.5;
+        this.cd = 500;
+        this.size = 22;
+        this.armor = 25;
+        this.label = 'Niska Blinder';
         this.tracked = true; // Гусеничный БТР
     }
 }
@@ -941,6 +954,7 @@ export function createVehicle(type, faction, x, y) {
         gallagher_highwayman: GallagherHighwayman,
         gallagher_outlaw: GallagherOutlaw,
         niska: Niska,
+        niska_blinder:NiskaBlinder,
         noble_widow: NobleWidow,
         warden_artillery120: WardenArtillery120,
         warden_artillery150: WardenArtillery150mm,
@@ -970,7 +984,7 @@ export function createVehicle(type, faction, x, y) {
 
 // Доступная техника по фракциям
 export const FACTION_VEHICLES = {
-    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'noble_widow', 'gallagher_highwayman', 'niska', 'warden_artillery150', 'warden_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'gallagher_outlaw'],
+    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'noble_widow', 'gallagher_highwayman', 'niska', 'warden_artillery150', 'warden_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'gallagher_outlaw','niska_blinder'],
     colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin', 'hoplite', 'colonial_artillery150', 'colonial_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha'],
 };
 

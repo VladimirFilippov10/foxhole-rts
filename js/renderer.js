@@ -3098,7 +3098,169 @@ if (u.type === 'niska') {
     ctx.lineWidth = 1;
     ctx.strokeRect(-sz * 0.46, sz * 0.06, sz * 0.12, sz * 0.1);
 }
-
+// ===== NISKA BLINDER (Hanomag с закрытым бронированием сверху) =====
+if (u.type === 'niska_blinder') {
+    // ===== ГУСЕНИЦЫ (полугусеничный — гусеницы только сзади) =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-sz * 0.5, -sz * 0.34, sz * 0.6, sz * 0.1);
+    ctx.fillRect(-sz * 0.5,  sz * 0.24, sz * 0.6, sz * 0.1);
+    
+    // Катки гусениц (4 штуки, сзади)
+    ctx.fillStyle = '#374151';
+    for (let i = 0; i < 4; i++) {
+        const wx = -sz * 0.44 + i * sz * 0.14;
+        ctx.beginPath();
+        ctx.arc(wx, -sz * 0.29, sz * 0.038, 0, Math.PI * 2);
+        ctx.arc(wx,  sz * 0.29, sz * 0.038, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // ===== ПЕРЕДНИЕ КОЛЁСА (полугусеничная схема) =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.36, -sz * 0.3, sz * 0.075, 0, Math.PI * 2);
+    ctx.arc(sz * 0.36,  sz * 0.3, sz * 0.075, 0, Math.PI * 2);
+    ctx.fill();
+    // Ступицы
+    ctx.fillStyle = '#374151';
+    ctx.beginPath();
+    ctx.arc(sz * 0.36, -sz * 0.3, sz * 0.035, 0, Math.PI * 2);
+    ctx.arc(sz * 0.36,  sz * 0.3, sz * 0.035, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== КОРПУС (со скошенным лбом, как у Ханомага) =====
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.5, -sz * 0.22);
+    ctx.lineTo(-sz * 0.44, -sz * 0.22);
+    ctx.lineTo( sz * 0.2, -sz * 0.22);
+    ctx.lineTo( sz * 0.48, -sz * 0.1);
+    ctx.lineTo( sz * 0.48,  sz * 0.1);
+    ctx.lineTo( sz * 0.2,  sz * 0.22);
+    ctx.lineTo(-sz * 0.44,  sz * 0.22);
+    ctx.lineTo(-sz * 0.5,  sz * 0.26);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // ===== ЗАКРЫТОЕ БРОНИРОВАННОЕ ОТДЕЛЕНИЕ (блиндирование — ключевая фишка) =====
+    // Основной бронированный короб сверху
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.46, -sz * 0.2);   // задний левый верх
+    ctx.lineTo(-sz * 0.44, -sz * 0.24);  // скошенный борт
+    ctx.lineTo( sz * 0.06, -sz * 0.24);
+    ctx.lineTo( sz * 0.14, -sz * 0.18);  // скос к рубке
+    ctx.lineTo( sz * 0.14,  sz * 0.18);
+    ctx.lineTo( sz * 0.06,  sz * 0.24);
+    ctx.lineTo(-sz * 0.44,  sz * 0.24);
+    ctx.lineTo(-sz * 0.46,  sz * 0.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Рёбра жёсткости на броне (вертикальные линии)
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.3, -sz * 0.24);
+    ctx.lineTo(-sz * 0.3,  sz * 0.24);
+    ctx.moveTo(-sz * 0.14, -sz * 0.24);
+    ctx.lineTo(-sz * 0.14,  sz * 0.24);
+    ctx.moveTo( sz * 0.0, -sz * 0.24);
+    ctx.lineTo( sz * 0.0,  sz * 0.24);
+    ctx.stroke();
+    
+    // ===== КРЫША БРОНИРОВАННОГО КОРОБА (плоская, со скошенными краями) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.44, -sz * 0.24);
+    ctx.lineTo( sz * 0.06, -sz * 0.24);
+    ctx.lineTo( sz * 0.12, -sz * 0.28);
+    ctx.lineTo(-sz * 0.4, -sz * 0.28);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.44,  sz * 0.24);
+    ctx.lineTo( sz * 0.06,  sz * 0.24);
+    ctx.lineTo( sz * 0.12,  sz * 0.28);
+    ctx.lineTo(-sz * 0.4,  sz * 0.28);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    
+    // ===== ПЕРЕДНЯЯ РУБКА (с наблюдательными щелями — как на картинке) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.moveTo( sz * 0.14, -sz * 0.18);
+    ctx.lineTo( sz * 0.34, -sz * 0.14);
+    ctx.lineTo( sz * 0.42, -sz * 0.06);
+    ctx.lineTo( sz * 0.42,  sz * 0.06);
+    ctx.lineTo( sz * 0.34,  sz * 0.14);
+    ctx.lineTo( sz * 0.14,  sz * 0.18);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Смотровые щели (характерные для блиндирования)
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(sz * 0.22, -sz * 0.1, sz * 0.14, sz * 0.03);
+    ctx.fillRect(sz * 0.22,  sz * 0.07, sz * 0.14, sz * 0.03);
+    
+    // ===== ПУЛЕМЁТНАЯ ТУРЕЛЬ (спереди на рубке) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(sz * 0.16, -sz * 0.05, sz * 0.06, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Пулемёт MG-42
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.16, -sz * 0.05);
+    ctx.lineTo(sz * 0.5, -sz * 0.05);
+    ctx.stroke();
+    
+    // Дульный срез
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.5, -sz * 0.05, sz * 0.014, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ФАРА (на скошенном лбе) =====
+    ctx.fillStyle = '#ffeb99';
+    ctx.beginPath();
+    ctx.arc(sz * 0.42, -sz * 0.15, sz * 0.022, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // ===== ВЫХЛОПНАЯ ТРУБА (сбоку сзади) =====
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.46, -sz * 0.2);
+    ctx.lineTo(-sz * 0.56, -sz * 0.28);
+    ctx.stroke();
+    
+    // ===== ЯЩИК ЗИП =====
+    ctx.fillStyle = '#4b5563';
+    ctx.fillRect(-sz * 0.46, sz * 0.06, sz * 0.12, sz * 0.1);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sz * 0.46, sz * 0.06, sz * 0.12, sz * 0.1);
+}
 // ===== JAVELIN (американский M3 Half-track) =====
 if (u.type === 'javelin') {
     // ===== ГУСЕНИЦЫ (полугусеничный — гусеницы сзади) =====

@@ -84,6 +84,7 @@ const VEHICLE_INFO = {
     gallagher_outlaw: { name: 'Gallagher Outlaw Mk.II', icon: '🌪️', stats: 'HP:370 DMG:45 RNG:190 SPD:1.5→2.8 Буст ARM:30 CD:2.5с', cost: VEHICLE_COSTS.gallagher_outlaw },
     noble_widow: { name: 'Noble Widow MK. XIV', icon: '🌪️', stats: 'HP:370 DMG:45 RNG:190 SPD:1.5→2.8 Буст ARM:30 CD:2.5с', cost: VEHICLE_COSTS.noble_widow },
     niska: { name: 'Niska APC', icon: '🚙', stats: 'HP:260 DMG:10 RNG:150 SPD:1.8 ARM:20 БТР CD:0.75с', cost: VEHICLE_COSTS.niska },
+    niska_blinder: { name: 'Niska Mk.2 Blinder', icon: '🚙', stats: 'HP:260 DMG:10 RNG:150 SPD:1.8 ARM:20 БТР CD:0.75с', cost: VEHICLE_COSTS.niska }, 
     warden_artillery120: { name: 'Warden Artillery 120мм', icon: '🎯', stats: 'HP:100 DMG:60 RNG:100-600 AoE:65 SPD:0.6 ARM:25 CD:6.7с БК:50', cost: VEHICLE_COSTS.warden_artillery120 },
     warden_artillery150: { name: 'Warden Artillery 150мм', icon: '🎯', stats: 'HP:80 DMG:95 RNG:180-550 AoE:100 SPD:0.3 ARM:30 CD:9.2с', cost: VEHICLE_COSTS.warden_artillery150 },
 
@@ -732,7 +733,7 @@ const FACTION_INFANTRY_TYPES = ['rifleman', 'mg_gunner', 'grenadier', 'sniper'];
 
 const TAB_TYPES = {
     infantry: ['infantry', ...FACTION_INFANTRY_TYPES],
-    vehicles: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw', 'niska', 'spatha', 'talos', 'noble_widow',
+    vehicles: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw', 'niska', 'spatha', 'talos', 'noble_widow', 'niska_blinder',
                'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin'],
     supply:   ['truck', 'fuel_truck', 'engineer', 'flatbed'],
     // Поддержка: ствольная артиллерия + миномётные машины (Hoplite, Devitt MMR)
