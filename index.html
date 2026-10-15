@@ -30,30 +30,95 @@
       <div class="info-wrap">
         <div class="info-header">
           <h1>📖 WAR OF THE CONTINENT — Информация об игре</h1>
-          <p class="info-sub">2D RTS в стиле Foxhole · Все ТТХ, механики и описания · Финальная версия</p>
+          <p class="info-sub">
+            2D RTS в стиле Foxhole · Все ТТХ, механики и описания · Финальная
+            версия
+          </p>
         </div>
 
         <div class="info-tabs">
-          <button class="info-tab active" data-page="page-overview" onclick="showInfoTab(this)">🎯 Обзор и цели</button>
-          <button class="info-tab" data-page="page-controls" onclick="showInfoTab(this)">🎮 Управление</button>
-          <button class="info-tab" data-page="page-modes" onclick="showInfoTab(this)">⚙️ Режимы игры</button>
-          <button class="info-tab" data-page="page-wardens" onclick="showInfoTab(this)">🛡️ Wardens</button>
-          <button class="info-tab" data-page="page-colonials" onclick="showInfoTab(this)">⚔️ Colonials</button>
-          <button class="info-tab" data-page="page-logistics" onclick="showInfoTab(this)">🚛 Логистика и БК</button>
-          <button class="info-tab" data-page="page-defense" onclick="showInfoTab(this)">🏰 Оборона территорий</button>
-          <button class="info-tab" data-page="page-map" onclick="showInfoTab(this)">🗺️ Карта Deadlands</button>
-          <button class="info-tab" data-page="page-ai" onclick="showInfoTab(this)">🤖 Искусственный интеллект</button>
-          <button class="info-tab" data-page="page-tips" onclick="showInfoTab(this)">💡 Советы</button>
+          <button
+            class="info-tab active"
+            data-page="page-overview"
+            onclick="showInfoTab(this)"
+          >
+            🎯 Обзор и цели
+          </button>
+          <button
+            class="info-tab"
+            data-page="page-controls"
+            onclick="showInfoTab(this)"
+          >
+            🎮 Управление
+          </button>
+          <button
+            class="info-tab"
+            data-page="page-modes"
+            onclick="showInfoTab(this)"
+          >
+            ⚙️ Режимы игры
+          </button>
+          <button
+            class="info-tab"
+            data-page="page-wardens"
+            onclick="showInfoTab(this)"
+          >
+            🛡️ Wardens
+          </button>
+          <button
+            class="info-tab"
+            data-page="page-colonials"
+            onclick="showInfoTab(this)"
+          >
+            ⚔️ Colonials
+          </button>
+          <button
+            class="info-tab"
+            data-page="page-logistics"
+            onclick="showInfoTab(this)"
+          >
+            🚛 Логистика и БК
+          </button>
+          <button
+            class="info-tab"
+            data-page="page-defense"
+            onclick="showInfoTab(this)"
+          >
+            🏰 Оборона территорий
+          </button>
+          <button
+            class="info-tab"
+            data-page="page-map"
+            onclick="showInfoTab(this)"
+          >
+            🗺️ Карта Deadlands
+          </button>
+          <button
+            class="info-tab"
+            data-page="page-ai"
+            onclick="showInfoTab(this)"
+          >
+            🤖 Искусственный интеллект
+          </button>
+          <button
+            class="info-tab"
+            data-page="page-tips"
+            onclick="showInfoTab(this)"
+          >
+            💡 Советы
+          </button>
         </div>
 
         <div class="info-body">
-
           <!-- ============ ВКЛАДКА: ОБЗОР И ЦЕЛИ ============ -->
           <div class="info-page active" id="page-overview">
             <div class="info-grid">
               <div class="info-block">
                 <h3>🎯 Цель игры</h3>
-                <p>Захватите <strong>все территории противника</strong> и уничтожьте его базу!</p>
+                <p>
+                  Захватите <strong>все территории противника</strong> и
+                  уничтожьте его базу!
+                </p>
                 <ul>
                   <li>Захватывайте города и шахты</li>
                   <li>Уничтожайте вражескую технику и логистику</li>
@@ -64,21 +129,38 @@
               <div class="info-block">
                 <h3>💰 Ресурсы</h3>
                 <ul>
-                  <li><strong>📦 Supplies (S)</strong> — пехота и базовые юниты</li>
-                  <li><strong>⚙️ Components (C)</strong> — техника и артиллерия</li>
-                  <li><strong>🪨 Materials (M)</strong> — строительство и улучшения обороны</li>
+                  <li>
+                    <strong>📦 Supplies (S)</strong> — пехота и базовые юниты
+                  </li>
+                  <li>
+                    <strong>⚙️ Components (C)</strong> — техника и артиллерия
+                  </li>
+                  <li>
+                    <strong>🪨 Materials (M)</strong> — строительство и
+                    улучшения обороны
+                  </li>
                 </ul>
-                <p class="note">Захватывайте 10 ресурсных шахт для бонусного дохода ресурсов. Скорость фарма зависит от выбранного режима.</p>
+                <p class="note">
+                  Захватывайте 10 ресурсных шахт для бонусного дохода ресурсов.
+                  Скорость фарма зависит от выбранного режима.
+                </p>
               </div>
               <div class="info-block">
                 <h3>👥 Лимиты юнитов</h3>
                 <ul>
-                  <li>Базовые лимиты: <strong>20 пехоты</strong> и <strong>10 техники</strong></li>
+                  <li>
+                    Базовые лимиты: <strong>20 пехоты</strong> и
+                    <strong>10 техники</strong>
+                  </li>
                   <li>+3 пехоты и +2 техники за каждую захваченную точку</li>
                   <li>Текущие лимиты отображаются в HUD (справа вверху)</li>
-                  <li>При достижении лимита производство этого типа блокируется</li>
+                  <li>
+                    При достижении лимита производство этого типа блокируется
+                  </li>
                 </ul>
-                <p class="note">Захватывайте больше точек, чтобы увеличить армию!</p>
+                <p class="note">
+                  Захватывайте больше точек, чтобы увеличить армию!
+                </p>
               </div>
               <div class="info-block">
                 <h3>⏱️ Производство</h3>
@@ -89,26 +171,65 @@
                   <li>Артиллерия: 28–30 секунд</li>
                   <li>Логистика: 10–20 секунд</li>
                 </ul>
-                <p class="note">Производство — через клик на завод. Очередь с прогресс-барами видна слева вверху, даже когда меню завода закрыто. Можно заказывать несколько юнитов подряд.</p>
+                <p class="note">
+                  Производство — через клик на завод. Очередь с прогресс-барами
+                  видна слева вверху, даже когда меню завода закрыто. Можно
+                  заказывать несколько юнитов подряд.
+                </p>
               </div>
               <div class="info-block wide">
                 <h3>🚗 Модификаторы скорости по поверхности</h3>
                 <table class="stat-table">
-                  <tr><th>Тип техники</th><th>На дороге</th><th>На земле</th></tr>
-                  <tr><td class="u-name">Гусеничная (танки, БТР, артиллерия)</td><td>−30% (гусеницы повреждают дорогу)</td><td>Базовая скорость (лучше на бездорожье)</td></tr>
-                  <tr><td class="u-name">Колёсная (грузовики, бензовозы, инженеры)</td><td>+10%</td><td>−30%</td></tr>
-                  <tr><td class="u-name">Пехота</td><td>+10%</td><td>−30%</td></tr>
+                  <tr>
+                    <th>Тип техники</th>
+                    <th>На дороге</th>
+                    <th>На земле</th>
+                  </tr>
+                  <tr>
+                    <td class="u-name">Гусеничная (танки, БТР, артиллерия)</td>
+                    <td>−30% (гусеницы повреждают дорогу)</td>
+                    <td>Базовая скорость (лучше на бездорожье)</td>
+                  </tr>
+                  <tr>
+                    <td class="u-name">
+                      Колёсная (грузовики, бензовозы, инженеры)
+                    </td>
+                    <td>+10%</td>
+                    <td>−30%</td>
+                  </tr>
+                  <tr>
+                    <td class="u-name">Пехота</td>
+                    <td>+10%</td>
+                    <td>−30%</td>
+                  </tr>
                 </table>
-                <p class="note">Широкие дороги (24px) и мосты (70px) — техника легко проезжает и не застревает. Техника автоматически обходит препятствия.</p>
+                <p class="note">
+                  Широкие дороги (24px) и мосты (70px) — техника легко проезжает
+                  и не застревает. Техника автоматически обходит препятствия.
+                </p>
               </div>
               <div class="info-block wide">
                 <h3>✨ Трассеры и визуальные эффекты</h3>
                 <ul>
-                  <li>🟡 <strong>Жёлтые</strong> трассеры — пули пехоты и техники</li>
-                  <li>🟠 <strong>Оранжевые</strong> трассеры — снаряды танков</li>
-                  <li>🔴 <strong>Красные</strong> трассеры — артиллерийские снаряды</li>
-                  <li>🟢 <strong>Зелёные</strong> трассеры — выстрелы обороны территорий</li>
-                  <li>Яркая головная часть и плавное затухание, радиусы атаки при наведении, полоски перезарядки под юнитами (жёлтая → зелёная)</li>
+                  <li>
+                    🟡 <strong>Жёлтые</strong> трассеры — пули пехоты и техники
+                  </li>
+                  <li>
+                    🟠 <strong>Оранжевые</strong> трассеры — снаряды танков
+                  </li>
+                  <li>
+                    🔴 <strong>Красные</strong> трассеры — артиллерийские
+                    снаряды
+                  </li>
+                  <li>
+                    🟢 <strong>Зелёные</strong> трассеры — выстрелы обороны
+                    территорий
+                  </li>
+                  <li>
+                    Яркая головная часть и плавное затухание, радиусы атаки при
+                    наведении, полоски перезарядки под юнитами (жёлтая →
+                    зелёная)
+                  </li>
                 </ul>
               </div>
             </div>
@@ -120,35 +241,86 @@
               <div class="info-block wide">
                 <h3>🎮 Клавиши и мышь</h3>
                 <table class="stat-table">
-                  <tr><th>Действие</th><th>Управление</th></tr>
-                  <tr><td>Перемещение камеры</td><td><span class="kbd">W A S D</span> / <span class="kbd">↑ ↓ ← →</span> или края экрана</td></tr>
-                  <tr><td>Выбор юнита</td><td><span class="kbd">ЛКМ</span> (увеличенный хитбокс — 25px, удобно для тачпада)</td></tr>
-                  <tr><td>Групповой выбор</td><td><span class="kbd">ЛКМ</span> по пустому месту (радиус 60px)</td></tr>
-                  <tr><td>Перемещение выбранных юнитов</td><td><span class="kbd">ПКМ</span> или двойной клик</td></tr>
-                  <tr><td>Меню производства</td><td>Клик на завод</td></tr>
-                  <tr><td>Панель улучшения обороны</td><td>Клик по флагу захваченной территории (зона 30px)</td></tr>
-                  <tr><td>Быстрый переход камеры</td><td>Клик по миникарте</td></tr>
-                  <tr><td>Режим перемещения</td><td>Кнопка <strong>MOVE</strong></td></tr>
-                  <tr><td>Обстрел площади (артиллерия)</td><td>Кнопка <strong>AoE FIRE</strong> → клик по цели</td></tr>
+                  <tr>
+                    <th>Действие</th>
+                    <th>Управление</th>
+                  </tr>
+                  <tr>
+                    <td>Перемещение камеры</td>
+                    <td>
+                      <span class="kbd">W A S D</span> /
+                      <span class="kbd">↑ ↓ ← →</span> или края экрана
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Выбор юнита</td>
+                    <td>
+                      <span class="kbd">ЛКМ</span> (увеличенный хитбокс — 25px,
+                      удобно для тачпада)
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Групповой выбор</td>
+                    <td>
+                      <span class="kbd">ЛКМ</span> по пустому месту (радиус
+                      60px)
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Перемещение выбранных юнитов</td>
+                    <td><span class="kbd">ПКМ</span> или двойной клик</td>
+                  </tr>
+                  <tr>
+                    <td>Меню производства</td>
+                    <td>Клик на завод</td>
+                  </tr>
+                  <tr>
+                    <td>Панель улучшения обороны</td>
+                    <td>Клик по флагу захваченной территории (зона 30px)</td>
+                  </tr>
+                  <tr>
+                    <td>Быстрый переход камеры</td>
+                    <td>Клик по миникарте</td>
+                  </tr>
+                  <tr>
+                    <td>Режим перемещения</td>
+                    <td>Кнопка <strong>MOVE</strong></td>
+                  </tr>
+                  <tr>
+                    <td>Обстрел площади (артиллерия)</td>
+                    <td>Кнопка <strong>AoE FIRE</strong> → клик по цели</td>
+                  </tr>
                 </table>
               </div>
               <div class="info-block">
                 <h3>🧠 Поведение юнитов</h3>
                 <ul>
-                  <li>Юниты могут <strong>двигаться даже когда рядом враг</strong></li>
-                  <li>Они атакуют врагов в радиусе действия, но продолжают движение к цели</li>
+                  <li>
+                    Юниты могут <strong>двигаться даже когда рядом враг</strong>
+                  </li>
+                  <li>
+                    Они атакуют врагов в радиусе действия, но продолжают
+                    движение к цели
+                  </li>
                   <li>Техника поворачивается в направлении движения</li>
-                  <li>Техника НЕ проезжает через города — пехота ходит между домами</li>
+                  <li>
+                    Техника НЕ проезжает через города — пехота ходит между
+                    домами
+                  </li>
                   <li>Здания можно атаковать и уничтожать</li>
                 </ul>
               </div>
               <div class="info-block">
                 <h3>🔍 Интерфейс</h3>
                 <ul>
-                  <li>Панель выбранного юнита: HP, урон, дальность, БК и топливо</li>
+                  <li>
+                    Панель выбранного юнита: HP, урон, дальность, БК и топливо
+                  </li>
                   <li>Подпись вражеской техники при наведении</li>
                   <li>Радиус атаки отображается при наведении</li>
-                  <li>Полоски: HP (красная), БК (оранжевая), топливо (синяя)</li>
+                  <li>
+                    Полоски: HP (красная), БК (оранжевая), топливо (синяя)
+                  </li>
                   <li>Лимиты юнитов — справа вверху HUD</li>
                   <li>Очередь производства — слева вверху</li>
                 </ul>
@@ -167,7 +339,10 @@
                   <li>Каждая единица техники на счету</li>
                   <li>Игра может длиться 30+ минут</li>
                 </ul>
-                <p class="note">Совет: сначала стройте экономику и захватывайте шахты, берегите артиллерию. Рекомендуется для опытных игроков.</p>
+                <p class="note">
+                  Совет: сначала стройте экономику и захватывайте шахты,
+                  берегите артиллерию. Рекомендуется для опытных игроков.
+                </p>
               </div>
               <div class="info-block">
                 <h3>⚖️ Обычный</h3>
@@ -177,7 +352,10 @@
                   <li>Сбалансированный темп игры</li>
                   <li>Оптимальная длительность: 15–20 минут</li>
                 </ul>
-                <p class="note">Совет: баланс экономики и армии, комбинируйте технику, контролируйте мосты. Для большинства игроков.</p>
+                <p class="note">
+                  Совет: баланс экономики и армии, комбинируйте технику,
+                  контролируйте мосты. Для большинства игроков.
+                </p>
               </div>
               <div class="info-block">
                 <h3>⚡ Быстрый бой</h3>
@@ -187,7 +365,10 @@
                   <li>Много техники и быстрые матчи</li>
                   <li>Длительность: 5–10 минут</li>
                 </ul>
-                <p class="note">Совет: сразу стройте армию, агрессивная тактика, много артиллерии для AoE. Быстрые решения важнее планирования.</p>
+                <p class="note">
+                  Совет: сразу стройте армию, агрессивная тактика, много
+                  артиллерии для AoE. Быстрые решения важнее планирования.
+                </p>
               </div>
             </div>
           </div>
@@ -197,73 +378,195 @@
             <div class="info-grid">
               <div class="info-block wide">
                 <h3>🛡️ WARDENS — синяя фракция</h3>
-                <p>Мощная броня, дальнобойная артиллерия и уникальные разведывательные машины. Цвет на карте — <span class="faction-w">синий</span>.</p>
+                <p>
+                  Мощная броня, дальнобойная артиллерия и уникальные
+                  разведывательные машины. Цвет на карте —
+                  <span class="faction-w">синий</span>.
+                </p>
                 <table class="stat-table">
-                  <tr><th>Юнит</th><th>Стоимость (S/C/M)</th><th>ТТХ</th><th>Механики и описание</th></tr>
                   <tr>
-                    <td class="u-name">🔍 King Spire Mk.I<span class="tag tag-scout">Разведчик</span></td>
-                    <td>S:40 C:30 M:20</td>
-                    <td>HP: 135 · DMG: 15 · ARM: 25<br>12.7 мм пулемёт · RNG: 140<br>SPD: 1.3 · Экипаж: 2</td>
-                    <td>Раскрывает область <strong>120 м</strong> вокруг себя (разведданные видны синей зоной). Быстрый, но слабая броня — не отправляйте в лобовую атаку.</td>
+                    <th>Юнит</th>
+                    <th>Стоимость (S/C/M)</th>
+                    <th>ТТХ</th>
+                    <th>Механики и описание</th>
                   </tr>
                   <tr>
-                    <td class="u-name">🚗 Devitt Mk.III<span class="tag tag-light">Лёгкий танк</span></td>
+                    <td class="u-name">
+                      🔍 King Spire Mk.I<span class="tag tag-scout"
+                        >Разведчик</span
+                      >
+                    </td>
+                    <td>S:40 C:30 M:20</td>
+                    <td>
+                      HP: 135 · DMG: 15 · ARM: 25<br />12.7 мм пулемёт · RNG:
+                      140<br />SPD: 1.3 · Экипаж: 2
+                    </td>
+                    <td>
+                      Раскрывает область <strong>120 м</strong> вокруг себя
+                      (разведданные видны синей зоной). Быстрый, но слабая броня
+                      — не отправляйте в лобовую атаку.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="u-name">
+                      🚗 Devitt Mk.III<span class="tag tag-light"
+                        >Лёгкий танк</span
+                      >
+                    </td>
                     <td>S:45 C:35 M:20</td>
-                    <td>HP: 195 · DMG: 45 · ARM: 35<br>40 мм пушка · RNG: 160<br>SPD: 1.6 · CD: 4.8 с · БК: 50</td>
-                    <td>Универсальная машина для фланговых атак. Хорошая маневренность. Урон &gt;40 → половинный боекомплект, следите за пополнением!</td>
+                    <td>
+                      HP: 195 · DMG: 45 · ARM: 35<br />40 мм пушка · RNG: 160<br />SPD:
+                      1.6 · CD: 4.8 с · БК: 50
+                    </td>
+                    <td>
+                      Универсальная машина для фланговых атак. Хорошая
+                      маневренность. Урон &gt;40 → половинный боекомплект,
+                      следите за пополнением!
+                    </td>
                   </tr>
                   <tr>
-                    <td class="u-name">💪 Silverhand Mk.IV<span class="tag tag-assault">Штурмовой</span></td>
+                    <td class="u-name">
+                      💪 Silverhand Mk.IV<span class="tag tag-assault"
+                        >Штурмовой</span
+                      >
+                    </td>
                     <td>S:80 C:60 M:40</td>
-                    <td>HP: 310 · DMG: 85 · ARM: 50<br>40 мм (башня) + 68 мм (курсовая) · RNG: 170<br>SPD: 1.1 · CD: 8.3 с · БК: 50 · Экипаж: 4</td>
-                    <td>Два орудия (dualGun). Мощный лобовой ударный потенциал — главная сила атаки Wardens.</td>
+                    <td>
+                      HP: 310 · DMG: 85 · ARM: 50<br />40 мм (башня) + 68 мм
+                      (курсовая) · RNG: 170<br />SPD: 1.1 · CD: 8.3 с · БК: 50 ·
+                      Экипаж: 4
+                    </td>
+                    <td>
+                      Два орудия (dualGun). Мощный лобовой ударный потенциал —
+                      главная сила атаки Wardens.
+                    </td>
                   </tr>
                   <tr>
-                    <td class="u-name">⚡ Gallagher Highwayman Mk.III<span class="tag tag-cruiser">Крейсерский</span></td>
+                    <td class="u-name">
+                      ⚡ Gallagher Highwayman Mk.III<span
+                        class="tag tag-cruiser"
+                        >Крейсерский</span
+                      >
+                    </td>
                     <td>S:70 C:50 M:35</td>
-                    <td>HP: 295 · DMG: 35 · ARM: 45<br>Спаренные 14.5 мм · RNG: 165<br>SPD: 1.7 → <strong>2.8 на бусте</strong> · CD: 1 с</td>
-                    <td>Уникальная механика <strong>буста</strong>: разгоняется до 2.8, быстро расходуя топливо (расход ×2). Идеален для фланговых охватов. Следите за топливом!</td>
+                    <td>
+                      HP: 295 · DMG: 35 · ARM: 45<br />Спаренные 14.5 мм · RNG:
+                      165<br />SPD: 1.7 → <strong>2.8 на бусте</strong> · CD: 1
+                      с
+                    </td>
+                    <td>
+                      Уникальная механика <strong>буста</strong>: разгоняется до
+                      2.8, быстро расходуя топливо (расход ×2). Идеален для
+                      фланговых охватов. Следите за топливом!
+                    </td>
                   </tr>
                   <tr>
-                    <td class="u-name">🌪️ Gallagher Outlaw Mk.II<span class="tag tag-cruiser">Тяжёлый крейсер</span></td>
+                    <td class="u-name">
+                      🌪️ Gallagher Outlaw Mk.II<span class="tag tag-cruiser"
+                        >Тяжёлый крейсер</span
+                      >
+                    </td>
                     <td>S:100 C:35 M:20</td>
-                    <td>HP: 370 · DMG: 45 · ARM: 30<br>Усиленное спаренное орудие · RNG: 190<br>SPD: 1.5 → <strong>2.8 на бусте</strong> · CD: 2.5 с</td>
-                    <td>Новинка: тяжёлый крейсер на базе Highwayman — больше HP и дальности, тоже умеет <strong>буст</strong>. Компромисс: броня ниже, чем у Highwayman.</td>
+                    <td>
+                      HP: 370 · DMG: 45 · ARM: 30<br />Усиленное спаренное
+                      орудие · RNG: 190<br />SPD: 1.5 →
+                      <strong>2.8 на бусте</strong> · CD: 2.5 с
+                    </td>
+                    <td>
+                      Новинка: тяжёлый крейсер на базе Highwayman — больше HP и
+                      дальности, тоже умеет <strong>буст</strong>. Компромисс:
+                      броня ниже, чем у Highwayman.
+                    </td>
                   </tr>
                   <tr>
-                    <td class="u-name">🚙 Niska APC<span class="tag tag-apc">БТР</span></td>
+                    <td class="u-name">
+                      🚙 Niska APC<span class="tag tag-apc">БТР</span>
+                    </td>
                     <td>S:40 C:30 M:20</td>
-                    <td>HP: 260 · DMG: 10 · ARM: 20<br>RNG: 150 · SPD: 1.8 · CD: 0.75 с</td>
-                    <td>Быстрейшая машина фракции — бронетранспортёр для рейдов и поддержки пехоты.</td>
+                    <td>
+                      HP: 260 · DMG: 10 · ARM: 20<br />RNG: 150 · SPD: 1.8 · CD:
+                      0.75 с
+                    </td>
+                    <td>
+                      Быстрейшая машина фракции — бронетранспортёр для рейдов и
+                      поддержки пехоты.
+                    </td>
                   </tr>
                   <tr>
-                    <td class="u-name">💥 Devitt MMR<span class="tag tag-art">Миномёт</span></td>
+                    <td class="u-name">
+                      💥 Devitt MMR<span class="tag tag-art">Миномёт</span>
+                    </td>
                     <td>S:50 C:38 M:15</td>
-                    <td>HP: 160 · DMG: 25 · AoE: 30<br>RNG: 90–240 · ARM: 30<br>SPD: 1.1 · CD: 5 с · БК: 70</td>
-                    <td>Колёсная миномётная поддержка. <strong>Не стреляет ближе 90</strong> — держите её за линией фронта. Дешёвая альтернатива тяжёлой артиллерии.</td>
+                    <td>
+                      HP: 160 · DMG: 25 · AoE: 30<br />RNG: 90–240 · ARM: 30<br />SPD:
+                      1.1 · CD: 5 с · БК: 70
+                    </td>
+                    <td>
+                      Колёсная миномётная поддержка.
+                      <strong>Не стреляет ближе 90</strong> — держите её за
+                      линией фронта. Дешёвая альтернатива тяжёлой артиллерии.
+                    </td>
                   </tr>
                   <tr>
-                    <td class="u-name">🎯 Warden Artillery 120 мм<span class="tag tag-art">Артиллерия</span></td>
+                    <td class="u-name">
+                      🎯 Warden Artillery 120 мм<span class="tag tag-art"
+                        >Артиллерия</span
+                      >
+                    </td>
                     <td>S:55 C:40 M:10</td>
-                    <td>HP: 100 · DMG: 60 · AoE: 65<br>RNG: 100–600 · ARM: 25<br>SPD: 0.6 · CD: 6.7 с · БК: 50</td>
-                    <td>★ <strong>Самая дальнобойная артиллерия в игре</strong> (до 600!). Не стреляет в упор — минимальная дистанция 100. Половинный БК — требует снабжения Flatbed.</td>
+                    <td>
+                      HP: 100 · DMG: 60 · AoE: 65<br />RNG: 100–600 · ARM: 25<br />SPD:
+                      0.6 · CD: 6.7 с · БК: 50
+                    </td>
+                    <td>
+                      ★
+                      <strong>Самая дальнобойная артиллерия в игре</strong> (до
+                      600!). Не стреляет в упор — минимальная дистанция 100.
+                      Половинный БК — требует снабжения Flatbed.
+                    </td>
                   </tr>
                   <tr>
-                    <td class="u-name">🎯 Warden Artillery 150 мм<span class="tag tag-art">Артиллерия</span></td>
+                    <td class="u-name">
+                      🎯 Warden Artillery 150 мм<span class="tag tag-art"
+                        >Артиллерия</span
+                      >
+                    </td>
                     <td>S:55 C:40 M:30</td>
-                    <td>HP: 80 · DMG: 95 · AoE: 100<br>RNG: 180–550 · ARM: 30<br>SPD: 0.3 · CD: 9.2 с</td>
-                    <td>Тяжёлый снаряд с огромной зоной поражения. Очень медленная и хрупкая — прикрывайте технику огнём. Минимальная дистанция 180!</td>
+                    <td>
+                      HP: 80 · DMG: 95 · AoE: 100<br />RNG: 180–550 · ARM: 30<br />SPD:
+                      0.3 · CD: 9.2 с
+                    </td>
+                    <td>
+                      Тяжёлый снаряд с огромной зоной поражения. Очень медленная
+                      и хрупкая — прикрывайте технику огнём. Минимальная
+                      дистанция 180!
+                    </td>
                   </tr>
                 </table>
               </div>
               <div class="info-block wide">
                 <h3>🎯 Тактика Wardens</h3>
                 <ul>
-                  <li><strong>King Spire</strong> — разведка позиций врага перед атакой</li>
-                  <li><strong>Silverhand</strong> — главный удар двумя орудиями</li>
-                  <li><strong>Gallagher Highwayman / Outlaw</strong> — обходные манёвры с бустом (скорость 2.8, следите за топливом)</li>
-                  <li>Артиллерия 120 мм бьёт на дистанции до <strong>600</strong>, 150 мм — до 550 с огромной зоной поражения; держите их за минимальной дистанцией (100/180) и защищайте от прорыва</li>
-                  <li><strong>Devitt MMR</strong> — дешёвый миномёт для поддержки у линий обороны противника</li>
+                  <li>
+                    <strong>King Spire</strong> — разведка позиций врага перед
+                    атакой
+                  </li>
+                  <li>
+                    <strong>Silverhand</strong> — главный удар двумя орудиями
+                  </li>
+                  <li>
+                    <strong>Gallagher Highwayman / Outlaw</strong> — обходные
+                    манёвры с бустом (скорость 2.8, следите за топливом)
+                  </li>
+                  <li>
+                    Артиллерия 120 мм бьёт на дистанции до <strong>600</strong>,
+                    150 мм — до 550 с огромной зоной поражения; держите их за
+                    минимальной дистанцией (100/180) и защищайте от прорыва
+                  </li>
+                  <li>
+                    <strong>Devitt MMR</strong> — дешёвый миномёт для поддержки
+                    у линий обороны противника
+                  </li>
                 </ul>
               </div>
             </div>
@@ -274,73 +577,184 @@
             <div class="info-grid">
               <div class="info-block wide">
                 <h3>⚔️ COLONIALS — зелёная фракция</h3>
-                <p>Мобильность, автономность и специализация на зачистке пехоты. Цвет на карте — <span class="faction-c">зелёный</span>.</p>
+                <p>
+                  Мобильность, автономность и специализация на зачистке пехоты.
+                  Цвет на карте — <span class="faction-c">зелёный</span>.
+                </p>
                 <table class="stat-table">
-                  <tr><th>Юнит</th><th>Стоимость (S/C/M)</th><th>ТТХ</th><th>Механики и описание</th></tr>
                   <tr>
-                    <td class="u-name">🪓 H-5 Hatchet<span class="tag tag-light">Лёгкий танк</span></td>
+                    <th>Юнит</th>
+                    <th>Стоимость (S/C/M)</th>
+                    <th>ТТХ</th>
+                    <th>Механики и описание</th>
+                  </tr>
+                  <tr>
+                    <td class="u-name">
+                      🪓 H-5 Hatchet<span class="tag tag-light"
+                        >Лёгкий танк</span
+                      >
+                    </td>
                     <td>S:45 C:35 M:25</td>
-                    <td>HP: 195 · DMG: 45 · ARM: 5<br>40 мм пушка · RNG: 160<br>SPD: 1.3 · CD: 5.8 с · БК: 50</td>
-                    <td>Аналог Devitt с увеличенным топливным баком (<strong>+25 топлива</strong>) — большая автономность. Слабая броня, но дешевле.</td>
+                    <td>
+                      HP: 195 · DMG: 45 · ARM: 5<br />40 мм пушка · RNG: 160<br />SPD:
+                      1.3 · CD: 5.8 с · БК: 50
+                    </td>
+                    <td>
+                      Аналог Devitt с увеличенным топливным баком (<strong
+                        >+25 топлива</strong
+                      >) — большая автономность. Слабая броня, но дешевле.
+                    </td>
                   </tr>
                   <tr>
-                    <td class="u-name">🦂 HC-2 Scorpion<span class="tag tag-scout">Пехотный танк</span></td>
+                    <td class="u-name">
+                      🦂 HC-2 Scorpion<span class="tag tag-scout"
+                        >Пехотный танк</span
+                      >
+                    </td>
                     <td>S:55 C:40 M:30</td>
-                    <td>HP: 330 · DMG: 15 · ARM: 20<br>Два 12.7 мм пулемёта · RNG: 130<br>SPD: 0.7 · CD: 0.83 с · Экипаж: 3</td>
-                    <td>Специализация на зачистке пехоты — <strong>урон ×2.5</strong> по пехоте. Также передаёт разведданные (раскрытие 120 м).</td>
+                    <td>
+                      HP: 330 · DMG: 15 · ARM: 20<br />Два 12.7 мм пулемёта ·
+                      RNG: 130<br />SPD: 0.7 · CD: 0.83 с · Экипаж: 3
+                    </td>
+                    <td>
+                      Специализация на зачистке пехоты —
+                      <strong>урон ×2.5</strong> по пехоте. Также передаёт
+                      разведданные (раскрытие 120 м).
+                    </td>
                   </tr>
                   <tr>
-                    <td class="u-name">🔥 90T-v Nemesis<span class="tag tag-assault">Штурмовой</span></td>
+                    <td class="u-name">
+                      🔥 90T-v Nemesis<span class="tag tag-assault"
+                        >Штурмовой</span
+                      >
+                    </td>
                     <td>S:85 C:65 M:60</td>
-                    <td>HP: 365 · DMG: 110 · ARM: 50<br>68 мм пушка + гранатомёт · RNG: 190<br>SPD: 1.3 · CD: 6.7 с · AoE гранаты: 40</td>
-                    <td>Самый мощный урон среди прямых штурмовиков. Гранатомёт эффективен против <strong>скоплений пехоты</strong> (AoE).</td>
+                    <td>
+                      HP: 365 · DMG: 110 · ARM: 50<br />68 мм пушка + гранатомёт
+                      · RNG: 190<br />SPD: 1.3 · CD: 6.7 с · AoE гранаты: 40
+                    </td>
+                    <td>
+                      Самый мощный урон среди прямых штурмовиков. Гранатомёт
+                      эффективен против <strong>скоплений пехоты</strong> (AoE).
+                    </td>
                   </tr>
                   <tr>
-                    <td class="u-name">⚔️ Falchion<span class="tag tag-medium">Средний танк</span></td>
+                    <td class="u-name">
+                      ⚔️ Falchion<span class="tag tag-medium"
+                        >Средний танк</span
+                      >
+                    </td>
                     <td>S:55 C:40 M:25</td>
-                    <td>HP: 450 · DMG: 70 · ARM: 50<br>RNG: 150 · SPD: 0.8 · CD: 7.7 с</td>
-                    <td>Крепкий средний танк — баланс брони и огня. Медленный, но живучий таранный прорыв.</td>
+                    <td>
+                      HP: 450 · DMG: 70 · ARM: 50<br />RNG: 150 · SPD: 0.8 · CD:
+                      7.7 с
+                    </td>
+                    <td>
+                      Крепкий средний танк — баланс брони и огня. Медленный, но
+                      живучий таранный прорыв.
+                    </td>
                   </tr>
                   <tr>
-                    <td class="u-name">🗡️ Spatha<span class="tag tag-medium">Тяжёлый танк</span></td>
+                    <td class="u-name">
+                      🗡️ Spatha<span class="tag tag-medium">Тяжёлый танк</span>
+                    </td>
                     <td>S:80 C:50 M:40</td>
-                    <td>HP: 560 · DMG: 80 · ARM: 70<br>RNG: 180 · SPD: 0.7 · CD: 8.3 с</td>
-                    <td>Новинка: самый прочный юнит в игре — броня 70 гасит почти любой лёгкий огонь. Медленный «стол» для прорыва обороны.</td>
+                    <td>
+                      HP: 560 · DMG: 80 · ARM: 70<br />RNG: 180 · SPD: 0.7 · CD:
+                      8.3 с
+                    </td>
+                    <td>
+                      Новинка: самый прочный юнит в игре — броня 70 гасит почти
+                      любой лёгкий огонь. Медленный «стол» для прорыва обороны.
+                    </td>
                   </tr>
                   <tr>
-                    <td class="u-name">🛡️ Javelin APC<span class="tag tag-apc">БТР</span></td>
+                    <td class="u-name">
+                      🛡️ Javelin APC<span class="tag tag-apc">БТР</span>
+                    </td>
                     <td>S:40 C:30 M:15</td>
-                    <td>HP: 200 · DMG: 7 · ARM: 25<br>RNG: 140 · SPD: 1.65 · CD: 1.1 с</td>
-                    <td>Быстрый бронетранспортёр для маневренной пехотной поддержки (аналог Niska).</td>
+                    <td>
+                      HP: 200 · DMG: 7 · ARM: 25<br />RNG: 140 · SPD: 1.65 · CD:
+                      1.1 с
+                    </td>
+                    <td>
+                      Быстрый бронетранспортёр для маневренной пехотной
+                      поддержки (аналог Niska).
+                    </td>
                   </tr>
                   <tr>
-                    <td class="u-name">💥 Hoplite Mortar<span class="tag tag-art">Миномёт</span></td>
+                    <td class="u-name">
+                      💥 Hoplite Mortar<span class="tag tag-art">Миномёт</span>
+                    </td>
                     <td>S:35 C:25 M:10</td>
-                    <td>HP: 150 · DMG: 25 · AoE: 30<br>RNG: 80–180 · ARM: 15<br>SPD: 1.3 · CD: 2.5 с · БК: 70</td>
-                    <td>Дешёвая миномётная поддержка. <strong>Не стреляет ближе 80</strong>. Скорострельнее ствольной артиллерии — идеален против пехоты у точки.</td>
+                    <td>
+                      HP: 150 · DMG: 25 · AoE: 30<br />RNG: 80–180 · ARM: 15<br />SPD:
+                      1.3 · CD: 2.5 с · БК: 70
+                    </td>
+                    <td>
+                      Дешёвая миномётная поддержка.
+                      <strong>Не стреляет ближе 80</strong>. Скорострельнее
+                      ствольной артиллерии — идеален против пехоты у точки.
+                    </td>
                   </tr>
                   <tr>
-                    <td class="u-name">🎯 Colonial Artillery 120 мм<span class="tag tag-art">Артиллерия</span></td>
+                    <td class="u-name">
+                      🎯 Colonial Artillery 120 мм<span class="tag tag-art"
+                        >Артиллерия</span
+                      >
+                    </td>
                     <td>S:70 C:30 M:10</td>
-                    <td>HP: 60 · DMG: 55 · AoE: 45<br>RNG: 60–400 · ARM: 15<br>SPD: 0.7 · CD: 6.7 с · БК: 70</td>
-                    <td>▲ Мобильная и дешёвая лёгкая арта. Быстрая смена позиций (hit &amp; run), малая дальность, очень хрупкая.</td>
+                    <td>
+                      HP: 60 · DMG: 55 · AoE: 45<br />RNG: 60–400 · ARM: 15<br />SPD:
+                      0.7 · CD: 6.7 с · БК: 70
+                    </td>
+                    <td>
+                      ▲ Мобильная и дешёвая лёгкая арта. Быстрая смена позиций
+                      (hit &amp; run), малая дальность, очень хрупкая.
+                    </td>
                   </tr>
                   <tr>
-                    <td class="u-name">🎯 Colonial Artillery 150 мм<span class="tag tag-art">Артиллерия</span></td>
+                    <td class="u-name">
+                      🎯 Colonial Artillery 150 мм<span class="tag tag-art"
+                        >Артиллерия</span
+                      >
+                    </td>
                     <td>S:80 C:30 M:20</td>
-                    <td>HP: 90 · DMG: 85 · AoE: 80<br>RNG: 150–550 · ARM: 15<br>SPD: 0.5 · CD: 7.5 с</td>
-                    <td>Тяжёлая арта колонистов: полная ёмкость БК (100) и подвижность выше варденской 150 мм, но меньше урон и зона поражения.</td>
+                    <td>
+                      HP: 90 · DMG: 85 · AoE: 80<br />RNG: 150–550 · ARM: 15<br />SPD:
+                      0.5 · CD: 7.5 с
+                    </td>
+                    <td>
+                      Тяжёлая арта колонистов: полная ёмкость БК (100) и
+                      подвижность выше варденской 150 мм, но меньше урон и зона
+                      поражения.
+                    </td>
                   </tr>
                 </table>
               </div>
               <div class="info-block wide">
                 <h3>🎯 Тактика Colonials</h3>
                 <ul>
-                  <li><strong>Scorpion</strong> — разведка и зачистка пехоты (×2.5 урон)</li>
-                  <li><strong>Nemesis</strong> — главный удар + гранатомёт по скоплениям</li>
-                  <li><strong>Falchion / Spatha</strong> — таранный прорыв; Spatha (броня 70) — самый живучий юнит игры</li>
-                  <li><strong>Hoplite</strong> — дешёвый миномёт для давления пехоты (не стреляет ближе 80)</li>
-                  <li>Мобильная артиллерия — стреляй и уходи (hit &amp; run): 120 мм быстрая, 150 мм — полный БК и дальность до 550</li>
+                  <li>
+                    <strong>Scorpion</strong> — разведка и зачистка пехоты (×2.5
+                    урон)
+                  </li>
+                  <li>
+                    <strong>Nemesis</strong> — главный удар + гранатомёт по
+                    скоплениям
+                  </li>
+                  <li>
+                    <strong>Falchion / Spatha</strong> — таранный прорыв; Spatha
+                    (броня 70) — самый живучий юнит игры
+                  </li>
+                  <li>
+                    <strong>Hoplite</strong> — дешёвый миномёт для давления
+                    пехоты (не стреляет ближе 80)
+                  </li>
+                  <li>
+                    Мобильная артиллерия — стреляй и уходи (hit &amp; run): 120
+                    мм быстрая, 150 мм — полный БК и дальность до 550
+                  </li>
                 </ul>
               </div>
             </div>
@@ -352,37 +766,94 @@
               <div class="info-block wide">
                 <h3>⛽ Система БК и топлива</h3>
                 <ul>
-                  <li>Вся боевая техника имеет <strong>БК</strong> (боекомплект) и <strong>топливо</strong></li>
-                  <li>Автоматическое пополнение в базе (радиус 200 вокруг HQ)</li>
+                  <li>
+                    Вся боевая техника имеет <strong>БК</strong> (боекомплект) и
+                    <strong>топливо</strong>
+                  </li>
+                  <li>
+                    Автоматическое пополнение в базе (радиус 200 вокруг HQ)
+                  </li>
                   <li>Пополнение постепенное: топливо быстрее, чем БК</li>
-                  <li>Полоски под техникой: БК — 🟠 оранжевая, топливо — 🔵 синяя</li>
-                  <li>Расход топлива реалистичный — хватает на долгие перемещения</li>
+                  <li>
+                    Полоски под техникой: БК — 🟠 оранжевая, топливо — 🔵 синяя
+                  </li>
+                  <li>
+                    Расход топлива реалистичный — хватает на долгие перемещения
+                  </li>
                   <li>Запас БК/топлива виден в панели выбранного юнита</li>
                 </ul>
               </div>
               <div class="info-block wide">
                 <h3>🚛 Логистическая техника (общая для обеих фракций)</h3>
                 <table class="stat-table">
-                  <tr><th>Машина</th><th>Назначение</th><th>Механика работы</th></tr>
-                  <tr><td class="u-name">🚛 Грузовик</td><td>Пополняет БК другой техники</td><td>Ограниченный запас! После опустошения возвращается на базу за пополнением</td></tr>
-                  <tr><td class="u-name">🛢️ Бензовоз</td><td>Пополняет топливо другой техники</td><td>Ограниченный запас! Сам возвращается на базу</td></tr>
-                  <tr><td class="u-name">🔧 Инженер</td><td>Ремонтирует повреждённую технику</td><td>Ограниченный ремонтный запас! Возвращается на базу</td></tr>
-                  <tr><td class="u-name">🚛 Flatbed</td><td>Снабжение артиллерии снарядами</td><td>Большая ёмкость (<strong>100 снарядов</strong>), пополняет артиллерию в радиусе 60, сам возвращается на базу</td></tr>
+                  <tr>
+                    <th>Машина</th>
+                    <th>Назначение</th>
+                    <th>Механика работы</th>
+                  </tr>
+                  <tr>
+                    <td class="u-name">🚛 Грузовик</td>
+                    <td>Пополняет БК другой техники</td>
+                    <td>
+                      Ограниченный запас! После опустошения возвращается на базу
+                      за пополнением
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="u-name">🛢️ Бензовоз</td>
+                    <td>Пополняет топливо другой техники</td>
+                    <td>Ограниченный запас! Сам возвращается на базу</td>
+                  </tr>
+                  <tr>
+                    <td class="u-name">🔧 Инженер</td>
+                    <td>Ремонтирует повреждённую технику</td>
+                    <td>Ограниченный ремонтный запас! Возвращается на базу</td>
+                  </tr>
+                  <tr>
+                    <td class="u-name">🚛 Flatbed</td>
+                    <td>Снабжение артиллерии снарядами</td>
+                    <td>
+                      Большая ёмкость (<strong>100 снарядов</strong>), пополняет
+                      артиллерию в радиусе 60, сам возвращается на базу
+                    </td>
+                  </tr>
                 </table>
-                <p class="note">Следите за запасом логистики — она ограничена! Без неё армия встанет без БК и топлива.</p>
+                <p class="note">
+                  Следите за запасом логистики — она ограничена! Без неё армия
+                  встанет без БК и топлива.
+                </p>
               </div>
               <div class="info-block wide">
                 <h3>💥 Артиллерия: механика стрельбы</h3>
                 <ul>
-                  <li><strong>Минимальная дальность</strong> — артиллерия НЕ стреляет в упор (120 мм Wardens: 100–600, 150 мм Wardens: 180–550, 120 мм Colonials: 60–400, 150 мм Colonials: 150–550; миномёты Devitt MMR: 90–240, Hoplite: 80–180)</li>
-                  <li>При выборе цели появляется <strong>красный прицел</strong> с зоной разброса</li>
-                  <li>Артиллерия делает <strong>5 выстрелов подряд</strong> по цели, каждый снаряд с разбросом ~30px</li>
-                  <li>Счётчик выстрелов над прицелом: <strong>X/5</strong>; после 5 выстрелов цель выбирается заново</li>
+                  <li>
+                    <strong>Минимальная дальность</strong> — артиллерия НЕ
+                    стреляет в упор (120 мм Wardens: 100–600, 150 мм Wardens:
+                    180–550, 120 мм Colonials: 60–400, 150 мм Colonials:
+                    150–550; миномёты Devitt MMR: 90–240, Hoplite: 80–180)
+                  </li>
+                  <li>
+                    При выборе цели появляется <strong>красный прицел</strong> с
+                    зоной разброса
+                  </li>
+                  <li>
+                    Артиллерия делает <strong>5 выстрелов подряд</strong> по
+                    цели, каждый снаряд с разбросом ~30px
+                  </li>
+                  <li>
+                    Счётчик выстрелов над прицелом: <strong>X/5</strong>; после
+                    5 выстрелов цель выбирается заново
+                  </li>
                   <li>Линия от орудия к цели показывает направление огня</li>
                   <li>AoE-урон по площади (красный круг радиуса поражения)</li>
-                  <li>Оборона 3 уровня автоматически контратакует вражескую артиллерию (см. вкладку «Оборона»)</li>
+                  <li>
+                    Оборона 3 уровня автоматически контратакует вражескую
+                    артиллерию (см. вкладку «Оборона»)
+                  </li>
                 </ul>
-                <p class="note">Используйте другие юниты для защиты артиллерии в ближнем бою!</p>
+                <p class="note">
+                  Используйте другие юниты для защиты артиллерии в ближнем бою!
+                </p>
               </div>
             </div>
           </div>
@@ -392,9 +863,21 @@
             <div class="info-grid">
               <div class="info-block wide">
                 <h3>🏰 Улучшение обороны территорий</h3>
-                <p>Кликните по <strong>флагу</strong> захваченной территории — откроется панель улучшения. Улучшения доступны только последовательно (нельзя пропустить уровень). Панель показывает текущий уровень и стоимость следующего. Радиус действия отображается жёлтым кругом. ИИ тоже улучшает оборону своих территорий.</p>
+                <p>
+                  Кликните по <strong>флагу</strong> захваченной территории —
+                  откроется панель улучшения. Улучшения доступны только
+                  последовательно (нельзя пропустить уровень). Панель показывает
+                  текущий уровень и стоимость следующего. Радиус действия
+                  отображается жёлтым кругом. ИИ тоже улучшает оборону своих
+                  территорий.
+                </p>
                 <table class="stat-table">
-                  <tr><th>Уровень</th><th>Стоимость (S/C/M)</th><th>Характеристики</th><th>Визуальное отображение</th></tr>
+                  <tr>
+                    <th>Уровень</th>
+                    <th>Стоимость (S/C/M)</th>
+                    <th>Характеристики</th>
+                    <th>Визуальное отображение</th>
+                  </tr>
                   <tr>
                     <td class="u-name">Уровень 1</td>
                     <td>S:50 C:30 M:40</td>
@@ -410,17 +893,26 @@
                   <tr>
                     <td class="u-name">Уровень 3</td>
                     <td>S:150 C:90 M:120</td>
-                    <td>DMG: 40 · RNG: 360 · HP: 1000<br>+15% урона по технике</td>
-                    <td>4 тяжёлые турели + 2 зенитки + стены + бункеры + мешки</td>
+                    <td>
+                      DMG: 40 · RNG: 360 · HP: 1000<br />+15% урона по технике
+                    </td>
+                    <td>
+                      4 тяжёлые турели + 2 зенитки + стены + бункеры + мешки
+                    </td>
                   </tr>
                 </table>
               </div>
               <div class="info-block">
                 <h3>🛡️ Защита от артиллерии (3 уровень)</h3>
                 <ul>
-                  <li>Оборона 3 уровня <strong>автоматически атакует</strong> вражескую артиллерию</li>
+                  <li>
+                    Оборона 3 уровня
+                    <strong>автоматически атакует</strong> вражескую артиллерию
+                  </li>
                   <li>Атака каждые 20 секунд (1200 тиков)</li>
-                  <li>Бьёт только ту артиллерию, что обстреливает эту территорию</li>
+                  <li>
+                    Бьёт только ту артиллерию, что обстреливает эту территорию
+                  </li>
                   <li>Урон по артиллерии: <strong>50 HP</strong> за атаку</li>
                   <li>Оранжевые частицы при контратаке</li>
                 </ul>
@@ -428,7 +920,9 @@
               <div class="info-block">
                 <h3>⚙️ Как это работает</h3>
                 <ul>
-                  <li>Оборона атакует врагов автоматически в радиусе действия</li>
+                  <li>
+                    Оборона атакует врагов автоматически в радиусе действия
+                  </li>
                   <li>Каждый уровень делает укрепления визуально солиднее</li>
                   <li>Триггер улучшения — только в области флага (30px)</li>
                   <li>Зелёные трассеры — выстрелы обороны</li>
@@ -445,7 +939,9 @@
                 <h3>📏 Масштаб карты</h3>
                 <ul>
                   <li>Размер: <strong>3000 × 2250</strong> пикселей</li>
-                  <li>Полностью открытая местность — свободное перемещение техники</li>
+                  <li>
+                    Полностью открытая местность — свободное перемещение техники
+                  </li>
                   <li>Зелёный фон карты</li>
                   <li>Увеличенные радиусы захвата городов (120–180)</li>
                   <li>Больше пространства для манёвров</li>
@@ -454,36 +950,63 @@
               <div class="info-block">
                 <h3>🏘️ Города и здания</h3>
                 <ul>
-                  <li><strong>14 городов</strong> для захвата, в каждом 15–25 зданий</li>
-                  <li>Военные: бункеры, башни, казармы, оружейные, командные центры</li>
+                  <li>
+                    <strong>14 городов</strong> для захвата, в каждом 15–25
+                    зданий
+                  </li>
+                  <li>
+                    Военные: бункеры, башни, казармы, оружейные, командные
+                    центры
+                  </li>
                   <li>Жилые: дома, коттеджи, амбары, магазины</li>
                   <li>Общественные: ратуши, церкви, рынки, таверны, фонтаны</li>
                   <li>Промышленные: шахты, плавильни, склады</li>
-                  <li>5 вариаций зданий каждого типа, уникальная архитектура</li>
+                  <li>
+                    5 вариаций зданий каждого типа, уникальная архитектура
+                  </li>
                 </ul>
               </div>
               <div class="info-block">
                 <h3>⛏️ Ресурсные шахты (10)</h3>
                 <ul>
-                  <li><strong>Материалы:</strong> Iron Mine, Tin Mine, Salt Deposit</li>
-                  <li><strong>Компоненты:</strong> Copper Deposit, Gold Vein, Quartz Quarry</li>
-                  <li><strong>Снабжение:</strong> Coal Seam, Oil Field, Coal Deposit, Silver Lode</li>
+                  <li>
+                    <strong>Материалы:</strong> Iron Mine, Tin Mine, Salt
+                    Deposit
+                  </li>
+                  <li>
+                    <strong>Компоненты:</strong> Copper Deposit, Gold Vein,
+                    Quartz Quarry
+                  </li>
+                  <li>
+                    <strong>Снабжение:</strong> Coal Seam, Oil Field, Coal
+                    Deposit, Silver Lode
+                  </li>
                 </ul>
-                <p class="note">Захват шахт даёт бонусные ресурсы и увеличивает лимиты юнитов!</p>
+                <p class="note">
+                  Захват шахт даёт бонусные ресурсы и увеличивает лимиты юнитов!
+                </p>
               </div>
               <div class="info-block">
                 <h3>🌳 Природа и озёра</h3>
                 <ul>
-                  <li>300+ деревьев (сосны и дубы), 150+ кустов, 80+ камней, 120+ травяных полян</li>
+                  <li>
+                    300+ деревьев (сосны и дубы), 150+ кустов, 80+ камней, 120+
+                    травяных полян
+                  </li>
                   <li>Градиентные текстуры</li>
-                  <li>3 реалистичных озера неправильной формы: Lake Serenity, Mirror Lake, Bluewater Lake</li>
+                  <li>
+                    3 реалистичных озера неправильной формы: Lake Serenity,
+                    Mirror Lake, Bluewater Lake
+                  </li>
                   <li>Рыбацкие хижины, причалы и эффекты воды</li>
                 </ul>
               </div>
               <div class="info-block">
                 <h3>🛤️ Дороги</h3>
                 <ul>
-                  <li>Расширенная сеть дорог, соединяющая все города и шахты</li>
+                  <li>
+                    Расширенная сеть дорог, соединяющая все города и шахты
+                  </li>
                   <li>Извилистые дороги с кривыми Безье</li>
                   <li>Разметка, обочины и тени</li>
                   <li>Ширина 24px — техника не застревает</li>
@@ -505,29 +1028,65 @@
             <div class="info-grid">
               <div class="info-block wide">
                 <h3>🤖 Как работает искусственный интеллект</h3>
-                <p>ИИ противника сбалансирован и не доминирует. Он живёт по тем же правилам, что и игрок, но со своими ограничениями:</p>
+                <p>
+                  ИИ противника сбалансирован и не доминирует. Он живёт по тем
+                  же правилам, что и игрок, но со своими ограничениями:
+                </p>
                 <ul>
-                  <li><strong>Экономика:</strong> собственная система ресурсов — 60% от скорости фарма игрока. Тратит ресурсы на производство как игрок и учитывает лимиты юнитов.</li>
-                  <li><strong>Производство:</strong> спавнит пехоту каждые 2700 тиков и технику каждые 4500 тиков (базовые интервалы). 20% шанс произвести артиллерию начиная со сложности 2.</li>
-                  <li><strong>Накопление сил:</strong> копит армию перед атакой — порог составляет <strong>12 юнитов</strong>, после чего проводит координированные волны на вашу базу и захваченные территории.</li>
-                  <li><strong>Переключение режимов:</strong> меняется между атакой и защитой каждые <strong>3000 тиков</strong>. Оборонительное поведение по умолчанию — защищает свои территории.</li>
-                  <li><strong>Патрулирование:</strong> патрулирует свои захваченные точки и реагирует на угрозы им.</li>
-                  <li><strong>Pathfinding:</strong> умеет обходить препятствия и координировать колонны.</li>
+                  <li>
+                    <strong>Экономика:</strong> собственная система ресурсов —
+                    60% от скорости фарма игрока. Тратит ресурсы на производство
+                    как игрок и учитывает лимиты юнитов.
+                  </li>
+                  <li>
+                    <strong>Производство:</strong> спавнит пехоту каждые 2700
+                    тиков и технику каждые 4500 тиков (базовые интервалы). 20%
+                    шанс произвести артиллерию начиная со сложности 2.
+                  </li>
+                  <li>
+                    <strong>Накопление сил:</strong> копит армию перед атакой —
+                    порог составляет <strong>12 юнитов</strong>, после чего
+                    проводит координированные волны на вашу базу и захваченные
+                    территории.
+                  </li>
+                  <li>
+                    <strong>Переключение режимов:</strong> меняется между атакой
+                    и защитой каждые <strong>3000 тиков</strong>. Оборонительное
+                    поведение по умолчанию — защищает свои территории.
+                  </li>
+                  <li>
+                    <strong>Патрулирование:</strong> патрулирует свои
+                    захваченные точки и реагирует на угрозы им.
+                  </li>
+                  <li>
+                    <strong>Pathfinding:</strong> умеет обходить препятствия и
+                    координировать колонны.
+                  </li>
                 </ul>
               </div>
               <div class="info-block">
                 <h3>🎯 Артиллерия ИИ</h3>
                 <ul>
                   <li>Ведёт дальний обстрел ваших позиций</li>
-                  <li><strong>Отступает</strong>, если враг подошёл слишком близко (учёт минимальной дальности)</li>
-                  <li>Всегда идёт <strong>в сопровождении 2–3 юнитов</strong> — уничтожайте escort!</li>
-                  <li>Вынуждает вас отвечать атакой — её нужно быстро подавлять</li>
+                  <li>
+                    <strong>Отступает</strong>, если враг подошёл слишком близко
+                    (учёт минимальной дальности)
+                  </li>
+                  <li>
+                    Всегда идёт <strong>в сопровождении 2–3 юнитов</strong> —
+                    уничтожайте escort!
+                  </li>
+                  <li>
+                    Вынуждает вас отвечать атакой — её нужно быстро подавлять
+                  </li>
                 </ul>
               </div>
               <div class="info-block">
                 <h3>🏰 Стратегия ИИ</h3>
                 <ul>
-                  <li>Автоматически улучшает оборону своих территорий (как игрок)</li>
+                  <li>
+                    Автоматически улучшает оборону своих территорий (как игрок)
+                  </li>
                   <li>Медленно наращивает сложность — каждые 4000 тиков</li>
                   <li>Координирует атаки на базу и важные точки</li>
                 </ul>
@@ -535,11 +1094,31 @@
               <div class="info-block wide">
                 <h3>📈 Система доминирования (ключевая механика!)</h3>
                 <table class="stat-table">
-                  <tr><th>Захвачено точек ИИ</th><th>Интервал пехоты</th><th>Интервал техники</th><th>Эффект</th></tr>
-                  <tr><td><strong>До 50%</strong> (вы доминируете)</td><td>2700 тиков</td><td>4500 тиков</td><td>ИИ в 3 раза медленнее базового темпа — у вас преимущество</td></tr>
-                  <tr><td><strong>После 50%</strong> (ИИ набирает силу)</td><td>1800 тиков</td><td>3000 тиков</td><td>ИИ ускоряется в 2 раза — становится опаснее</td></tr>
+                  <tr>
+                    <th>Захвачено точек ИИ</th>
+                    <th>Интервал пехоты</th>
+                    <th>Интервал техники</th>
+                    <th>Эффект</th>
+                  </tr>
+                  <tr>
+                    <td><strong>До 50%</strong> (вы доминируете)</td>
+                    <td>2700 тиков</td>
+                    <td>4500 тиков</td>
+                    <td>
+                      ИИ в 3 раза медленнее базового темпа — у вас преимущество
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>После 50%</strong> (ИИ набирает силу)</td>
+                    <td>1800 тиков</td>
+                    <td>3000 тиков</td>
+                    <td>ИИ ускоряется в 2 раза — становится опаснее</td>
+                  </tr>
                 </table>
-                <p class="note">💡 Захватывайте более 50% точек на карте — ИИ замедлится и станет слабее! Это главный рычаг контроля темпа матча.</p>
+                <p class="note">
+                  💡 Захватывайте более 50% точек на карте — ИИ замедлится и
+                  станет слабее! Это главный рычаг контроля темпа матча.
+                </p>
               </div>
             </div>
           </div>
@@ -550,7 +1129,10 @@
               <div class="info-block">
                 <h3>🔍 Разведка</h3>
                 <ul>
-                  <li>King Spire и Scorpion автоматически раскрывают 120 м вокруг себя</li>
+                  <li>
+                    King Spire и Scorpion автоматически раскрывают 120 м вокруг
+                    себя
+                  </li>
                   <li>Разведданные показаны синей областью на карте</li>
                   <li>Слабая броня — не отправляйте разведчиков в лобовую</li>
                   <li>Разведка перед атакой — залог успеха</li>
@@ -559,17 +1141,25 @@
               <div class="info-block">
                 <h3>⚔️ Бой</h3>
                 <ul>
-                  <li>Цепочка: Разведчики → Штурмовые → Крейсерские для прорыва</li>
+                  <li>
+                    Цепочка: Разведчики → Штурмовые → Крейсерские для прорыва
+                  </li>
                   <li>Комбинируйте разные типы танков</li>
                   <li>Используйте деревья и камни как укрытие</li>
-                  <li>Наведите на юнит — увидите радиус атаки и полоску перезарядки</li>
+                  <li>
+                    Наведите на юнит — увидите радиус атаки и полоску
+                    перезарядки
+                  </li>
                 </ul>
               </div>
               <div class="info-block">
                 <h3>🚛 Тыловое снабжение</h3>
                 <ul>
                   <li>Следите за полосками БК (оранжевая) и топлива (синяя)</li>
-                  <li>Возвращайте грузовики, бензовозы, инженеров и Flatbed на базу</li>
+                  <li>
+                    Возвращайте грузовики, бензовозы, инженеров и Flatbed на
+                    базу
+                  </li>
                   <li>Flatbed критичен для снабжения артиллерии</li>
                   <li>Без логистики наступающая армия останавливается</li>
                 </ul>
@@ -577,10 +1167,15 @@
               <div class="info-block">
                 <h3>🎯 Против артиллерии</h3>
                 <ul>
-                  <li>Вражеская артиллерия стреляет издалека — уничтожайте её быстро</li>
+                  <li>
+                    Вражеская артиллерия стреляет издалека — уничтожайте её
+                    быстро
+                  </li>
                   <li>Сначала убивайте сопровождение (escort)</li>
                   <li>Защищайте свою артиллерию от быстрого прорыва</li>
-                  <li>Ставьте оборону 3 уровня — она контратакует артиллерию</li>
+                  <li>
+                    Ставьте оборону 3 уровня — она контратакует артиллерию
+                  </li>
                 </ul>
               </div>
               <div class="info-block">
@@ -588,7 +1183,9 @@
                 <ul>
                   <li>Победа — захват ВСЕХ территорий противника</li>
                   <li>Поражение — если у вас не осталось территорий</li>
-                  <li>Захват &gt;50% точек ослабляет ИИ (система доминирования)</li>
+                  <li>
+                    Захват &gt;50% точек ослабляет ИИ (система доминирования)
+                  </li>
                   <li>Учитывайте время производства при планировании атак</li>
                 </ul>
               </div>
@@ -604,12 +1201,15 @@
               </div>
             </div>
           </div>
-
         </div>
 
         <div class="info-footer">
-          <button class="info-back-btn" onclick="hideGameInfo()">← Назад в меню</button>
-          <span class="info-ver">WAR OF THE CONTINENT · Финальная версия · Готово к игре 🎮</span>
+          <button class="info-back-btn" onclick="hideGameInfo()">
+            ← Назад в меню
+          </button>
+          <span class="info-ver"
+            >WAR OF THE CONTINENT · Финальная версия · Готово к игре 🎮</span
+          >
         </div>
       </div>
     </div>
@@ -669,10 +1269,6 @@
         <button class="faction-btn wardens" onclick="selectFaction('wardens')">
           <div class="icon">🛡️</div>
           <h2>WARDENS</h2>
-          <p>
-            Devitt • Gallagher 30mm • Niska APC<br />Тяжёлая бронетехника<br />Промышленное
-            превосходство
-          </p>
         </button>
         <button
           class="faction-btn colonials"
@@ -680,10 +1276,6 @@
         >
           <div class="icon">⚔️</div>
           <h2>COLONIALS</h2>
-          <p>
-            Hatchet • Falchion • Hoplite APC<br />Быстрые полугусеничники<br />Партизанская
-            тактика
-          </p>
         </button>
       </div>
       <button class="back-btn" onclick="backToMapSelect()">
