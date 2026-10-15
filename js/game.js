@@ -118,7 +118,12 @@ export class Game {
         // и весь цикл движения до следующей санации.
         this.sanitizeAllPositions();
 
-        this.time++;
+        // ===== ФИКС «ДВОЙНОЙ ВЫСТРЕЛ / УСКОРЕННАЯ ПЕРЕЗАРЯДКА» =====
+        // Раньше счётчик игрового времени инкрементировался ДВАЖДЫ за тик.
+        // Из-за этого все кулдауны (u.lastAtk/u.cd), таймеры ИИ, логистика и
+        // производство шли вдвое быстрее: God Loader с cd=2500 реально
+        // стрелял каждые ~1250 тиков — эффект «двойного залпа». Теперь один
+        // инкремент на тик (централизованное исправление для всех юнитов).
         this.time++;
         
         // Camera movement
@@ -611,16 +616,16 @@ export class Game {
                     const randomY = u.aoeTarget.y + (Math.random() - 0.5) * spread;
                     attackTarget = { x: randomX, y: randomY };
                     canAttack = true;
-                    
-                    // Track shots fired
+
+                    // ===== ФИКС «СЛОМАННЫЙ ОБСТРЕЛ ПО ПЛОЩАДИ (AoE)» =====
+                    // Раньше u.shotsFired++ выполнялся КАЖДЫЙ тик, пока цель в
+                    // зоне — даже когда выстрела не было (юнит на перезарядке,
+                    // кончились БК). Счётчик доходил до 5 за 5 тиков, и цель
+                    // стиралась почти мгновенно: игрок видел 1-2 залпа вместо
+                    // полноценного обстрела. Теперь счётчик ведётся ТОЛЬКО по
+                    // фактическим выстрелам (см. блок ниже, timeSinceLastAttack
+                    // >= u.cd), а лимит в 5 залпов считается реальными залпами.
                     if (u.shotsFired === undefined) u.shotsFired = 0;
-                    u.shotsFired++;
-                    
-                    // After 5 shots, clear target
-                    if (u.shotsFired >= 5) {
-                        u.aoeTarget = null;
-                        u.shotsFired = 0;
-                    }
                 } else if (targetDist < minRange) {
                     // Цель слишком близко — отъезжаем РОВНО ОДИН раз (пока нет
                     // активного приказа) и стоим. Раньше условие было инвертировано
@@ -654,7 +659,12 @@ export class Game {
                     // (aoeTarget) или когда арта стоит без приказа движения.
                     // Если едет по приказу — просто едет дальше.
                     if (u.aoeTarget && !u.retreatOrder && u.tx === undefined && !u.holdPosition) {
-                        const retreatAngle = Math.atan2(u.y - u.aoeTarget.y, u.x - u.aoeTarget.y);
+                        // ===== ФИКС ОПЕЧАТКИ =====
+                        // Было: Math.atan2(u.y - aoeTarget.y, u.x - aoeTarget.y) —
+                        // во втором операнде ошибочно бралась координата Y вместо X.
+                        // Битый угол «отъезда от огневой точки» ломал возврат арты
+                        // игрока на позицию обстрела.
+                        const retreatAngle = Math.atan2(u.y - u.aoeTarget.y, u.x - u.aoeTarget.x);
                         u.retreatOrder = { x: u.x + Math.cos(retreatAngle) * (minRange + 60), y: u.y + Math.sin(retreatAngle) * (minRange + 60) };
                         u.tx = u.retreatOrder.x;
                         u.ty = u.retreatOrder.y;
@@ -734,9 +744,25 @@ export class Game {
                                 }
                             });
 
-                            // Clear aoeTarget after firing
-                            if (u.aoeTarget) {
+                            // ===== ФИКС «ДВОЙНОЙ ВЫСТРЕЛ» (God Loader) + AoE-обстрел =====
+                            // Счётчик залпов теперь увеличивается ТОЛЬКО при
+                            // фактическом выстреле (был баг: инкремент шёл каждый
+                            // тик, цель стиралась через 5 тиков — обстрел площади
+                            // у игрока ломался).
+                            if (u.shotsFired === undefined) u.shotsFired = 0;
+                            u.shotsFired++;
+
+                            // God Loader: после КАЖДОГО залпа сбрасываем AoE-цель.
+                            // Иначе ИИ на следующем тике переставляет aoeTarget на
+                            // ту же точку и машина бесконечно «долбит» одну цель с
+                            // минимальным интервалом (эффект серии из 5 залпов).
+                            // Обычная артиллерия игрока/ИИ сохраняет цель до
+                            // полноценного цикла в 5 реальных залпов — починенный
+                            // обстрел по площади.
+                            const isGodLoader = u.type === 'god_loader' || /god\s*loader/i.test(u.label || '');
+                            if (isGodLoader || u.shotsFired >= 5) {
                                 u.aoeTarget = null;
+                                u.shotsFired = 0;
                             }
                         } else {
                             // Normal single target attack

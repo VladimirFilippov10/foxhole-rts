@@ -1316,7 +1316,17 @@ export class AI {
 
             // Если цель в радиусе атаки - стреляем и СТОИМ на месте
             if (targetDist <= art.range && targetDist >= minRange) {
-                art.aoeTarget = { x: target.cp.x, y: target.cp.y };
+                // ===== ФИКС «ДВОЙНОЙ ВЫСТРЕЛ / СЕРИЯ ЗАЛПОВ» (God Loader) =====
+                // game.js после каждого залпа God Loader сбрасывает aoeTarget.
+                // Если ИИ тут же переставит его обратно на ту же точку, машина
+                // бесконечно «долбит» одну цель сразу после перезарядки. Для
+                // god_loader ставим цель только когда полный цикл CD истёк —
+                // залп получается ровно один раз за cd тиков.
+                const isGodLoader = art.type === 'god_loader' || /god\s*loader/i.test(art.label || '');
+                const cdElapsed = this.G.time - (art.lastAtk || 0);
+                if (!isGodLoader || cdElapsed >= (art.cd || 0)) {
+                    art.aoeTarget = { x: target.cp.x, y: target.cp.y };
+                }
                 if (!art._fireLogged) {
                     art._fireLogged = true;
                     aiLog(`[AI][ARTILLERY] т.${this.timer}: ${art.label} ведёт огонь по "${target.cp.name || ''}" с позиции (${Math.round(art.x)}, ${Math.round(art.y)}), дистанция=${Math.round(targetDist)}`);

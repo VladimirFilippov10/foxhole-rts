@@ -630,6 +630,19 @@ function handleMouseDown(e) {
         if (artilleryUnits.length > 0) {
             artilleryUnits.forEach(u => {
                 u.aoeTarget = { x: worldX, y: worldY };
+                // ===== ФИКС «СЛОМАННЫЙ ОБСТРЕЛ ПО ПЛОЩАДИ» =====
+                // Приказ огня должен быть единственным активным приказом:
+                // иначе сохранённый приказ движения (tx/ty) уводит арту с
+                // огневой позиции, game.js снимает aoeTarget вне полосы
+                // дистанций — и обстрел срывается. Также обнуляем счётчик
+                // залпов, чтобы цикл из 5 реальных залпов начался заново.
+                u.tx = undefined;
+                u.ty = undefined;
+                u.orderOrigin = undefined;
+                u.retreatOrder = null;
+                u.moveOrder = null;
+                u.stuckCounter = 0;
+                u.shotsFired = 0;
             });
             aoeMode = false;
             const btn = document.getElementById('aoeBtn');
