@@ -1,7 +1,7 @@
 // ===== GAME LOGIC =====
-import { dist, distToSeg, GAME_MODES, SUPPLY_SYSTEM } from './constants.js';
+import { dist, distToSeg, GAME_MODES, SUPPLY_SYSTEM, getModeFlags, isUnitAllowedByRestriction, isBuildingAllowedByRestriction, DEFAULT_RESTRICTION, DEFAULT_ECONOMY } from './constants.js';
 import { AI } from './ai.js';
-import { createVehicle, isInfUnit, isTechVehicle, INFANTRY_TYPES, getDefenseDamageVsTech, getUnitAttackDamage } from './vehicles.js';
+import { createVehicle, isInfUnit, isTechVehicle, INFANTRY_TYPES, getDefenseDamageVsTech, getUnitAttackDamage, ARTILLERY_TYPES, LOGISTICS_TYPES } from './vehicles.js';
 
 // Логирование (console.log) — используется и здесь, и в ai.js.
 // ИСПРАВЛЕНИЕ: раньше game.js вызывал aiLog(...), который был определён только
