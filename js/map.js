@@ -1,5 +1,16 @@
 // ===== DEADLANDS MAP DATA =====
-import { gridToPos } from './constants.js';
+// ВАЖНО: все координаты карты вычисляются через CELL_W/CELL_H/MAP_W/MAP_H из
+// constants.js. В режиме графики «Классический» они увеличены ×2 (карта
+// 6000×4500), а радиусы объектов и их количество умножаются на GM (масштаб)
+// и DET (множитель детализации) соответственно.
+import { CELL_W, CELL_H, MAP_W, MAP_H, getGraphicsScale } from './constants.js';
+
+const GM = getGraphicsScale();          // 1 = минимализм, 2 = классический (карта ×2)
+const DET = GM;                         // множитель плотности деталей (объектов на карте)
+
+// Сетка → мировые координаты центра клетки
+const gx = col => col * CELL_W + CELL_W / 2;
+const gy = row => row * CELL_H + CELL_H / 2;
 
 // Grid: A-L (cols 0-11), rows 1-15 (0-14)
 export const LOCATIONS = [
@@ -58,21 +69,22 @@ export const LOCATIONS = [
 ];
 
 // Capture points - увеличенные радиусы для более медленной игры
+// Базовые радиусы (минимализм); в классическом режиме умножаются на GM (×2)
 export const CAPTURE_POINTS = [
-    { name: "Callahan Gate", col: 1, row: 2, radius: 150, owner: 'wardens', defenseLevel: 0 },
-    { name: "Callahan's Cache", col: 9, row: 1, radius: 105, owner: 'neutral', defenseLevel: 0 },
-    { name: 'The Plaza', col: 4, row: 4, radius: 105, owner: 'neutral', defenseLevel: 0 },
-    { name: "Callahan's Belt", col: 9, row: 4, radius: 105, owner: 'neutral', defenseLevel: 0 },
-    { name: 'Catpal Trail', col: 1, row: 5, radius: 105, owner: 'neutral', defenseLevel: 0 },
-    { name: 'Iron Hills', col: 6, row: 2, radius: 105, owner: 'neutral', defenseLevel: 0 },
-    { name: 'Border Watch', col: 3, row: 7, radius: 105, owner: 'neutral', defenseLevel: 0 },
-    { name: 'Liberation Point', col: 1, row: 8, radius: 105, owner: 'neutral', defenseLevel: 0 },
-    { name: "Hope's Causeway", col: 6, row: 8, radius: 105, owner: 'neutral', defenseLevel: 0 },
-    { name: 'Crossroads', col: 4, row: 10, radius: 105, owner: 'neutral', defenseLevel: 0 },
-    { name: 'The Salt Farms', col: 5, row: 11, radius: 105, owner: 'neutral', defenseLevel: 0 },
-    { name: 'Brine Glen', col: 9, row: 9, radius: 105, owner: 'neutral', defenseLevel: 0 },
-    { name: 'Eastern Outpost', col: 10, row: 6, radius: 105, owner: 'neutral', defenseLevel: 0 },
-    { name: 'The Salt March', col: 7, row: 11, radius: 150, owner: 'colonials', defenseLevel: 0 },
+    { name: "Callahan Gate", col: 1, row: 2, radius: 150 * GM, owner: 'wardens', defenseLevel: 0 },
+    { name: "Callahan's Cache", col: 9, row: 1, radius: 105 * GM, owner: 'neutral', defenseLevel: 0 },
+    { name: 'The Plaza', col: 4, row: 4, radius: 105 * GM, owner: 'neutral', defenseLevel: 0 },
+    { name: "Callahan's Belt", col: 9, row: 4, radius: 105 * GM, owner: 'neutral', defenseLevel: 0 },
+    { name: 'Catpal Trail', col: 1, row: 5, radius: 105 * GM, owner: 'neutral', defenseLevel: 0 },
+    { name: 'Iron Hills', col: 6, row: 2, radius: 105 * GM, owner: 'neutral', defenseLevel: 0 },
+    { name: 'Border Watch', col: 3, row: 7, radius: 105 * GM, owner: 'neutral', defenseLevel: 0 },
+    { name: 'Liberation Point', col: 1, row: 8, radius: 105 * GM, owner: 'neutral', defenseLevel: 0 },
+    { name: "Hope's Causeway", col: 6, row: 8, radius: 105 * GM, owner: 'neutral', defenseLevel: 0 },
+    { name: 'Crossroads', col: 4, row: 10, radius: 105 * GM, owner: 'neutral', defenseLevel: 0 },
+    { name: 'The Salt Farms', col: 5, row: 11, radius: 105 * GM, owner: 'neutral', defenseLevel: 0 },
+    { name: 'Brine Glen', col: 9, row: 9, radius: 105 * GM, owner: 'neutral', defenseLevel: 0 },
+    { name: 'Eastern Outpost', col: 10, row: 6, radius: 105 * GM, owner: 'neutral', defenseLevel: 0 },
+    { name: 'The Salt March', col: 7, row: 11, radius: 150 * GM, owner: 'colonials', defenseLevel: 0 },
 ];
 
 // Функция для получения точек захвата с гарантированной инициализацией defenseLevel
@@ -80,8 +92,8 @@ export function getCapturePointsInWorld() {
     return CAPTURE_POINTS.map((cp, i) => ({
         id: 'cp' + i,
         name: cp.name,
-        x: cp.col * 250 + 125,
-        y: cp.row * 150 + 75,
+        x: gx(cp.col),
+        y: gy(cp.row),
         radius: cp.radius,
         owner: cp.owner,
         progress: cp.owner === 'neutral' ? 0 : 100,
@@ -92,16 +104,16 @@ export function getCapturePointsInWorld() {
 
 // Resource mines - expanded to 10 mines
 export const RESOURCE_POINTS = [
-    { name: 'Iron Mine', col: 7, row: 1, radius: 50, type: 'materials' },
-    { name: 'Copper Deposit', col: 2, row: 3, radius: 50, type: 'components' },
-    { name: 'Coal Seam', col: 3, row: 6, radius: 50, type: 'supplies' },
-    { name: 'Gold Vein', col: 6, row: 6, radius: 50, type: 'components' },
-    { name: 'Salt Deposit', col: 2, row: 10, radius: 50, type: 'materials' },
-    { name: 'Silver Lode', col: 3, row: 12, radius: 50, type: 'supplies' },
-    { name: 'Tin Mine', col: 8, row: 3, radius: 50, type: 'materials' },
-    { name: 'Oil Field', col: 5, row: 8, radius: 50, type: 'supplies' },
-    { name: 'Quartz Quarry', col: 10, row: 4, radius: 50, type: 'components' },
-    { name: 'Coal Deposit', col: 8, row: 10, radius: 50, type: 'supplies' },
+    { name: 'Iron Mine', col: 7, row: 1, radius: 50 * GM, type: 'materials' },
+    { name: 'Copper Deposit', col: 2, row: 3, radius: 50 * GM, type: 'components' },
+    { name: 'Coal Seam', col: 3, row: 6, radius: 50 * GM, type: 'supplies' },
+    { name: 'Gold Vein', col: 6, row: 6, radius: 50 * GM, type: 'components' },
+    { name: 'Salt Deposit', col: 2, row: 10, radius: 50 * GM, type: 'materials' },
+    { name: 'Silver Lode', col: 3, row: 12, radius: 50 * GM, type: 'supplies' },
+    { name: 'Tin Mine', col: 8, row: 3, radius: 50 * GM, type: 'materials' },
+    { name: 'Oil Field', col: 5, row: 8, radius: 50 * GM, type: 'supplies' },
+    { name: 'Quartz Quarry', col: 10, row: 4, radius: 50 * GM, type: 'components' },
+    { name: 'Coal Deposit', col: 8, row: 10, radius: 50 * GM, type: 'supplies' },
 ];
 
 // Lakes with fishing huts and docks
@@ -110,42 +122,42 @@ export const LAKES = [
         name: 'Lake Serenity', 
         col: 3, 
         row: 4, 
-        radius: 80,
+        radius: 80 * GM,
         huts: [
-            { offsetX: -60, offsetY: -40 },
-            { offsetX: 70, offsetY: 30 }
+            { offsetX: -60 * GM, offsetY: -40 * GM },
+            { offsetX: 70 * GM, offsetY: 30 * GM }
         ],
         docks: [
-            { offsetX: -30, offsetY: 50 },
-            { offsetX: 50, offsetY: -50 }
+            { offsetX: -30 * GM, offsetY: 50 * GM },
+            { offsetX: 50 * GM, offsetY: -50 * GM }
         ]
     },
     { 
         name: 'Mirror Lake', 
         col: 8, 
         row: 7, 
-        radius: 70,
+        radius: 70 * GM,
         huts: [
-            { offsetX: -50, offsetY: 30 },
-            { offsetX: 60, offsetY: -20 }
+            { offsetX: -50 * GM, offsetY: 30 * GM },
+            { offsetX: 60 * GM, offsetY: -20 * GM }
         ],
         docks: [
-            { offsetX: 20, offsetY: 40 },
-            { offsetX: -40, offsetY: -40 }
+            { offsetX: 20 * GM, offsetY: 40 * GM },
+            { offsetX: -40 * GM, offsetY: -40 * GM }
         ]
     },
     { 
         name: 'Bluewater Lake', 
         col: 5, 
         row: 13, 
-        radius: 90,
+        radius: 90 * GM,
         huts: [
-            { offsetX: -70, offsetY: 20 },
-            { offsetX: 80, offsetY: -30 }
+            { offsetX: -70 * GM, offsetY: 20 * GM },
+            { offsetX: 80 * GM, offsetY: -30 * GM }
         ],
         docks: [
-            { offsetX: 40, offsetY: 50 },
-            { offsetX: -50, offsetY: -50 }
+            { offsetX: 40 * GM, offsetY: 50 * GM },
+            { offsetX: -50 * GM, offsetY: -50 * GM }
         ]
     }
 ];
@@ -196,77 +208,90 @@ export const ROADS = [
 
 // City zones with detailed buildings - expanded for new cities
 export const CITY_ZONES = [
-    { col: 1, row: 2, radius: 180, buildings: 25, type: 'military' },
-    { col: 9, row: 1, radius: 140, buildings: 18, type: 'cache' },
-    { col: 4, row: 4, radius: 140, buildings: 18, type: 'plaza' },
-    { col: 9, row: 4, radius: 140, buildings: 18, type: 'belt' },
-    { col: 1, row: 5, radius: 120, buildings: 15, type: 'settlement' },
-    { col: 6, row: 2, radius: 120, buildings: 15, type: 'mining' },
-    { col: 3, row: 7, radius: 120, buildings: 15, type: 'border' },
-    { col: 1, row: 8, radius: 120, buildings: 15, type: 'settlement' },
-    { col: 6, row: 8, radius: 120, buildings: 15, type: 'causeway' },
-    { col: 4, row: 10, radius: 120, buildings: 15, type: 'crossroads' },
-    { col: 5, row: 11, radius: 120, buildings: 15, type: 'farms' },
-    { col: 9, row: 9, radius: 120, buildings: 15, type: 'settlement' },
-    { col: 10, row: 6, radius: 120, buildings: 15, type: 'outpost' },
-    { col: 7, row: 11, radius: 180, buildings: 25, type: 'salt_march' },
+    { col: 1, row: 2, radius: 180 * GM, buildings: 25, type: 'military' },
+    { col: 9, row: 1, radius: 140 * GM, buildings: 18, type: 'cache' },
+    { col: 4, row: 4, radius: 140 * GM, buildings: 18, type: 'plaza' },
+    { col: 9, row: 4, radius: 140 * GM, buildings: 18, type: 'belt' },
+    { col: 1, row: 5, radius: 120 * GM, buildings: 15, type: 'settlement' },
+    { col: 6, row: 2, radius: 120 * GM, buildings: 15, type: 'mining' },
+    { col: 3, row: 7, radius: 120 * GM, buildings: 15, type: 'border' },
+    { col: 1, row: 8, radius: 120 * GM, buildings: 15, type: 'settlement' },
+    { col: 6, row: 8, radius: 120 * GM, buildings: 15, type: 'causeway' },
+    { col: 4, row: 10, radius: 120 * GM, buildings: 15, type: 'crossroads' },
+    { col: 5, row: 11, radius: 120 * GM, buildings: 15, type: 'farms' },
+    { col: 9, row: 9, radius: 120 * GM, buildings: 15, type: 'settlement' },
+    { col: 10, row: 6, radius: 120 * GM, buildings: 15, type: 'outpost' },
+    { col: 7, row: 11, radius: 180 * GM, buildings: 25, type: 'salt_march' },
 ];
+
+// ===== ПРИРОДА (деревья/кусты/камни/трава) =====
+// В «Классическом» режиме: территория ×4 (карта ×2), количество объектов ×4
+// (DET^2 — плотность на единицу площади сохраняется как детализация), а их
+// размеры умножаются на GM — объекты крупнее и детальнее при том же зуме.
+const rnd = (() => {
+    // Детерминированный генератор (mulberry32): карта природы одинакова между
+    // перезапусками в одном режиме графики.
+    let t = 0x9e3779b9 ^ (GM * 0x85ebca6b);
+    return () => {
+        t += 0x6d2b79f5;
+        let r = Math.imul(t ^ (t >>> 15), 1 | t);
+        r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+        return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+})();
 
 // Trees (more variety) - avoid lakes
 export const TREES = [];
-for (let i = 0; i < 300; i++) {
-    const x = Math.random() * 3000;
-    const y = Math.random() * 2250;
-    
+for (let i = 0; i < 300 * DET * DET; i++) {
+    const x = rnd() * MAP_W;
+    const y = rnd() * MAP_H;
+
     // Check if tree would be on a lake
     let onLake = false;
     for (const lake of LAKES) {
-        const lakeX = lake.col * 250 + 125;
-        const lakeY = lake.row * 150 + 75;
-        const dist = Math.sqrt((x - lakeX) ** 2 + (y - lakeY) ** 2);
-        if (dist < lake.radius + 20) {
+        const lakeX = gx(lake.col);
+        const lakeY = gy(lake.row);
+        const d = Math.sqrt((x - lakeX) ** 2 + (y - lakeY) ** 2);
+        if (d < lake.radius + 20 * GM) {
             onLake = true;
             break;
         }
     }
-    
+
     if (!onLake) {
-        const type = Math.random() < 0.7 ? 'pine' : 'oak';
-        TREES.push({ x, y, size: 10 + Math.random() * 8, type });
+        const r = rnd();
+        const type = r < 0.5 ? 'pine' : r < 0.8 ? 'oak' : (GM > 1 ? 'birch' : 'oak');
+        TREES.push({ x, y, size: (10 + rnd() * 8) * GM, type });
     }
 }
 
 // Bushes
 export const BUSHES = [];
-for (let i = 0; i < 150; i++) {
-    const x = Math.random() * 3000;
-    const y = Math.random() * 2250;
-    BUSHES.push({ x, y, size: 5 + Math.random() * 5 });
+for (let i = 0; i < 150 * DET * DET; i++) {
+    BUSHES.push({ x: rnd() * MAP_W, y: rnd() * MAP_H, size: (5 + rnd() * 5) * GM });
 }
 
 // Rocks
 export const ROCKS = [];
-for (let i = 0; i < 80; i++) {
-    const x = Math.random() * 3000;
-    const y = Math.random() * 2250;
-    ROCKS.push({ x, y, size: 4 + Math.random() * 6 });
+for (let i = 0; i < 80 * DET * DET; i++) {
+    ROCKS.push({ x: rnd() * MAP_W, y: rnd() * MAP_H, size: (4 + rnd() * 6) * GM });
 }
 
 // Grass patches
 export const GRASS_PATCHES = [];
-for (let i = 0; i < 120; i++) {
+for (let i = 0; i < 120 * DET * DET; i++) {
     GRASS_PATCHES.push({
-        x: Math.random() * 3000,
-        y: Math.random() * 2250,
-        radius: 25 + Math.random() * 35,
+        x: rnd() * MAP_W,
+        y: rnd() * MAP_H,
+        radius: (25 + rnd() * 35) * GM,
     });
 }
 
 export function getLocationsInWorld() {
     return LOCATIONS.map(loc => ({
         ...loc,
-        x: loc.col * 250 + 125,
-        y: loc.row * 150 + 75,
+        x: gx(loc.col),
+        y: gy(loc.row),
     }));
 }
 
@@ -274,8 +299,8 @@ export function getResourcePointsInWorld() {
     return RESOURCE_POINTS.map((rp, i) => ({
         id: 'mine' + i,
         name: rp.name,
-        x: rp.col * 250 + 125,
-        y: rp.row * 150 + 75,
+        x: gx(rp.col),
+        y: gy(rp.row),
         radius: rp.radius,
         owner: 'neutral',
         progress: 0,

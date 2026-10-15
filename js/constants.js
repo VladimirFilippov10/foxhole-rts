@@ -9,12 +9,46 @@
 export const FIXED_STEP_MS = 1000 / 60;      // длительность одного тика логики
 export const MAX_STEPS_PER_FRAME = 5;        // защита от «зависания» после сворачивания вкладки
 
+// ===== НАСТРОЙКА ГРАФИКИ (минимализм / классический) =====
+// Выбирается в настройках игры ДО начала боя (рядом с выбором режима).
+//  minimal     — текущая графика: карта 3000×2250, базовая детализация;
+//  classic_map — «Классический»: карта увеличена ×2 (6000×4500), повышена
+//                детализация ВСЕХ объектов карты (деревья/кусты/камни/трава/
+//                озёра/дороги/города), юнитов и укреплений обороны.
+// ВАЖНО: масштаб задаётся здесь ДО импорта map.js — из map.js эти значения
+// импортируются как let-привязки ES-модулей, поэтому live-переключение
+// setGraphicsMode() мгновенно действует на все модули (map/game/renderer/ai).
+export const GRAPHICS_OPTIONS = [
+    { id: 'minimal', name: 'Минимализм', icon: '⬜', description: 'Текущая графика: компактная карта, лёгкая детализация' },
+    { id: 'classic_map', name: 'Классический', icon: '🏞️', description: 'Карта ×2, повышенная детализация карты, юнитов и обороны' },
+];
+export const DEFAULT_GRAPHICS = 'minimal';
+
+let _gm = 1;                       // 1 = минимализм, 2 = классический
+export function getGraphicsScale() { return _gm; }
+export function setGraphicsMode(id) { _gm = (id === 'classic_map') ? 2 : 1; applyMapScale(); }
+// Множитель детализации юнитов и укреплений обороны (карта — через CELL_W/H)
+export function detailScale() { return _gm; }
+
 export const MAP_COLS = 12; // A-L
 export const MAP_ROWS = 15; // 1-15
-export const CELL_W = 250;
-export const CELL_H = 150;
-export const MAP_W = MAP_COLS * CELL_W; // 3000
-export const MAP_H = MAP_ROWS * CELL_H; // 2250
+export let CELL_W = 250;
+export let CELL_H = 150;
+export let MAP_W = MAP_COLS * CELL_W; // 3000 (×2 = 6000 в классическом)
+export let MAP_H = MAP_ROWS * CELL_H; // 2250 (×2 = 4500 в классическом)
+
+// Применить масштаб карты (вызывается из setGraphicsMode и при старте игры)
+function applyMapScale() {
+    CELL_W = 250 * _gm;
+    CELL_H = 150 * _gm;
+    MAP_W = MAP_COLS * CELL_W;
+    MAP_H = MAP_ROWS * CELL_H;
+}
+
+export function gridToPosScaled(col, row) {
+    // col: 0-11 (A-L), row: 0-14 (1-15); координаты — с учётом масштаба графики
+    return { x: col * CELL_W + CELL_W / 2, y: row * CELL_H + CELL_H / 2 };
+}
 
 export const COLORS = {
     wardens: { p: '#2563eb', s: '#1d4ed8', a: '#60a5fa', bg: '#1e3a5f' },
