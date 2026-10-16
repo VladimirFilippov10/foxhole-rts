@@ -3,7 +3,7 @@
 // Colonials: Falchion, Hatchet, Hoplite
 // Logistics: Truck, FuelTruck, Engineer
 
-import { SUPPLY_SYSTEM } from './constants.js';
+import { SUPPLY_SYSTEM, MEDIC_MECHANICS } from './constants.js';
 
 export class Vehicle {
     constructor(type, faction, x, y) {
@@ -258,6 +258,97 @@ export class GrenadierColonist extends InfantryBase {
         this.grenadeLauncher = true;    // AoE по пехоте вокруг цели (game.js)
         this.grenadeRadius = 30;
         this.label = 'Гренадер';
+    }
+}
+
+// ===== НОВАЯ ПЕХОТА: Контрабандист (Wardens) / Браконьер (Colonials) =====
+// Фракционные «рейдеры»: мобильные снайперские юниты. Быстрее стрелков,
+// бьют с дальней дистанции одиночным мощным выстрелом — идеальны для
+// набегов на вражеские точки и добычу (отсюда названия).
+export class SmugglerVarden extends InfantryBase {
+    constructor(faction, x, y) {
+        super('warden_smuggler', faction, x, y);
+        this.hp = this.maxHp = 40;      // крепче снайпера — сам может уйти в бой
+        this.dmg = 38;                  // мощный одиночный выстрел
+        this.range = 200;               // дальняя дистанция рейда
+        this.spd = 0.85;                // быстрый — доходит и отходит
+        this.cd = 600;                  // ~10 секунд между выстрелами
+        this.label = 'Контрабандист';
+    }
+}
+
+export class PoacherColonist extends InfantryBase {
+    constructor(faction, x, y) {
+        super('colonial_poacher', faction, x, y);
+        this.hp = this.maxHp = 45;
+        this.dmg = 32;
+        this.range = 210;
+        this.spd = 0.8;
+        this.cd = 520;
+        this.label = 'Браконьер';
+    }
+}
+
+// ===== МЕДИК (пехота, общий тип 'medic', класс по фракции) =====
+// Лечит союзную пехоту вокруг себя (радиус 60). Механика «чем больше
+// раненых рядом — тем медленнее лечится каждый»: скорость на цель =
+// medicHealPerTarget / min(число пациентов, medicMaxTargets). Расходует
+// отдельный запас медикаментов (currentCargo/maxCargo — своя полоска).
+// Играет роль полевого supporting-юнита: не стреляет (dmg=0), но держит
+// линию жизни пехоты.
+export class MedicVarden extends InfantryBase {
+    constructor(faction, x, y) {
+        super('medic', faction, x, y);
+        this.hp = this.maxHp = 50;      // живучее стрелка — должен дожить до раненых
+        this.dmg = 0;                    // без оружия — только лечение
+        this.range = 0;                  // не атакует
+        this.spd = 0.55;                 // чуть быстрее стрелка — успевает к раненым
+        this.cd = 0;                     // атаки нет
+        this.isMedic = true;             // флаг для логики лечения (game.js)
+        this.healRadius = MEDIC_MECHANICS.medicRadius;   // 60
+        this.label = 'Медик';
+        // Отдельный запас медикаментов (полоска под юнитом)
+        this.cargoType = 'medkit';
+        this.maxCargo = MEDIC_MECHANICS.medicCapacity;   // 100
+        this.currentCargo = MEDIC_MECHANICS.medicCapacity;
+    }
+
+    // Пополнение медикаментов на базе (тот же троттлинг, что у логистики)
+    replenishAtBase(gameTime) {
+        if (!baseRegenTick(this, gameTime)) return;
+        if (this.currentCargo < this.maxCargo) {
+            this.currentCargo = Math.min(
+                this.maxCargo,
+                this.currentCargo + this.maxCargo * (SUPPLY_SYSTEM.baseRegenPercent ?? 0.01)
+            );
+        }
+    }
+}
+
+export class MedicColonist extends InfantryBase {
+    constructor(faction, x, y) {
+        super('medic', faction, x, y);
+        this.hp = this.maxHp = 45;
+        this.dmg = 0;
+        this.range = 0;
+        this.spd = 0.7;                  // колонисты подвижнее
+        this.cd = 0;
+        this.isMedic = true;
+        this.healRadius = MEDIC_MECHANICS.medicRadius;
+        this.label = 'Медик';
+        this.cargoType = 'medkit';
+        this.maxCargo = MEDIC_MECHANICS.medicCapacity;
+        this.currentCargo = MEDIC_MECHANICS.medicCapacity;
+    }
+
+    replenishAtBase(gameTime) {
+        if (!baseRegenTick(this, gameTime)) return;
+        if (this.currentCargo < this.maxCargo) {
+            this.currentCargo = Math.min(
+                this.maxCargo,
+                this.currentCargo + this.maxCargo * (SUPPLY_SYSTEM.baseRegenPercent ?? 0.01)
+            );
+        }
     }
 }
 
@@ -951,6 +1042,41 @@ export class Flatbed extends Vehicle {
     }
 }
 
+// ===== СКОРАЯ ПОМОЩЬ (общая для обеих фракций, тип 'ambulance') =====
+// Полевая медпомощь на колёсах: лечит ВСЮ союзную пехоту в радиусе 100
+// с ОДИНАКОВОЙ скоростью каждого пациента (в отличие от медика-пехоты,
+// где скорость делится между ранеными). Расходует отдельный запас
+// медикаментов — полоска currentCargo/maxCargo под машиной.
+export class Ambulance extends Vehicle {
+    constructor(faction, x, y) {
+        super('ambulance', faction, x, y);
+        this.hp = this.maxHp = 140;      // крепче грузовика — работает в прифронтовой зоне
+        this.dmg = 0;                    // без оружия
+        this.range = 0;
+        this.spd = 1.4;                  // быстрая — успевает к точкам боёв
+        this.cd = 0;
+        this.size = 24;
+        this.armor = 3;
+        this.label = 'Скорая помощь';
+        this.isAmbulance = true;         // флаг для логики лечения (game.js)
+        this.healRadius = MEDIC_MECHANICS.ambulanceRadius;  // 100
+        this.cargoType = 'medkit';
+        this.maxCargo = MEDIC_MECHANICS.ambulanceCapacity;  // 300
+        this.currentCargo = MEDIC_MECHANICS.ambulanceCapacity;
+    }
+
+    // Пополнение медикаментов на базе
+    replenishAtBase(gameTime) {
+        if (!baseRegenTick(this, gameTime)) return;
+        if (this.currentCargo < this.maxCargo) {
+            this.currentCargo = Math.min(
+                this.maxCargo,
+                this.currentCargo + this.maxCargo * (SUPPLY_SYSTEM.baseRegenPercent ?? 0.01)
+            );
+        }
+    }
+}
+
 // Фабрика пехоты: выбирает класс по виду пехоты И фракции.
 //   wardens   — «...Varden»   (Стрелок / Пулемётчик / Снайпер / Гранатомётчик)
 //   colonials — «...Colonist» (Стрелок / Пулемётчик / Снайпер / Гренадер)
@@ -970,6 +1096,16 @@ function createInfantry(type, faction, x, y) {
         case 'sniper':
             return isWardens ? new SniperVarden(faction, x, y)
                              : new SniperColonist(faction, x, y);
+        case 'medic':
+            // Медик — один тип, класс по фракции (как снайпер/гранатомётчик)
+            return isWardens ? new MedicVarden(faction, x, y)
+                             : new MedicColonist(faction, x, y);
+        case 'warden_smuggler':
+            // Контрабандист — пехота Wardens
+            return new SmugglerVarden(faction, x, y);
+        case 'colonial_poacher':
+            // Браконьер — пехота Colonials
+            return new PoacherColonist(faction, x, y);
         default:
             return null;
     }
@@ -1012,6 +1148,7 @@ export function createVehicle(type, faction, x, y) {
         fuel_truck: FuelTruck,
         engineer: Engineer,
         flatbed: Flatbed,
+        ambulance: Ambulance,
     };
     const creator = map[type];
     if (!creator) return new Vehicle(type, faction, x, y);
@@ -1020,12 +1157,12 @@ export function createVehicle(type, faction, x, y) {
 
 // Доступная техника по фракциям
 export const FACTION_VEHICLES = {
-    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'noble_widow', 'gallagher_highwayman', 'niska', 'warden_artillery150', 'warden_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'gallagher_outlaw','niska_blinder'],
-    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin', 'hoplite', 'colonial_artillery150', 'colonial_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha', 'god_loader'],
+    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'noble_widow', 'gallagher_highwayman', 'niska', 'warden_artillery150', 'warden_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'gallagher_outlaw','niska_blinder', 'ambulance'],
+    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin', 'hoplite', 'colonial_artillery150', 'colonial_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha', 'god_loader', 'ambulance'],
 };
 
 // ===== Помощники по видам пехоты =====
-export const INFANTRY_TYPES = ['rifleman', 'mg_gunner', 'grenadier', 'sniper'];
+export const INFANTRY_TYPES = ['rifleman', 'mg_gunner', 'grenadier', 'sniper', 'medic', 'warden_smuggler', 'colonial_poacher'];
 
 // Пехота, доступная для производства каждой фракции.
 // Снайпер — общий тип ('sniper'), класс выбирается по фракции:
@@ -1035,8 +1172,10 @@ export const INFANTRY_TYPES = ['rifleman', 'mg_gunner', 'grenadier', 'sniper'];
 //   colonials → GrenadierColonist (дальше бросает, радиус взрыва больше).
 // Пулемётчик (mg_gunner) — единый класс MgGunner для обеих фракций.
 export const FACTION_INFANTRY = {
-    wardens:   ['rifleman', 'mg_gunner', 'grenadier', 'sniper'],
-    colonials: ['rifleman', 'mg_gunner', 'grenadier', 'sniper'],
+    // Контрабандист (warden_smuggler) — фракционная пехота Wardens,
+    // Браконьер (colonial_poacher) — фракционная пехота Colonials.
+    wardens:   ['rifleman', 'mg_gunner', 'grenadier', 'sniper', 'medic', 'warden_smuggler'],
+    colonials: ['rifleman', 'mg_gunner', 'grenadier', 'sniper', 'medic', 'colonial_poacher'],
 };
 
 // Юнит — пехота? (новый флаг isInfantry + обратная совместимость со старым
@@ -1046,8 +1185,10 @@ export function isInfUnit(u) {
     return u.isInfantry === true || u.type === 'infantry' || INFANTRY_TYPES.includes(u.type);
 }
 
-// Логистика (не считается боевой техникой ни у игрока, ни у ИИ)
-export const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed'];
+// Логистика (не считается боевой техникой ни у игрока, ни у ИИ).
+// ambulance — скорая помощь: тоже «вспомогательная» машина (не боевая),
+// не забивает лимит техники и не участвует в атаке.
+export const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed', 'ambulance'];
 export function isLogisticsUnit(u) {
     return !!u && LOGISTICS_TYPES.includes(u.type);
 }

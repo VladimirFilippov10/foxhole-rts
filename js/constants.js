@@ -123,7 +123,26 @@ export const DEFAULT_RESTRICTION = 'classic';
 export const DEFAULT_ECONOMY = 'classic';
 
 // ===== ЛОГИСТИКА (вкладка «Снабжение») — единый список для всех модулей =====
-export const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed'];
+// ambulance — машина скорой помощи (полевая медпомощь, лечит пехоту)
+export const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed', 'ambulance'];
+
+// ===== МЕДИЦИНСКАЯ МЕХАНИКА (медик + скорая помощь) =====
+// Медик (пехота): лечит союзную пехоту вокруг себя; чем БОЛЬШЕ раненых в
+// радиусе — тем МЕДЛЕННЕЕ лечение каждой цели (разделение скорости лечения).
+// Скорая: лечит ВСЮ пехоту в радиусе 100 с ОДИНАКОВОЙ скоростью каждого
+// пациента, расходуя запас медикаментов (полоска currentCargo/maxCargo).
+export const MEDIC_MECHANICS = {
+    medicRadius: 60,            // радиус лечения медика (пехота)
+    medicHealPerTarget: 0.4,    // HP/тик на цель при одном раненом рядом
+    medicMinShare: 0.08,        // минимальная скорость на цель (сильное замедление)
+    medicMaxTargets: 5,         // дальше скорость не падает (делёж на min(число, 5))
+    medicMedPerHeal: 0.3,       // расход медикаментов за тик лечения на цель
+    ambulanceRadius: 100,       // радиус лечения скорой (пехота)
+    ambulanceHealRate: 0.35,    // HP/тик на КАЖДОГО пациента (одинаково для всех)
+    ambulanceMedPerHeal: 0.25,  // расход медикаментов за тик на пациента
+    ambulanceCapacity: 300,     // запас медикаментов скорой
+    medicCapacity: 100,         // запас медикаментов медика-пехоты
+};
 
 // ===== ЭКОНОМИКА «ВЫМИРАНИЕ» =====
 // Множитель фарма падает с 1.0 до ATTRITION_MIN за ATTRITION_DECAY_TICKS
@@ -149,8 +168,11 @@ export const BARREL_ARTILLERY_TYPES = [
     'warden_artillery', 'colonial_artillery', // старые алиасы из сохранений
 ];
 
-// Пехота (базовый тип 'infantry' + виды)
-export const INFANTRY_UNIT_TYPES = ['infantry', 'rifleman', 'mg_gunner', 'grenadier', 'sniper'];
+// Пехота (базовый тип 'infantry' + виды). 'medic' — медик-пехота (лечит
+// союзную пехоту вокруг себя, расходует медикаменты — см. MEDIC_MECHANICS).
+// 'warden_smuggler' — Контрабандист (пехота Wardens), 'colonial_poacher' —
+// Браконьер (пехота Colonials): снайперские «рейдерские» юниты.
+export const INFANTRY_UNIT_TYPES = ['infantry', 'rifleman', 'mg_gunner', 'grenadier', 'sniper', 'medic', 'warden_smuggler', 'colonial_poacher'];
 
 // Все боевые/вспомогательные юниты (для фильтрации карточек производства в UI)
 export const ALL_UNIT_TYPES = [
@@ -217,6 +239,10 @@ export const VEHICLE_COSTS = {
     mg_gunner: { s: 25, c: 2, m: 2, buildTime: 10 },     // пулемётчик — оборона
     grenadier: { s: 25, c: 3, m: 2, buildTime: 20 },    // гранатомётчик — наступление
     sniper: { s: 30, c: 10, m: 5, buildTime: 25 },       // снайпер — дальний бой
+    medic: { s: 20, c: 5, m: 8, buildTime: 15 },          // медик-пехота: лечит пехоту в радиусе 60, запас медикаментов 100
+    warden_smuggler: { s: 30, c: 8, m: 6, buildTime: 20 },   // Контрабандист (пехота Wardens): мобильный рейдер-снайпер
+    colonial_poacher: { s: 30, c: 8, m: 6, buildTime: 20 },  // Браконьер (пехота Colonials): мобильный рейдер-снайпер
+    ambulance: { s: 30, c: 20, m: 10, buildTime: 15 },       // Скорая помощь (логистика обеих фракций): лечение пехоты в радиусе 100, запас медикаментов 300
     
     // Wardens tanks
     king_spire: { s: 40, c: 30, m: 20, buildTime: 25 }, // Разведывательный танк
