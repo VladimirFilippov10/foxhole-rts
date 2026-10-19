@@ -27,6 +27,7 @@ let factoryMenuOpen = false;
 let aoeMode = false;
 let selectedCapturePoint = null;
 let factoryMenuFactory = null;
+let defensePanelInterval = null;
 
 // ===== Перемещаемые окна (drag за заголовок) =====
 function initDraggableWindow(el, handleSelector) {
@@ -67,11 +68,7 @@ function initDraggableWindow(el, handleSelector) {
 
 // Vehicle info for factory menu
 const VEHICLE_INFO = {
-    // ===== ВНИМАНИЕ: значения в полях stats соответствуют КЛАССАМ из vehicles.js =====
     infantry: { name: 'Пехота', icon: '🔫', stats: 'HP:30-35 DMG:6-8 RNG:120-130 SPD:0.5-0.65 (стрелки)', cost: VEHICLE_COSTS.infantry },
-    // ===== Пехота по видам (раскладка по фракциям — см. FACTION_INFANTRY) =====
-    // wardens:   Стрелок / Пулемётчик / Гранатомётчик / Снайпер
-    // colonials: Стрелок / Пулемётчик / Гренадер      / Снайпер
     rifleman: { name: 'Стрелок', icon: '🔫', stats: 'HP:30-35 DMG:6-8 RNG:120-130 SPD:0.5-0.65 Универсальная пехота, идёт в атаку', cost: VEHICLE_COSTS.rifleman },
     mg_gunner: { name: 'Пулемётчик', icon: '🛡️', stats: 'HP:45 DMG:10 RNG:95 CD:0.5с x2 по пехоте SPD:0.2 — оборона (общий для обеих фракций)', cost: VEHICLE_COSTS.mg_gunner },
     grenadier: { name: 'Гранатомётчик / Гренадер', icon: '💣', stats: 'AoE по пехоте: W: HP:40 DMG:60 RNG:45 r15 · C: HP:40 DMG:25 RNG:70 r25', cost: VEHICLE_COSTS.grenadier },
@@ -82,7 +79,13 @@ smuggler_varden:  { name: 'Контрабандист', icon: '💰', stats: 'HP
 poacher_colonist: { name: 'Браконьер', icon: '🎯', stats: 'HP:40 DMG:35 RNG:190 CD:5.8с SPD:0.7', cost: VEHICLE_COSTS.poacher_colonist },
 medic_varden:     { name: 'Медик', icon: '⚕️', stats: 'HP:30 DMG:2 Лечит пехоту в радиусе 80 (0.08 HP/тик)', cost: VEHICLE_COSTS.medic_varden },
 medic_colonist:   { name: 'Медик', icon: '⚕️', stats: 'HP:25 DMG:4 Лечит пехоту в радиусе 80 (0.08 HP/тик)', cost: VEHICLE_COSTS.medic_colonist },
+ scout_infantry: { name: 'Разведчик', icon: '👁️', stats: 'HP:25 SPD:0.8 Обзор: 140. Скрытен в кустах (виден с 5, иначе с 50)', cost: VEHICLE_COSTS.scout_infantry },
 
+    // ... (в технику wardens)
+    warden_scout_car: { name: 'Warden Recon Car', icon: '📡', stats: 'HP:120 SPD:2.2 Маскировка: Высокая Обзор: 200 (Не атакует)', cost: VEHICLE_COSTS.warden_scout_car },
+
+    // ... (в технику colonials)
+    colonial_scout_car: { name: 'Colonial Recon Car', icon: '📡', stats: 'HP:110 SPD:2.4 Маскировка: Высокая Обзор: 180 (Не атакует)', cost: VEHICLE_COSTS.colonial_scout_car },
 
     // Wardens tanks
     king_spire: { name: 'King Spire Mk.I', icon: '🔍', stats: 'HP:135 DMG:15 RNG:140 SPD:1.3 ARM:25 Разведка 120', cost: VEHICLE_COSTS.king_spire },
@@ -184,8 +187,12 @@ window.addEventListener('load', () => {
 });
 
 function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+     const w = window.innerWidth;
+    const h = window.innerHeight;
+    canvas.width = w;
+    canvas.height = h;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
 }
 
 // Screen management
@@ -292,11 +299,12 @@ window.backToMapSelect = function() {
 function startGame() {
     try {
         console.log('🎮 Запуск игры...');
-        
         document.getElementById('hudTop').style.display = 'flex';
         document.getElementById('controlsHint').style.display = 'block';
         game = new Game(selectedFaction, selectedGameMode,
     selectedRestriction, selectedEconomy, selectedFog);
+            window.game = game;
+
         const badge = document.getElementById('factionBadge');
         badge.className = 'faction-badge ' + selectedFaction;
         badge.innerHTML = selectedFaction === 'wardens' ? '🛡️ WARDENS' : '⚔️ COLONIALS';
@@ -444,10 +452,27 @@ function gameLoop(now) {
     try {
         // Накопленное время прокручиваем фиксированными шагами по ~16.67 мс
         logicAccumulator += elapsed;
-        while (logicAccumulator >= FIXED_STEP_MS) {
+         let steps = 0;
+        const loopStart = performance.now();
+        while (logicAccumulator >= FIXED_STEP_MS && steps < MAX_STEPS_PER_FRAME) {
+            const stepStart = performance.now();
             game.update();
             logicAccumulator -= FIXED_STEP_MS;
+            steps++;
             if (game.over) break;
+            
+            // Если один тик занял больше 16 мс — это уже лаг.
+            // Сбрасываем аккумулятор, чтобы не копить долги.
+            if (performance.now() - stepStart > 16) {
+                logicAccumulator = 0;
+                break;
+            }
+            
+            // Если весь цикл занял больше 50 мс — прерываем, чтобы не повесить вкладку
+            if (performance.now() - loopStart > 50) {
+                logicAccumulator = 0;
+                break;
+            }
         }
 
         render(ctx, game, canvas);
@@ -763,17 +788,15 @@ const PRODUCTION_TABS = [
     { id: 'support',    label: '🎯 Поддержка' },
 ];
 
-// Раскладка типов юнитов по вкладкам (для обеих фракций)
-// Пехота: класс выбирается по фракции (FACTION_INFANTRY), поэтому в меню
-// у wardens это Стрелок/Пулемётчик/Гранатомётчик/Снайпер,
-// у colonials — Стрелок/Пулемётчик/Гренадер/Снайпер.
 const FACTION_INFANTRY_TYPES = ['rifleman', 'mg_gunner', 'grenadier', 'sniper'];
 
 const TAB_TYPES = {
     infantry: ['infantry', 'assualt_varden', 'smuggler_varden', 'poacher_colonist',
-               'medic_varden', 'medic_colonist', ...FACTION_INFANTRY_TYPES],
-    vehicles: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw', 'niska', 'spatha', 'talos', 'noble_widow', 'niska_blinder',
-               'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin'],
+               'medic_varden', 'medic_colonist', 'scout_infantry', ...FACTION_INFANTRY_TYPES],
+    vehicles: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw', 'niska', 'spatha', 'talos', 'noble_widow', 'niska_blinder', 
+               'warden_scout_car', // <-- ДОБАВЛЕНО
+               'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin',
+               'colonial_scout_car'],
     supply: ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck', 'construction_truck', 'fire_truck'],
     // Поддержка: ствольная артиллерия + миномётные машины (Hoplite, Devitt MMR)
     support:  ['warden_artillery120', 'warden_artillery150','colonial_artillery120','colonial_artillery150', 'hoplite', 'devitt_mmr', 'god_loader'],
@@ -1165,15 +1188,26 @@ function openDefensePanel(cp, mx, my) {
 }
 
 // Периодическое обновление панели обороны (прогресс улучшения занимает время)
-setInterval(() => {
-    if (!game || game.over) return;
-    const panel = document.getElementById('defensePanel');
-    if (panel && !panel.classList.contains('hidden') && selectedCapturePoint) {
-        openDefensePanel(selectedCapturePoint,
-            parseInt(panel.style.left) || 0,
-            parseInt(panel.style.top) || 0);
-    }
-}, 1000);
+// Периодическое обновление панели обороны
+function startDefensePanelUpdater() {
+    if (defensePanelInterval) clearInterval(defensePanelInterval);
+    // Обновляем панель реже (раз в 2 секунды), чтобы не грузить браузер
+    defensePanelInterval = setInterval(() => {
+        if (!game || game.over) return;
+        const panel = document.getElementById('defensePanel');
+        // Обновляем только если окно реально открыто
+        if (panel && !panel.classList.contains('hidden') && selectedCapturePoint) {
+            // Не вызываем openDefensePanel, если ничего не изменилось (проверяем по времени)
+            const now = Date.now();
+            if (panel._lastRender && now - panel._lastRender < 2000) return;
+            panel._lastRender = now;
+            
+            openDefensePanel(selectedCapturePoint,
+                parseInt(panel.style.left) || 0,
+                parseInt(panel.style.top) || 0);
+        }
+    }, 1000);
+}
 
 window.closeDefensePanel = function() {
     document.getElementById('defensePanel').classList.add('hidden');

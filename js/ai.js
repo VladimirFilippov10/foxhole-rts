@@ -51,6 +51,10 @@ export class AI {
         this.lastSniperScanAt = -9999;
 
         this._roadSamples = null;
+        
+        // ===== ШТУРМОВЫЕ ГРУППЫ =====
+        this.strikeGroups = [];
+        this.lastStrikeGroupAt = 0;
     }
 
     // ===== РАЗМЕР ОТРЯДА =====
@@ -86,10 +90,13 @@ export class AI {
             'medic_truck', 'construction_truck', 'fire_truck',
         ].includes(u.type);
     }
+    
+    isScoutUnit(u) {
+        return u && (u.isScoutInfantry || u.type === 'warden_scout_car' || u.type === 'colonial_scout_car');
+    }
 
     // ===== НАВИГАЦИЯ ПО ДОРОГАМ =====
 
-    // Кэш дискретизированных дорог — точки через ~30 px.
     _getRoadSamples() {
         if (this._roadSamples) return this._roadSamples;
         const samples = [];
@@ -114,8 +121,6 @@ export class AI {
         return samples;
     }
 
-    // Ближайшая точка на дороге к (x, y). Возвращает {x, y, d, index} — index
-    // полезен, чтобы потом нарезать маршрут по последовательным точкам.
     _nearestRoadPoint(x, y) {
         const samples = this._getRoadSamples();
         let best = null, bestD = Infinity, bestIdx = -1;
@@ -127,21 +132,13 @@ export class AI {
         return best ? { x: best.x, y: best.y, d: bestD, index: bestIdx } : null;
     }
 
-    // ===== МАРШРУТ «ПО ДОРОГЕ» ДЛЯ ТЕХНИКИ =====
-    // Возвращает ПОЛНЫЙ маршрут: [выход на дорогу, ...все точки дороги..., съезд к цели].
     _routeByRoads(ax, ay, bx, by) {
         const nearA = this._nearestRoadPoint(ax, ay);
         const nearB = this._nearestRoadPoint(bx, by);
-
-        // Совсем нет дорог — идём напрямую
         if (!nearA || !nearB) return [{ x: bx, y: by }];
 
-        // Если ближайшая к цели точка — та же самая (обе рядом с одной дорогой),
-        // всё равно прокладываем по дороге, но без лишних петель.
         const direct = dist(ax, ay, bx, by);
         const viaRoad = nearA.d + dist(nearA.x, nearA.y, nearB.x, nearB.y) + nearB.d;
-
-        // Порог «не объезжать» ослаблен до 2.0× — бот почти всегда предпочтёт дорогу.
         if (viaRoad > direct * 2.0) return [{ x: bx, y: by }];
 
         const samples = this._getRoadSamples();
@@ -149,33 +146,19 @@ export class AI {
         const iB = nearB.index;
 
         const pts = [];
-        // 1) Дойти от текущей позиции до точки выхода на дорогу
         pts.push({ x: nearA.x, y: nearA.y });
 
-        // 2) Пройти по дороге от nearA до nearB через каждую промежуточную точку
         if (iA >= 0 && iB >= 0) {
-            if (iA === iB) {
-                // уже на нужной точке дороги — ничего дополнительно
-            } else if (iA < iB) {
-                for (let i = iA + 1; i <= iB; i++) {
-                    pts.push({ x: samples[i].x, y: samples[i].y });
-                }
-            } else {
-                // идём в обратную сторону
-                for (let i = iA - 1; i >= iB; i--) {
-                    pts.push({ x: samples[i].x, y: samples[i].y });
-                }
+            if (iA < iB) {
+                for (let i = iA + 1; i <= iB; i++) pts.push({ x: samples[i].x, y: samples[i].y });
+            } else if (iA > iB) {
+                for (let i = iA - 1; i >= iB; i--) pts.push({ x: samples[i].x, y: samples[i].y });
             }
         }
-
-        // 3) Съезд с дороги к цели
         pts.push({ x: bx, y: by });
         return pts;
     }
 
-    // ===== МАРШРУТ «ВДОЛЬ ДОРОГ» ДЛЯ ПЕХОТЫ =====
-    // Идём по точкам дороги, но со сдвигом в сторону (лесополоса).
-    // Шаг 2 — чтобы не генерить слишком много waypoints (пехота медленная).
     _routeAlongRoads(ax, ay, bx, by, sideOffset = 55) {
         const nearA = this._nearestRoadPoint(ax, ay);
         const nearB = this._nearestRoadPoint(bx, by);
@@ -184,11 +167,8 @@ export class AI {
         const samples = this._getRoadSamples();
         const iA = nearA.index;
         const iB = nearB.index;
-
-        // Стабильная сторона обхода (чтобы пехота не метался влево-вправо)
         const sideSign = this._detourSideFor(ax + ay) || 1;
 
-        // Строим касательную в точке, чтобы получить нормаль для сдвига
         const tangentAt = (i) => {
             const a = samples[Math.max(0, i - 1)];
             const b = samples[Math.min(samples.length - 1, i + 1)];
@@ -207,10 +187,7 @@ export class AI {
             });
         };
 
-        // 1) Выход на «обочину» у старта
         pushSide(iA);
-
-        // 2) Вдоль дороги — каждый 2-й семпл
         if (iA < iB) {
             for (let i = iA + 2; i <= iB; i += 2) pushSide(i);
             if ((iB - iA) % 2 !== 0) pushSide(iB);
@@ -218,8 +195,6 @@ export class AI {
             for (let i = iA - 2; i >= iB; i -= 2) pushSide(i);
             if ((iA - iB) % 2 !== 0) pushSide(iB);
         }
-
-        // 3) Съезд к цели
         pts.push({ x: bx, y: by });
         return pts;
     }
@@ -229,26 +204,117 @@ export class AI {
         return n ? 1 : -1;
     }
 
-    // Единая точка входа для маршей ИИ.
+    _cityOnPath(ax, ay, bx, by, margin = 40) {
+        const dx = bx - ax, dy = by - ay;
+        const lenSq = dx * dx + dy * dy;
+        if (lenSq < 1) return null;
+        for (const cp of this.G.cps) {
+            let t = ((cp.x - ax) * dx + (cp.y - ay) * dy) / lenSq;
+            t = Math.max(0, Math.min(1, t));
+            const px = ax + dx * t, py = ay + dy * t;
+            if (dist(px, py, cp.x, cp.y) <= cp.radius + margin) return cp;
+        }
+        return null;
+    }
+
+    _evaluateCityForPath(u, cp) {
+        if (cp.owner === this.G.ai) return 'pass';
+        if (cp.owner === 'neutral') return 'capture';
+
+        const mySquad = this.G.units.filter(e =>
+            e.faction === this.G.ai && e.hp > 0 && !e.aoe &&
+            dist(e.x, e.y, u.x, u.y) < 500
+        ).length;
+        const defenders = this.G.units.filter(e =>
+            e.faction === this.G.faction && e.hp > 0 &&
+            dist(e.x, e.y, cp.x, cp.y) <= cp.radius + 80
+        ).length;
+
+        if (this.G.isCityDefenseBroken(cp)) {
+            return (mySquad >= defenders + 1) ? 'capture' : 'bypass';
+        }
+        return (mySquad >= defenders * 1.5 + 2) ? 'attack' : 'bypass';
+    }
+
     _issueRoadMarch(u, targetX, targetY) {
         if (!u || u.hp <= 0) return;
-        // Для пехоты — вдоль дорог (с боковым смещением).
-        // Для техники — по дорогам (по каждой точке).
-        const pts = isInfUnit(u)
-            ? this._routeAlongRoads(u.x, u.y, targetX, targetY, 55)
-            : this._routeByRoads(u.x, u.y, targetX, targetY);
+        
+        if (isInfUnit(u) && Math.random() < 0.5 && !u._squadGroup) {
+            const nearbyInf = this.G.units.filter(other => 
+                other !== u && other.faction === this.G.ai && other.hp > 0 && 
+                isInfUnit(other) && !other._squadGroup && other.tx === undefined &&
+                dist(u.x, u.y, other.x, other.y) <= 50
+            );
+            
+            if (nearbyInf.length >= 4) {
+                const squad = [u, ...nearbyInf.slice(0, 4)];
+                const groupId = 'sq_' + Math.random().toString(36).substr(2, 5);
+                
+                squad.forEach(member => {
+                    member._squadGroup = groupId;
+                    member._squadLeader = u;
+                    const ox = (Math.random() - 0.5) * 40;
+                    const oy = (Math.random() - 0.5) * 40;
+                    this._routeInfantryWithCover(member, targetX + ox, targetY + oy);
+                });
+                return;
+            }
+        }
+
+        if (isInfUnit(u)) {
+            this._routeInfantryWithCover(u, targetX, targetY);
+        } else {
+            let pts = this._routeByRoads(u.x, u.y, targetX, targetY);
+            this._queueWaypoints(u, pts);
+        }
+    }
+
+    _routeInfantryWithCover(u, targetX, targetY) {
+        let pts = this._routeAlongRoads(u.x, u.y, targetX, targetY, 55);
+        let prev = { x: u.x, y: u.y };
+        let bypassedCities = 0;
+        
+        for (let i = 0; i < pts.length; i++) {
+            const city = this._cityOnPath(prev.x, prev.y, pts[i].x, pts[i].y);
+            if (city) {
+                const action = this._evaluateCityForPath(u, city);
+                
+                if (action === 'bypass') {
+                    bypassedCities++;
+                    if (bypassedCities > 5) break;
+                    
+                    const ang = Math.atan2(prev.y - city.y, prev.x - city.x) || 0;
+                    const off = city.radius + 80; 
+                    const detourX = city.x + Math.cos(ang) * off;
+                    const detourY = city.y + Math.sin(ang) * off;
+                    pts.splice(i, 0, { x: detourX, y: detourY });
+                } else if (action === 'capture' || action === 'attack') {
+                    const tx = city.x + (Math.random() - 0.5) * city.radius * 0.6;
+                    const ty = city.y + (Math.random() - 0.5) * city.radius * 0.6;
+                    u.captureTarget = city;
+                    u.squadAttack = (action === 'attack');
+                    this._queueWaypoints(u, [{ x: tx, y: ty }]);
+                    return;
+                }
+            }
+            prev = pts[i];
+        }
         this._queueWaypoints(u, pts);
     }
 
     _queueWaypoints(u, pts) {
         if (!pts || pts.length === 0) return;
+        if (pts.length > 50) {
+            const step = Math.ceil(pts.length / 50);
+            pts = pts.filter((_, i) => i % step === 0 || i === pts.length - 1);
+        }
         u._wpQueue = pts.slice();
-        this._nextWaypoint(u);
     }
 
     _nextWaypoint(u) {
         if (!u._wpQueue || u._wpQueue.length === 0) {
             u._wpQueue = null;
+            if (u._squadGroup) u._squadGroup = null;
             return;
         }
         const next = u._wpQueue.shift();
@@ -261,7 +327,6 @@ export class AI {
         u.detourSide = undefined;
     }
 
-    // Скрытный подход (для снайперов) — 2 точки в обход дорог.
     _stealthApproach(ax, ay, bx, by) {
         const mid = { x: (ax + bx) / 2, y: (ay + by) / 2 };
         const near = this._nearestRoadPoint(mid.x, mid.y);
@@ -288,7 +353,6 @@ export class AI {
         this.timer++;
 
         // ===== ОБСЛУЖИВАНИЕ WAYPOINTS =====
-        // Если у юнита есть очередь и он дошёл до текущей точки (tx === undefined) — выдаём следующую.
         for (const u of this.G.units) {
             if (u.faction !== this.G.ai || u.hp <= 0) continue;
             if (u._wpQueue && u._wpQueue.length > 0 && u.tx === undefined) {
@@ -384,9 +448,16 @@ export class AI {
             this.strategicBehavior();
             this.manageArtillery();
             this.manageLogistics();
+            this.manageAILogisticsTrucks();
             this.handleDamagedVehicles();
             this.buildFortifications();
             this.manageRaiders();
+            
+            // ===== НОВОЕ: Штурмовые группы и разведка =====
+            this.manageStrikeGroups();
+            this.updateStrikeGroups();
+            this.manageScouts();
+
             if (!spawnedThisTick) this.defensiveReactions();
             return;
         }
@@ -461,11 +532,60 @@ export class AI {
         this.strategicBehavior();
         this.manageArtillery();
         this.manageLogistics();
+        this.manageAILogisticsTrucks();
         this.handleDamagedVehicles();
         this.buildFortifications();
         this.manageCityDefenses();
         this.manageRaiders();
+
+        // ===== НОВОЕ: Штурмовые группы и разведка =====
+        this.manageStrikeGroups();
+        this.updateStrikeGroups();
+        this.manageScouts();
+
         if (!spawnedThisTick) this.defensiveReactions();
+    }
+
+    // ===== ЛОГИСТИКА ИИ =====
+    manageAILogisticsTrucks() {
+        if (this.timer % 300 !== 0) return;
+
+        const trucks = this.G.units.filter(u => 
+            u.faction === this.G.ai && u.type === 'truck' && u.hp > 0 && 
+            !u._logisticsRole && u.tx === undefined
+        );
+
+        const aiCities = this.G.cps.filter(c => c.owner === this.G.ai);
+        if (aiCities.length < 2) return;
+
+        for (const truck of trucks) {
+            if (Math.random() < 0.5) continue;
+
+            const from = aiCities[Math.floor(Math.random() * aiCities.length)];
+            let to = aiCities[Math.floor(Math.random() * aiCities.length)];
+            while (to === from && aiCities.length > 1) {
+                to = aiCities[Math.floor(Math.random() * aiCities.length)];
+            }
+
+            truck._logisticsRole = 'patrol';
+            truck._logisticsFrom = from;
+            truck._logisticsTo = to;
+
+            const pts = this._routeByRoads(truck.x, truck.y, to.x, to.y);
+            this._queueWaypoints(truck, pts);
+        }
+
+        this.G.units.forEach(u => {
+            if (u.faction === this.G.ai && u.type === 'truck' && u._logisticsRole === 'patrol') {
+                if (u.tx === undefined && u._wpQueue && u._wpQueue.length === 0) {
+                    const next = u._logisticsFrom;
+                    u._logisticsFrom = u._logisticsTo;
+                    u._logisticsTo = next;
+                    const pts = this._routeByRoads(u.x, u.y, next.x, next.y);
+                    this._queueWaypoints(u, pts);
+                }
+            }
+        });
     }
 
     // ===== СПЕЦТЕХНИКА =====
@@ -617,7 +737,7 @@ export class AI {
         const idle = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 &&
             u.tx === undefined && !u.aoe &&
-            !this.isSupportUnit(u)
+            !this.isSupportUnit(u) && !this.isScoutUnit(u) && !u._strikeGroupId
         );
         if (idle.length === 0) return;
 
@@ -690,7 +810,7 @@ export class AI {
             const candidates = this.G.units.filter(u =>
                 u.faction === this.G.ai && u.hp > 0 && isInfUnit(u) &&
                 !u.aoe && !u.garrisonedAt && u.isScout !== true &&
-                !u.baseDefender && !u.isSniperPost
+                !u.baseDefender && !u.isSniperPost && !u._strikeGroupId && !u.isScoutInfantry
             ).sort((a, b) => {
                 const oa = (a.tx === undefined ? 0 : 1);
                 const ob = (b.tx === undefined ? 0 : 1);
@@ -728,7 +848,7 @@ export class AI {
 
         const combatVehicles = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 && !isInfUnit(u) &&
-            !this.isSupportUnit(u)
+            !this.isSupportUnit(u) && !this.isScoutUnit(u) && !u._strikeGroupId
         );
         const extra = combatVehicles.length > 6 ? 1 : 0;
         const desired = 2 + extra;
@@ -736,6 +856,7 @@ export class AI {
         if (!this.baseDefenders) this.baseDefenders = [];
         this.baseDefenders = this.baseDefenders.filter(u => {
             if (u.hp <= 0 || u.faction !== this.G.ai || u.baseDefender !== true) return false;
+            if (u._strikeGroupId) { u.baseDefender = false; return false; } // Отпускаем в штурм
             if (dist(u.x, u.y, base.x, base.y) > base.radius + 260) {
                 u.baseDefender = false;
                 return false;
@@ -750,8 +871,8 @@ export class AI {
         if (freeSpots > 0) {
             const candidates = this.G.units.filter(u =>
                 u.faction === this.G.ai && u.hp > 0 && !isInfUnit(u) &&
-                !this.isSupportUnit(u) && !u.baseDefender &&
-                !u.garrisonedAt && u.orderOrigin === undefined &&
+                !this.isSupportUnit(u) && !u.baseDefender && !this.isScoutUnit(u) &&
+                !u.garrisonedAt && u.orderOrigin === undefined && !u._strikeGroupId &&
                 !u.retreatToBase && u.hp >= (u.maxHp || 100) * 0.5
             ).sort((a, b) => {
                 const ta = isArtLike(a) ? 1 : 0;
@@ -947,7 +1068,7 @@ export class AI {
         const holdChance = this.getHoldGroundChance();
         const vehicles = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 &&
-            !isInfUnit(u) && !this.isSupportUnit(u)
+            !isInfUnit(u) && !this.isSupportUnit(u) && !this.isScoutUnit(u) && !u._strikeGroupId
         );
         for (const v of vehicles) {
             if (v.orderOrigin !== undefined) continue;
@@ -970,7 +1091,7 @@ export class AI {
 
         const damaged = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 &&
-            !isInfUnit(u) && !this.isSupportUnit(u) &&
+            !isInfUnit(u) && !this.isSupportUnit(u) && !this.isScoutUnit(u) && !u._strikeGroupId &&
             u.hp < (u.maxHp || 100) * 0.5
         );
         if (damaged.length === 0) return;
@@ -1026,8 +1147,8 @@ export class AI {
         const target = threatened[0];
         const idle = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 && u.tx === undefined && !u.aoe &&
-            !u.retreatToBase &&
-            !this.isSupportUnit(u)
+            !u.retreatToBase && !u._strikeGroupId &&
+            !this.isSupportUnit(u) && !this.isScoutUnit(u)
         );
         idle.slice(0, 4).forEach(u => {
             const tx = target.x + (Math.random() - 0.5) * 60;
@@ -1428,16 +1549,20 @@ export class AI {
         const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory');
         if (!factory) return;
 
+                if (unit.revealRadius || this.isScoutUnit(unit)) {
+            this.assignScoutPatrol(unit);
+            return;
+        }
         let types = [];
         if (this.G.ai === 'wardens') {
             types = ['devitt', 'niska'];
-            if (this.difficulty >= 1) types.push('king_spire');
+            if (this.difficulty >= 1) types.push('king_spire', 'warden_scout_car');
             if (this.difficulty >= 2) {
                 types.push('silverhand', 'gallagher_highwayman', 'gallagher_outlaw');
             }
         } else {
             types = ['hatchet', 'javelin'];
-            if (this.difficulty >= 1) types.push('scorpion');
+            if (this.difficulty >= 1) types.push('scorpion', 'colonial_scout_car');
             if (this.difficulty >= 2) {
                 types.push('nemesis', 'falchion', 'spatha');
             }
@@ -1470,7 +1595,7 @@ export class AI {
         const unit = createVehicle(type, this.G.ai, factory.x + 60, factory.y + 60);
         this.G.units.push(unit);
 
-        if (unit.revealRadius) {
+        if (unit.revealRadius || this.isScoutUnit(unit)) {
             this.assignScoutPatrol(unit);
             return;
         }
@@ -1555,8 +1680,8 @@ export class AI {
         return this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 && !u.aoe && u.tx === undefined &&
             !u.retreatToBase && !u.garrisonedAt &&
-            !this.isSupportUnit(u) &&
-            !u.baseDefender && !u.isSniperPost && !u.raiderSquad
+            !this.isSupportUnit(u) && !this.isScoutUnit(u) &&
+            !u.baseDefender && !u.isSniperPost && !u.raiderSquad && !u._strikeGroupId
         );
     }
 
@@ -1656,9 +1781,10 @@ export class AI {
             u.faction === this.G.ai && u.hp > 0 &&
             !u.aoe &&
             !u.baseDefender &&
-            !this.isSupportUnit(u) &&
+            !this.isSupportUnit(u) && !this.isScoutUnit(u) &&
             !u.garrisonedAt &&
-            !u.isSniperPost
+            !u.isSniperPost &&
+            !u._strikeGroupId // Штурмовые группы идут сами
         );
         aiUnits.forEach(unit => {
             const tx = target.x + (Math.random() - 0.5) * 50;
@@ -1746,7 +1872,7 @@ export class AI {
             u.hp > 0 &&
             u.tx === undefined &&
             u !== artillery &&
-            !this.isSupportUnit(u) &&
+            !this.isSupportUnit(u) && !this.isScoutUnit(u) && !u._strikeGroupId &&
             (isInfUnit(u) || u.type === 'devitt' || u.type === 'hatchet' ||
              u.type === 'gallagher_highwayman' || u.type === 'falchion' ||
              u.type === 'niska' || u.type === 'javelin')
@@ -1832,7 +1958,7 @@ export class AI {
             !u.isSniperPost && !u.isMedic &&
             u.type !== 'sniper' && u.type !== 'poacher_colonist' &&
             u.garrisonedAt === undefined && !u.baseDefender &&
-            !u.raiderSquad
+            !u.raiderSquad && !u._strikeGroupId && !u.isScoutInfantry
         );
         if (pool.length < 3) return;
 
@@ -1879,7 +2005,10 @@ export class AI {
         const squads = [];
         const used = new Set();
         let idx = 0;
-        while (true) {
+        
+        let loopGuard = 0;
+        
+        while (loopGuard++ < 5) {
             const squad = [];
             const size = minSize + Math.floor(Math.random() * (maxSize - minSize + 1));
             for (let k = 0; k < size; k++) {
@@ -1927,5 +2056,187 @@ export class AI {
             Math.abs(((a - angleToUnit + Math.PI * 3) % (Math.PI * 2)) - Math.PI) <
             Math.abs(((best - angleToUnit + Math.PI * 3) % (Math.PI * 2)) - Math.PI) ? a : best
         );
+    }
+
+    // ===== ШТУРМОВЫЕ ГРУППЫ И РАЗВЕДКА =====
+    
+    manageStrikeGroups() {
+        // Очищаем мертвые отряды
+        this.strikeGroups = this.strikeGroups.filter(g => 
+            g.units.some(u => u.hp > 0)
+        );
+
+        // Раз в 300 тиков пытаемся сформировать новый отряд
+        if (this.timer % 300 !== 0) return;
+
+        // Если отрядов слишком много, не плодим новые
+        if (this.strikeGroups.length >= 3) return;
+
+        const base = this.getAIMainBase();
+        if (!base) return;
+
+        // Ищем свободных юнитов на базе (радиус 400)
+        const freeUnits = this.G.units.filter(u => 
+            u.faction === this.G.ai && u.hp > 0 &&
+            dist(u.x, u.y, base.x, base.y) < 400 &&
+            !u._strikeGroupId &&
+            !u.isSniperPost && !u.baseDefender && !this.isScoutUnit(u)
+        );
+
+        // Ищем 1 технику
+        const tank = freeUnits.find(u => !isInfUnit(u) && !this.isSupportUnit(u));
+        if (!tank) return;
+
+        // Ищем 4 пехотинцев, 1 из которых должен быть медиком (если есть)
+        const inf = freeUnits.filter(u => isInfUnit(u) && u !== tank);
+        const medic = inf.find(u => u.isMedic || u.type === 'medic_varden' || u.type === 'medic_colonist');
+        const others = inf.filter(u => u !== medic);
+        
+        if (others.length < 3) return; // Не хватает пехоты
+
+        const squad = [tank];
+        if (medic) squad.push(medic);
+        squad.push(...others.slice(0, 4 - (medic ? 1 : 0)));
+
+        // Выбираем цель (ближайший нейтральный или вражеский город)
+        const targets = this.G.cps.filter(c => c.owner !== this.G.ai);
+        if (targets.length === 0) return;
+
+        const target = targets.reduce((best, cp) => 
+            dist(base.x, base.y, cp.x, cp.y) < dist(base.x, base.y, best.x, best.y) ? cp : best
+        );
+
+        // Создаем группу
+        const groupId = 'strike_' + Math.random().toString(36).substr(2, 5);
+        this.strikeGroups.push({
+            id: groupId,
+            units: squad,
+            target: target,
+            status: 'gathering',
+            baseX: base.x,
+            baseY: base.y
+        });
+
+        squad.forEach(u => {
+            u._strikeGroupId = groupId;
+            u._originalSpd = u.spd; // Сохраняем скорость
+        });
+        aiLog(`[AI][STRIKE] Сформирована штурмовая группа (${squad.length} чел.) на цель "${target.name}"`);
+    }
+
+    updateStrikeGroups() {
+        for (const group of this.strikeGroups) {
+            // Если цель захвачена или уничтожена — распускаем
+            if (group.target.owner === this.G.ai) {
+                group.units.forEach(u => {
+                    u._strikeGroupId = null;
+                    if (u._originalSpd) u.spd = u._originalSpd;
+                });
+                continue;
+            }
+
+            const aliveUnits = group.units.filter(u => u.hp > 0);
+            if (aliveUnits.length === 0) continue;
+
+            // Определяем самую медленную скорость в группе
+            const minSpeed = Math.min(...aliveUnits.map(u => u._originalSpd || u.spd || 0.5));
+            const leader = aliveUnits[0];
+
+            if (group.status === 'gathering') {
+                // Точка сбора чуть в стороне от базы
+                const gatherX = group.baseX;
+                const gatherY = group.baseY - 150;
+
+                let allArrived = true;
+                aliveUnits.forEach(u => {
+                    if (dist(u.x, u.y, gatherX, gatherY) > 80) {
+                        allArrived = false;
+                        if (u.tx === undefined || dist(u.tx, u.ty, gatherX, gatherY) > 20) {
+                            u.tx = gatherX + (Math.random() - 0.5) * 50;
+                            u.ty = gatherY + (Math.random() - 0.5) * 50;
+                        }
+                    }
+                });
+
+                if (allArrived) {
+                    group.status = 'moving';
+                }
+            } 
+            else if (group.status === 'moving') {
+                const targetX = group.target.x;
+                const targetY = group.target.y;
+
+                if (dist(leader.x, leader.y, targetX, targetY) < group.target.radius + 50) {
+                    group.status = 'attacking';
+                    continue;
+                }
+
+                if (leader.tx === undefined) {
+                    this._issueRoadMarch(leader, targetX, targetY);
+                }
+
+                aliveUnits.forEach(u => {
+                    if (u === leader) return;
+
+                    if (dist(u.x, u.y, leader.x, leader.y) > 300) {
+                        u.x = leader.x + (Math.random() - 0.5) * 40;
+                        u.y = leader.y + (Math.random() - 0.5) * 40;
+                    }
+
+                    if (dist(u.x, u.y, leader.x, leader.y) > 60) {
+                        u.tx = leader.x;
+                        u.ty = leader.y;
+                    } else {
+                        u.tx = undefined;
+                        u.ty = undefined;
+                    }
+                    
+                    u.spd = minSpeed; // Ограничиваем скорость
+                });
+            }
+            else if (group.status === 'attacking') {
+                aliveUnits.forEach(u => {
+                    u.spd = u._originalSpd || u.spd; // Возвращаем скорость для боя
+                    if (u.tx === undefined && !u.aoe) {
+                        const angle = Math.random() * Math.PI * 2;
+                        u.tx = group.target.x + Math.cos(angle) * group.target.radius * 0.5;
+                        u.ty = group.target.y + Math.sin(angle) * group.target.radius * 0.5;
+                        u.captureTarget = group.target;
+                    }
+                });
+            }
+        }
+    }
+
+    manageScouts() {
+        if (this.timer % 600 !== 0) return; // Раз в 10 секунд
+
+        // Ищем разведчиков без задания
+        const scouts = this.G.units.filter(u => 
+            u.faction === this.G.ai && u.hp > 0 && 
+            this.isScoutUnit(u) &&
+            u.tx === undefined
+        );
+
+        if (scouts.length === 0) return;
+
+        const enemyCities = this.G.cps.filter(c => c.owner === this.G.faction);
+        if (enemyCities.length === 0) return;
+
+        for (const scout of scouts) {
+            const targetCity = enemyCities.find(c => 
+                !this.G.units.some(other => 
+                    other !== scout && 
+                    this.isScoutUnit(other) &&
+                    other.tx !== undefined && 
+                    dist(other.tx, other.ty, c.x, c.y) < 100
+                )
+            );
+
+            if (targetCity) {
+                const pts = this._stealthApproach(scout.x, scout.y, targetCity.x, targetCity.y);
+                this._queueWaypoints(scout, pts);
+            }
+        }
     }
 }

@@ -339,7 +339,7 @@ export function generateRoadsideVegetation() {
     ROAD_BUSHES.length = 0;
 
     for (const road of ROADS) {
-        const STEPS = 22;
+        const STEPS = 40; // Было 22 — увеличили плотность
         for (let i = 0; i <= STEPS; i++) {
             const t = i / STEPS;
             const p = roadPoint(road, t);
@@ -348,36 +348,40 @@ export function generateRoadsideVegetation() {
             const len = Math.hypot(dx, dy) || 1;
             const nx = -dy / len, ny = dx / len;
 
-            // Деревья по обе стороны на расстоянии 30-55 px от дороги
+            // Деревья по обе стороны (3 ряда для густоты)
             for (const side of [-1, 1]) {
-                if (rnd() < 0.35) continue;
-                const off = (30 + rnd() * 25) * GM;
-                const tx = p.x + nx * side * off;
-                const ty = p.y + ny * side * off;
-                if (tx < 0 || ty < 0 || tx > MAP_W || ty > MAP_H) continue;
-                let onLake = false;
-                for (const lake of LAKES) {
-                    if (Math.hypot(tx - px(lake.col), ty - py(lake.row)) < lake.radius + 20 * GM) {
-                        onLake = true; break;
+                for (let row = 0; row < 3; row++) {
+                    if (rnd() < 0.2) continue; // Пропускаем некоторые для естественности
+                    const off = (35 + row * 25 + rnd() * 15) * GM;
+                    const tx = p.x + nx * side * off;
+                    const ty = p.y + ny * side * off;
+                    if (tx < 0 || ty < 0 || tx > MAP_W || ty > MAP_H) continue;
+                    
+                    let onLake = false;
+                    for (const lake of LAKES) {
+                        if (Math.hypot(tx - px(lake.col), ty - py(lake.row)) < lake.radius + 20 * GM) {
+                            onLake = true; break;
+                        }
                     }
+                    if (onLake) continue;
+                    
+                    const r = rnd();
+                    ROAD_TREES.push({
+                        x: tx, y: ty,
+                        size: (9 + rnd() * 7) * GM,
+                        type: r < 0.6 ? 'pine' : 'oak',
+                    });
                 }
-                if (onLake) continue;
-                const r = rnd();
-                ROAD_TREES.push({
-                    x: tx, y: ty,
-                    size: (9 + rnd() * 7) * GM,
-                    type: r < 0.6 ? 'pine' : 'oak',
-                });
             }
 
-            // Кусты ближе к дороге (8-20 px)
+            // Кусты (еще ближе к дороге)
             for (const side of [-1, 1]) {
-                if (rnd() < 0.5) continue;
-                const off = (8 + rnd() * 14) * GM;
+                if (rnd() < 0.3) continue;
+                const off = (12 + rnd() * 15) * GM;
                 const bx = p.x + nx * side * off;
                 const by = p.y + ny * side * off;
                 if (bx < 0 || by < 0 || bx > MAP_W || by > MAP_H) continue;
-                ROAD_BUSHES.push({ x: bx, y: by, size: (4 + rnd() * 4) * GM });
+                ROAD_BUSHES.push({ x: bx, y: by, size: (5 + rnd() * 5) * GM });
             }
         }
     }
@@ -397,7 +401,7 @@ export function generateConcealZones() {
 
     // 2) Дорожные кусты
     for (const b of ROAD_BUSHES) {
-        addConcealZone(b.x, b.y, b.size * 1.4, 'bush');
+        addConcealZone(b.x, b.y, b.size * 2, 'bush');
     }
 
     // 3) Лесные массивы вдоль дорог — группируем ROAD_TREES в кластеры

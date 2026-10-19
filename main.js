@@ -160,6 +160,10 @@ const VEHICLE_INFO = {
     fuel_truck: { name: 'Бензовоз', icon: '⛽', stats: 'HP:80 SPD:1.3 Без оружия Пополняет топливо (запас 400)', cost: VEHICLE_COSTS.fuel_truck },
     engineer: { name: 'Инженер', icon: '🔧', stats: 'HP:120 SPD:1.1 Без оружия Ремонт в радиусе 100 (запас 500)', cost: VEHICLE_COSTS.engineer },
     flatbed: { name: 'Flatbed', icon: '🚛', stats: 'HP:150 SPD:1.0 Без оружия Снаряды для артиллерии (запас 300)', cost: VEHICLE_COSTS.flatbed },
+
+     warden_scout_car: { name: 'Warden Recon Car', icon: '📡', stats: 'HP:120 SPD:2.2 Маскировка: Высокая Обзор: 200 (Не атакует)', cost: VEHICLE_COSTS.warden_scout_car },
+    colonial_scout_car: { name: 'Colonial Recon Car', icon: '📡', stats: 'HP:110 SPD:2.4 Маскировка: Высокая Обзор: 180 (Не атакует)', cost: VEHICLE_COSTS.colonial_scout_car },
+    scout_infantry: { name: 'Разведчик', icon: '👁️', stats: 'HP:25 SPD:0.8 Обзор: 140. Скрытен в кустах (виден с 5, иначе с 50)', cost: VEHICLE_COSTS.scout_infantry },
 };
 
 const DEFENSE_UPGRADE_INFO = [
@@ -441,6 +445,7 @@ function startGame() {
 
         lastFrameTime = 0;
         logicAccumulator = 0;
+        startDefensePanelUpdater();
         gameLoop();
     } catch (error) {
         console.error('❌ Ошибка при запуске игры:', error);
@@ -590,7 +595,14 @@ function issueMoveOrder(selUnits, worldX, worldY) {
         }
     });
 }
-
+function screenToWorld(e) {
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width  / rect.width;
+    const sy = canvas.height / rect.height;
+    const cx = (e.clientX - rect.left) * sx;
+    const cy = (e.clientY - rect.top)  * sy;
+    return { x: cx + game.cam.x, y: cy + game.cam.y, screenX: cx, screenY: cy };
+}
 function handleMouseDown(e) {
     if (!game) return;
     e.preventDefault();
@@ -599,8 +611,9 @@ function handleMouseDown(e) {
     const isDouble = (now - lastClickTime) < 350;
     lastClickTime = now;
 
-    const worldX = e.clientX + game.cam.x;
-    const worldY = e.clientY + game.cam.y;
+    const sw = screenToWorld(e);
+    const worldX = sw.x;
+    const worldY = sw.y;
 
     if (e.button === 2) {
         if (game.selected.length > 0) {
@@ -612,13 +625,15 @@ function handleMouseDown(e) {
     }
 
     // Миникарта — используем MAP_W/MAP_H (актуальные с учётом графики)
+    // Check minimap click (используем экранные координаты канваса)
     const mw = 180, mh = 120;
     const mx = canvas.width - mw - 10, my = canvas.height - mh - 50;
-    if (e.clientX >= mx && e.clientX <= mx + mw && e.clientY >= my && e.clientY <= my + mh) {
-        const clickX = (e.clientX - mx) / mw;
-        const clickY = (e.clientY - my) / mh;
-        game.cam.x = Math.max(0, Math.min(MAP_W - canvas.width, clickX * MAP_W - canvas.width / 2));
-        game.cam.y = Math.max(0, Math.min(MAP_H - canvas.height, clickY * MAP_H - canvas.height / 2));
+    if (sw.screenX >= mx && sw.screenX <= mx + mw && sw.screenY >= my && sw.screenY <= my + mh) {
+        const mapW = 3000, mapH = 2250;
+        const clickX = (sw.screenX - mx) / mw;
+        const clickY = (sw.screenY - my) / mh;
+        game.cam.x = Math.max(0, Math.min(mapW - canvas.width, clickX * mapW - canvas.width / 2));
+        game.cam.y = Math.max(0, Math.min(mapH - canvas.height, clickY * mapH - canvas.height / 2));
         return;
     }
 
@@ -703,13 +718,17 @@ function exitMoveMode() {
 
 function handleMouseMove(e) {
     if (!game) return;
-    game.mousePos = { x: e.clientX, y: e.clientY };
-
+      const sw = screenToWorld(e);
+    // mousePos хранится в экранных координатах канваса — их использует
+    // рендерер для подсветки (G.mousePos.x + cam.x = мировая точка).
+    game.mousePos = { x: sw.screenX, y: sw.screenY };
+    
+    // Edge scrolling
     const edge = 30;
-    if (e.clientX < edge) game.cam.x -= 5;
-    if (e.clientX > canvas.width - edge) game.cam.x += 5;
-    if (e.clientY < edge) game.cam.y -= 5;
-    if (e.clientY > canvas.height - edge) game.cam.y += 5;
+    if (sw.screenX < edge) game.cam.x -= 5;
+    if (sw.screenX > canvas.width - edge) game.cam.x += 5;
+    if (sw.screenY < edge) game.cam.y -= 5;
+    if (sw.screenY > canvas.height - edge) game.cam.y += 5;
 }
 
 window.toggleMoveMode = function() {
@@ -729,9 +748,9 @@ const PRODUCTION_TABS = [
 const FACTION_INFANTRY_TYPES = ['rifleman', 'mg_gunner', 'grenadier', 'sniper'];
 
 const TAB_TYPES = {
-    infantry: ['infantry', ...FACTION_INFANTRY_TYPES],
+    infantry: ['infantry', 'scout_infantry', ...FACTION_INFANTRY_TYPES],
     vehicles: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw', 'niska', 'spatha', 'talos', 'noble_widow',
-               'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin'],
+               'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'warden_scout_car', 'colonial_scout_car'],
     supply:   ['truck', 'fuel_truck', 'engineer', 'flatbed'],
     support:  ['warden_artillery120', 'warden_artillery150','colonial_artillery120','colonial_artillery150', 'hoplite', 'devitt_mmr', 'god_loader'],
 };

@@ -9,6 +9,13 @@ import { createVehicle, isInfUnit, isTechVehicle, INFANTRY_TYPES,
     getDefenseDamageVsTech, getUnitAttackDamage, ARTILLERY_TYPES,
     LOGISTICS_TYPES } from './vehicles.js';
 
+    const VEHICLE_HARD_DETECT_RADIUS = 50;
+
+function isVehicleTarget(u) {
+    if (!u) return false;
+    // Пехота — не «техника» для этого правила
+    return !isInfUnit(u);
+}
 const DS = () => detailScale();
 
 function baseSupplyRadius() { return SUPPLY_SYSTEM.baseSupplyRadius * DS(); }
@@ -313,7 +320,8 @@ export class Game {
             ];
             const hasTurret = !turretlessTypes.includes(u.type);
 
-            if (!isInfUnit(u) && hasTurret && u.lastHitDmg >= u.maxHp * 0.4) {
+             const currentTurrets = this.debris.filter(d => d.type === 'turret').length;
+            if (!isInfUnit(u) && hasTurret && u.lastHitDmg >= u.maxHp * 0.4 && currentTurrets < 60) {
                 const angle = Math.random() * Math.PI * 2;
                 const distVal = 15 + Math.random() * 25;
                 this.debris.push({
@@ -394,7 +402,14 @@ export class Game {
                 d.vy *= 0.96;
             }
             d.rot = 0;
-            if (d.type === 'turret') return true;
+            
+            // ФИКС УТЕЧКИ ПАМЯТИ: ограничиваем жизнь башен и удаляем их, если они далеко
+            if (d.type === 'turret') {
+                d.life = (d.life || 0) - 1;
+                if (d.life < 0) return false;
+                if (d.x < -500 || d.x > 3500 || d.y < -500 || d.y > 2750) return false;
+                return true;
+            }
             d.life--;
             return d.life > 0;
         });
@@ -737,9 +752,14 @@ export class Game {
             if (e.faction !== u.faction && e.hp > 0) {
                 if (fogEnabled) {
                     if (u.faction === this.faction) {
-                        if (!visibleSet || !visibleSet.has(e.id)) return;
+                        const isVisible = visibleSet && visibleSet.has(e.id);
+                        const canArtySee = u.aoe && e._lastKnownPos && (this.time - e._lastKnownPos.time < 300);
+                        if (!isVisible && !canArtySee) return;
                     } else {
-                        if (!this.unitDetectsEnemy(u, e)) return;
+                        if (!this.unitDetectsEnemy(u, e)) {
+                            const canArtySee = u.aoe && e._lastKnownPos && (this.time - e._lastKnownPos.time < 300);
+                            if (!canArtySee) return;
+                        }
                     }
                 }
                 const d = dist(u.x, u.y, e.x, e.y);
@@ -898,13 +918,12 @@ export class Game {
                                 damage *= u.infantryMultiplier || 2.5;
                             }
 
-                            if (u.dualGun) {
+                   if (u.dualGun) {
                                 attackTarget.takeDamage(damage, u, this);
-                                setTimeout(() => {
-                                    if (attackTarget.hp > 0 && this.units.includes(attackTarget)) {
-                                        attackTarget.takeDamage(Math.floor(damage * 0.7), u, this);
-                                    }
-                                }, 100);
+                                // Второй выстрел делаем мгновенно (или через 2 тика), чтобы не плодить таймеры в памяти
+                                if (attackTarget.hp > 0) {
+                                    attackTarget.takeDamage(Math.floor(damage * 0.7), u, this);
+                                }
                             }
 
                             if (u.grenadeLauncher && isInfUnit(attackTarget)) {
@@ -1242,7 +1261,10 @@ export class Game {
 
     getUnitVisibilityRange(u) {
         if (!u) return 0;
+        // Артиллерия и миномёты (все юниты со взрывом по площади) видят только на 100
         if (u.aoe || u.isArtillery || u.isMortar) return 100;
+        
+        // Обычные юниты видят на 20% больше радиуса своей стрельбы.
         return Math.round((u.range || 0) * 1.2);
     }
 
@@ -1265,13 +1287,6 @@ export class Game {
         return !!getConcealZoneAt(u.x, u.y);
     }
 
-    isUnitConcealed(u) {
-        if (!u || u.hp <= 0) return false;
-        const inf = isInfUnit(u);
-        if (!inf && (u.size || 20) > 24) return false;
-        return this.isUnitInCover(u);
-    }
-
     isUnitMoving(u) {
         if (!u) return false;
         if (u.tx === undefined || u.ty === undefined) return false;
@@ -1284,26 +1299,37 @@ export class Game {
     }
 
     getEffectiveStealth(u) {
+        if (!u) return 0;
         let base = this.getUnitStealth(u);
+        
         const inBush = this.isUnitInCover(u);
         const moving = this.isUnitMoving(u);
         const shooting = this.isUnitShooting(u);
+
         if (inBush) {
-            if (shooting) base *= 1.5;
-            else if (moving) base *= 4;
-            else base *= 10;
+            if (shooting) {
+                base *= 1.5;
+            } else if (moving) {
+                base *= 4;
+            } else {
+                base *= 10;
+            }
         } else if (shooting) {
             base *= 0.25;
         }
         return base;
     }
 
-    getMinDetectRadius(target) {
-        if (!target) return 0;
-        if (this.isUnitShooting(target)) return 40;
-        if (this.isUnitInCover(target) && !this.isUnitMoving(target)) return 18;
-        return 0;
+getMinDetectRadius(target) {
+    if (!target) return 0;
+    if (target.isScoutInfantry) {
+        if (this.isUnitInCover(target) && !this.isUnitMoving(target)) return 5;
+        return 50;
     }
+    if (this.isUnitShooting(target)) return 40;
+    if (this.isUnitInCover(target) && !this.isUnitMoving(target)) return 18;
+    return 0;
+}
 
     unitDetectsEnemy(viewer, target) {
         if (!viewer || !target || viewer.hp <= 0 || target.hp <= 0) return false;
@@ -1313,26 +1339,58 @@ export class Game {
         const d = dist(viewer.x, viewer.y, target.x, target.y);
         if (!Number.isFinite(d)) return false;
 
+        // ===== ЖЁСТКИЙ РАДИУС ОБНАРУЖЕНИЯ ТЕХНИКИ =====
+        // В пределах 50 любая техника (танки, БТР, артиллерия, миномёты,
+        // логистика) видна всегда — маскировка и кусты игнорируются.
+        if (d <= VEHICLE_HARD_DETECT_RADIUS && isVehicleTarget(target)) {
+            return true;
+        }
+
         const detectRange = this.getUnitDetectRange(viewer);
+
         if (d > detectRange) return false;
 
         const stealth = this.getEffectiveStealth(target);
         const minDetect = this.getMinDetectRadius(target);
-        const effective = Math.max(minDetect, detectRange - stealth);
-        return d <= effective;
+
+        // ИСПРАВЛЕННАЯ ФОРМУЛА
+        let effectiveRange = detectRange - stealth;
+
+        if (effectiveRange < minDetect) {
+            effectiveRange = minDetect;
+        }
+
+        return d <= effectiveRange;
     }
 
-    factionCanSee(faction, target) {
+     factionCanSee(faction, target) {
         if (!target || target.hp <= 0) return false;
         if (target.faction === faction) return true;
         if (!this.fogEnabled) return true;
 
+        // 1. Проверяем города/базы
         for (const cp of this.cps) {
             if (cp.owner !== faction) continue;
-            const vis = cp.radius + 100;
-            if (dist(cp.x, cp.y, target.x, target.y) <= vis) return true;
+            
+            // Город имеет радиус обнаружения 70 (базовый)
+            let detectRadius = 70;
+            
+            // Каждый уровень обороны: радиус обнаружения = дальность атаки
+            if (cp.defenseLevel > 0) {
+                const stats = this.getTerritoryDefenseStats(cp.defenseLevel);
+                detectRadius = Math.max(detectRadius, stats.range);
+            }
+
+            if (dist(cp.x, cp.y, target.x, target.y) <= detectRadius) return true;
         }
 
+        // 2. Проверяем здания
+        for (const b of this.buildings) {
+            if (b.faction !== faction || b.hp <= 0) continue;
+            if (dist(b.x, b.y, target.x, target.y) <= 400) return true;
+        }
+
+        // 3. Проверяем юнитов
         for (const u of this.units) {
             if (u.faction !== faction || u.hp <= 0) continue;
             if (this.unitDetectsEnemy(u, target)) return true;
@@ -1342,18 +1400,36 @@ export class Game {
 
     updateVisibility() {
         if (!this.fogEnabled) { this.visibleEnemyIds = null; return; }
-        if (this.time % 6 !== 0) return;
-
+        
         const set = new Set();
+        const allyViewers = this.units.filter(u => u.faction === this.faction && u.hp > 0);
+
         for (const enemy of this.units) {
             if (enemy.faction === this.faction || enemy.hp <= 0) continue;
-            if (this.factionCanSee(this.faction, enemy)) set.add(enemy.id);
+            
+            let visible = false;
+            for (const viewer of allyViewers) {
+                if (this.unitDetectsEnemy(viewer, enemy)) {
+                    visible = true;
+                    break;
+                }
+            }
+            
+            if (!visible && this.factionCanSee(this.faction, enemy)) {
+                visible = true;
+            }
+
+            if (visible) {
+                set.add(enemy.id);
+                enemy._lastKnownPos = { x: enemy.x, y: enemy.y, time: this.time };
+            }
         }
-        // ===== ЗДАНИЯ ТОЖЕ ПРЯЧУТСЯ В ТУМАНЕ =====
+
         for (const b of this.buildings) {
             if (b.faction === this.faction || !(b.hp > 0)) continue;
             if (this.factionCanSee(this.faction, b)) set.add(b.id);
         }
+
         this.visibleEnemyIds = set;
     }
 

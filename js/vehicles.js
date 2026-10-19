@@ -413,8 +413,8 @@ export class KingSpire extends Vehicle {
         this.revealRadius = 120;
         this.crew = 2;
         // Разведчик: видит лучше обычной техники
-        this.visionBase = Math.round(this.range * 1.2); // 168
-        this.detectRange = Math.round(this.range * 0.8); // 112
+        this.visionBase = Math.round(this.range * 1.5); // 168
+        this.detectRange = Math.round(this.range * 1.2); // 112
         this.stealth = 50;
     }
 }
@@ -925,6 +925,65 @@ export function isArtilleryUnit(u) {
 
 // ===== LOGISTICS VEHICLES =====
 
+// ===== РАЗВЕДЫВАТЕЛЬНЫЕ МАШИНЫ =====
+export class WardenScoutCar extends Vehicle {
+    constructor(faction, x, y) {
+        super('warden_scout_car', faction, x, y);
+        this.hp = this.maxHp = 120;
+        this.dmg = 0; // Не может атаковать
+        this.range = 0;
+        this.spd = 2.2; // Очень быстрая
+        this.cd = 0;
+        this.size = 18;
+        this.armor = 10;
+        this.label = 'Warden Recon Car';
+        this.tracked = false;
+        this.stealth = 150; // Очень хорошая маскировка
+        this.visionBase = 200; // Хороший обзор
+        this.detectRange = 120; 
+    }
+}
+
+export class ColonialScoutCar extends Vehicle {
+    constructor(faction, x, y) {
+        super('colonial_scout_car', faction, x, y);
+        this.hp = this.maxHp = 110;
+        this.dmg = 0;
+        this.range = 0;
+        this.spd = 2.4; // Чуть быстрее
+        this.cd = 0;
+        this.size = 18;
+        this.armor = 5;
+        this.label = 'Colonial Recon Car';
+        this.tracked = false;
+        this.stealth = 160; // Еще лучше маскировка
+        this.visionBase = 180; 
+        this.detectRange = 100;
+    }
+}
+
+// ===== ПЕХОТА-РАЗВЕДЧИК =====
+export class ScoutInfantry extends InfantryBase {
+    constructor(faction, x, y) {
+        super('scout_infantry', faction, x, y);
+        this.hp = this.maxHp = 25;
+        this.dmg = 0; // Не может атаковать
+        this.range = 0;
+        this.spd = 0.8; // Быстрее обычной пехоты
+        this.cd = 0;
+        this.label = 'Разведчик';
+        
+        // По ТЗ: обзор на 30% меньше машины (200 * 0.7 = 140)
+        this.visionBase = 140; 
+        this.detectRange = 50; // Пока идет пешком, виден с 50
+        
+        // Маскировка
+        this.stealth = 80;
+        // Спец. свойства для кустов (обрабатываются в game.js)
+        this.isScoutInfantry = true; 
+    }
+}
+
 export class MedicTruck extends Vehicle {
     constructor(faction, x, y) {
         super('medic_truck', faction, x, y);
@@ -1313,6 +1372,9 @@ export function createVehicle(type, faction, x, y) {
         medic_truck: MedicTruck,
         construction_truck: ConstructionTruck,
         fire_truck: FireTruck,
+
+         warden_scout_car: WardenScoutCar,
+        colonial_scout_car: ColonialScoutCar, 
     };
     const creator = map[type];
     if (!creator) {
@@ -1331,11 +1393,11 @@ export const FACTION_VEHICLES = {
               'gallagher_highwayman', 'niska', 'warden_artillery150',
               'warden_artillery120', 'truck', 'fuel_truck', 'engineer',
               'flatbed', 'gallagher_outlaw', 'niska_blinder', 'medic_truck',
-              'construction_truck', 'fire_truck'],
+              'construction_truck', 'fire_truck', 'warden_scout_car', 'warden_scout_car'],
     colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin',
                 'hoplite', 'colonial_artillery150', 'colonial_artillery120',
                 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha',
-                'medic_truck', 'god_loader', 'construction_truck', 'fire_truck'],
+                'medic_truck', 'god_loader', 'construction_truck', 'fire_truck', 'colonial_scout_car'],
 };
 
 // ===== Помощники по видам пехоты =====
@@ -1343,13 +1405,16 @@ export const INFANTRY_TYPES = [
     'rifleman', 'mg_gunner', 'grenadier', 'sniper',
     'assualt_varden', 'smuggler_varden', 'poacher_colonist',
     'medic_varden', 'medic_colonist',
+    'scout_infantry' // <-- ДОБАВЛЕНО
 ];
 
 export const FACTION_INFANTRY = {
     wardens:   ['rifleman', 'mg_gunner', 'grenadier', 'sniper',
-                'assualt_varden', 'smuggler_varden', 'medic_varden'],
+                'assualt_varden', 'smuggler_varden', 'medic_varden',
+                'scout_infantry'], // <-- ДОБАВЛЕНО
     colonials: ['rifleman', 'mg_gunner', 'grenadier', 'sniper',
-                'assualt_varden', 'poacher_colonist', 'medic_colonist'],
+                'assualt_varden', 'poacher_colonist', 'medic_colonist',
+                'scout_infantry'], // <-- ДОБАВЛЕНО
 };
 
 export function isInfUnit(u) {

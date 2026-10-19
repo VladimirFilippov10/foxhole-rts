@@ -275,6 +275,10 @@ export const VEHICLE_COSTS = {
     poacher_colonist:{ s: 40, c: 10, m: 10, buildTime: 18 }, // Браконьер
     medic_varden:    { s: 30, c: 10, m: 5, buildTime: 15 }, // Медик-пехотинец
     medic_colonist:  { s: 30, c: 10, m: 5, buildTime: 15 }, // Медик-пехотинец
+
+    warden_scout_car: { s: 30, c: 20, m: 10, buildTime: 15 },
+    colonial_scout_car: { s: 30, c: 20, m: 10, buildTime: 15 },
+    scout_infantry: { s: 15, c: 0, m: 0, buildTime: 8 },
 };
 
 export const BUILDING_COSTS = {

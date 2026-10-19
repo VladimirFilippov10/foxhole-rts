@@ -2,9 +2,28 @@
 import { COLORS, dist, getModeFlags } from './constants.js';
 import { ROADS, CITY_ZONES, TREES, BUSHES, ROCKS, GRASS_PATCHES, LAKES } from './map.js';
 import { isInfUnit } from './vehicles.js';
+let globalFogCanvas = null;
+let globalFogCtx = null;
+
+function getFogCanvas(w, h) {
+    if (!globalFogCanvas) {
+        globalFogCanvas = document.createElement('canvas');
+        globalFogCtx = globalFogCanvas.getContext('2d');
+    }
+    if (globalFogCanvas.width !== w || globalFogCanvas.height !== h) {
+        globalFogCanvas.width = w;
+        globalFogCanvas.height = h;
+    }
+    return { canvas: globalFogCanvas, ctx: globalFogCtx };
+}
 
 export function render(ctx, G, canvas) {
     const cam = G.cam;
+
+    // ===== ТУМАН ВОЙНЫ: объявляем ДО отрисовки =====
+    const fogEnabled = G.fogEnabled === true;
+    const visibleSet = G.visibleEnemyIds;
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Background - green terrain with variation
@@ -42,7 +61,16 @@ export function render(ctx, G, canvas) {
     // Resource mines
     G.mines.forEach(mine => drawMine(ctx, mine, cam));
 
-G.buildings.forEach(b => drawBuilding(ctx, b, cam));
+    // ===== ТУМАН ВОЙНЫ: рисуем ПОВЕРХ карты, но ПОД юнитами/зданиями =====
+    drawFogOverlay(ctx, G, cam, canvas);
+
+    // Здания — свои видны всегда, вражеские только если в зоне видимости
+    G.buildings.forEach(b => {
+        if (fogEnabled && b.faction !== G.faction) {
+            if (!visibleSet || !visibleSet.has(b.id)) return;
+        }
+        drawBuilding(ctx, b, cam);
+    });
 
     // ===== ДОМА ГОРОДОВ (горят, разрушаются) =====
     G.cps.forEach(cp => {
@@ -53,13 +81,14 @@ G.buildings.forEach(b => drawBuilding(ctx, b, cam));
     if (G.corpses) G.corpses.forEach(c => drawCorpse(ctx, c, cam));
 
     const hoveredUnit = getHoveredUnit(G, cam);
-    const fogEnabled = G.fogEnabled === true;
-    const visibleSet = G.visibleEnemyIds; 
+    
     G.units.forEach(u => {
-          if (fogEnabled && u.faction !== G.faction) {
-        if (!visibleSet || !visibleSet.has(u.id)) return;
-    }
-    drawUnit(ctx, u, cam, G.selected, hoveredUnit === u, G);
+        // Врага показываем только если он в зоне видимости. Своих — ВСЕГДА.
+        const isEnemy = u.faction !== G.faction;
+        if (fogEnabled && isEnemy) {
+            if (!visibleSet || !visibleSet.has(u.id)) return;
+        }
+        drawUnit(ctx, u, cam, G.selected, hoveredUnit === u, G);
 
         // Draw AoE target if set
         if (u.aoe && u.aoeTarget) {
@@ -142,13 +171,12 @@ G.buildings.forEach(b => drawBuilding(ctx, b, cam));
             }
             
             // 2. Отлетевшая башня
-                     // 2. Отлетевшая башня
             if (d.type === 'turret') {
                 ctx.save();
                 ctx.translate(x, y);
                 // ctx.rotate(d.angle); // УБРАЛИ ВРАЩЕНИЕ
                 
-                const col = COLORS[d.faction];
+                const col = COLORS[d.faction] || COLORS.neutral;
                 const sz = d.size || 20;
                 
                 // Башня (круг)
@@ -265,8 +293,6 @@ G.buildings.forEach(b => drawBuilding(ctx, b, cam));
 
     // Minimap
     drawMinimap(ctx, G, canvas);
-    // Туман войны рисуется ПОВЕРХ мира, но ПОД миникартой
-drawFogOverlay(ctx, G, cam, canvas);
 
     // Подсветка радиусов обороны при наведении на укрепление/город
     drawDefenseHoverHighlight(ctx, G, cam);
@@ -1202,7 +1228,7 @@ function drawCapturePoint(ctx, cp, cam) {
         ctx.setLineDash([]);
         
         // Draw visual fortifications based on level
-                // ===== НОВОЕ: передаём долю прочности для визуальной деградации =====
+        // ===== НОВОЕ: передаём долю прочности для визуальной деградации =====
         const maxHp = cp._defMaxHp || 0;
         const integrity = maxHp > 0
             ? Math.max(0, Math.min(1, (cp.defenseHp || 0) / maxHp))
@@ -1583,15 +1609,11 @@ function drawMine(ctx, mine, cam) {
 function drawBuilding(ctx, b, cam) {
     const x = b.x - cam.x;
     const y = b.y - cam.y;
-    const col = COLORS[b.faction];
+    const col = COLORS[b.faction] || COLORS.neutral;
     
     // Укрепления (бункеры)
     if (b.type && b.type.startsWith('bunker_')) {
         const sz = b.type === 'bunker_light' ? 30 : b.type === 'bunker_medium' ? 38 : 46;
-        
-        // ===== УБРАНА ОТЛАДКА («красная/последняя строчка» в консоли) =====
-        // Этот console.log на каждый бункер засорял лог и выглядел как
-        // «висящая ошибка» в конце консоли. Рендерер не должен логировать.
         
         // Если бункер строится - показываем процесс строительства
         if (b.isBuilding) {
@@ -1696,7 +1718,7 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
     const y = u.y - cam.y;
     if (x < -40 || x > ctx.canvas.width + 40 || y < -40 || y > ctx.canvas.height + 40) return;
     
-    const col = COLORS[u.faction];
+    const col = COLORS[u.faction] || COLORS.neutral;
     const sz = u.size;
     
     // Attack range circle (only when hovered or selected)
@@ -5498,12 +5520,7 @@ function drawMinimap(ctx, G, canvas) {
     
     // Cities on minimap (цвета фракций: Wardens — синий, Colonials — зелёный)
     G.cps.forEach(cp => {
-        // ФИКС СИНТАКСИСА: здесь было два объявления `const col` подряд —
-        // файл не разбирался вообще, вся игра падала при загрузке модуля
-        // рендера (что косвенно ломало и ИИ/юниты). Оставлено одно —
-        // через палитру COLORS (поддерживает обе фракции корректно).
         const col = cp.owner === 'neutral' ? COLORS.neutral.p : COLORS[cp.owner].p;
-       
         ctx.fillStyle = col;
         ctx.beginPath();
         ctx.arc(mx + cp.x * sx, my + cp.y * sy, 3, 0, Math.PI * 2);
@@ -5539,49 +5556,83 @@ function drawMinimap(ctx, G, canvas) {
     ctx.lineWidth = 2;
     ctx.strokeRect(mx - 2, my - 2, mw + 4, mh + 4);
 }
-// ===== ТУМАН ВОЙНЫ: затемнение невидимых зон =====
-// Рисуем чёрный слой поверх карты и «вырезаем» круги видимости
-// через destination-out с радиальным градиентом.
+
 function drawFogOverlay(ctx, G, cam, canvas) {
     if (!G.fogEnabled) return;
 
-    ctx.save();
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const { canvas: fogCanvas, ctx: fctx } = getFogCanvas(canvas.width, canvas.height);
+    
+    // 1. СБРОС КОМПОЗИТНОГО РЕЖИМА (критично!)
+    fctx.globalCompositeOperation = 'source-over';
+    fctx.clearRect(0, 0, fogCanvas.width, fogCanvas.height);
 
-    // Вырезаем круги вокруг всех юнитов игрока
-    ctx.globalCompositeOperation = 'destination-out';
+    // 2. Заливаем ВЕСЬ экран черным (плотность 0.9 — почти непроглядный)
+    fctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
+    fctx.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
+
+    // 3. Режим "вырезания дырок"
+    fctx.globalCompositeOperation = 'destination-out';
+
+    const carve = (x, y, range) => {
+        const sx = x - cam.x, sy = y - cam.y;
+        // Если точка далеко за экраном — не рисуем
+        if (sx < -range || sx > fogCanvas.width + range ||
+            sy < -range || sy > fogCanvas.height + range) return;
+        
+        // Радиальный градиент для мягких краев
+        const g = fctx.createRadialGradient(sx, sy, range * 0.3, sx, sy, range);
+        g.addColorStop(0, 'rgba(0,0,0,1)');      // центр — полностью прозрачный
+        g.addColorStop(0.7, 'rgba(0,0,0,0.8)');  // ближе к краю
+        g.addColorStop(1, 'rgba(0,0,0,0)');      // край — растворяется
+        
+        fctx.fillStyle = g;
+        fctx.beginPath();
+        fctx.arc(sx, sy, range, 0, Math.PI * 2);
+        fctx.fill();
+    };
+
+    // --- ВЫРЕЗАЕМ ДЫРКИ ---
+    
+    // 1. Свои юниты (радиус обзора)
     for (const u of G.units) {
         if (u.faction !== G.faction || u.hp <= 0) continue;
-        const range = G.getUnitVisibilityRange(u);
-        if (range <= 0) continue;
-        const x = u.x - cam.x, y = u.y - cam.y;
-        if (x < -range || x > canvas.width + range ||
-            y < -range || y > canvas.height + range) continue;
-
-        const g = ctx.createRadialGradient(x, y, 0, x, y, range);
-        g.addColorStop(0,   'rgba(0,0,0,1)');
-        g.addColorStop(0.8, 'rgba(0,0,0,0.9)');
-        g.addColorStop(1,   'rgba(0,0,0,0)');
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(x, y, range, 0, Math.PI * 2);
-        ctx.fill();
+        const range = G.getUnitVisibilityRange(u) || 150;
+        carve(u.x, u.y, range);
     }
-    // Свои города тоже дают обзор
+
+    // 2. Свои города (база + бонус от обороны)
     for (const cp of G.cps) {
         if (cp.owner !== G.faction) continue;
-        const range = cp.radius + 100;
-        const x = cp.x - cam.x, y = cp.y - cam.y;
-        const g = ctx.createRadialGradient(x, y, 0, x, y, range);
-        g.addColorStop(0,   'rgba(0,0,0,1)');
-        g.addColorStop(0.8, 'rgba(0,0,0,0.9)');
-        g.addColorStop(1,   'rgba(0,0,0,0)');
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(x, y, range, 0, Math.PI * 2);
-        ctx.fill();
+        let range = cp.radius + 120;
+        if (cp.defenseLevel > 0) {
+            const stats = G.getTerritoryDefenseStats(cp.defenseLevel);
+            range += (stats.range * 0.25);
+        }
+        carve(cp.x, cp.y, range);
     }
 
-    ctx.restore();
+    // 3. Свои здания (заводы, казармы)
+    for (const b of G.buildings) {
+        if (b.faction !== G.faction || b.hp <= 0) continue;
+        carve(b.x, b.y, 350);
+    }
+
+    // 4. ВАЖНО: Гарантированные дырки вокруг вражеской техники в 50px
+    // (если вы применили мой патч в game.js)
+    for (const u of G.units) {
+        if (u.faction === G.faction || u.hp <= 0) continue;
+        // Если враг в радиусе 50 от наших войск — мы его "видим", делаем дырку
+        // (на самом деле он уже попал в visibleEnemyIds, но дырка нужна для визуала)
+        const isVisible = G.visibleEnemyIds && G.visibleEnemyIds.has(u.id);
+        if (isVisible) {
+            // Если видим — делаем небольшую дырку, чтобы он не был в черноте
+            carve(u.x, u.y, 80); 
+        }
+    }
+
+    // 5. СБРОС КОМПОЗИТНОГО РЕЖИМА НАЗАД
+    fctx.globalCompositeOperation = 'source-over';
+
+    // 6. Накладываем туман на основной холст
+    ctx.drawImage(fogCanvas, 0, 0);
 }
