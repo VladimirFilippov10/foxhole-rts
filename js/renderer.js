@@ -46,6 +46,8 @@ export function render(ctx, G, canvas) {
     G.buildings.forEach(b => drawBuilding(ctx, b, cam));
 
     // Units
+    if (G.corpses) G.corpses.forEach(c => drawCorpse(ctx, c, cam));
+
     const hoveredUnit = getHoveredUnit(G, cam);
     G.units.forEach(u => {
         drawUnit(ctx, u, cam, G.selected, hoveredUnit === u, G);
@@ -1579,68 +1581,45 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
     ctx.rotate(u.direction || 0);
     
     if (isInfUnit(u)) {
-        const r = sz / 2;
-        // ===== ФОРМА ФИГУРКИ ПО ВИДУ ПЕХОТЫ =====
-        // sniper — треугольник (вершина по направлению), grenadier — ромб,
-        // mg_gunner — квадрат (общий для обеих фракций), остальные — круг.
-        ctx.fillStyle = col.p;
-        ctx.beginPath();
-        if (u.type === 'sniper') {
-            ctx.moveTo(r, 0);          // нос (направление)
-            ctx.lineTo(-r * 0.8, -r * 0.9);
-            ctx.lineTo(-r * 0.8, r * 0.9);
-        } else if (u.type === 'grenadier') {
-            ctx.moveTo(r, 0);          // правый угол
-            ctx.lineTo(0, -r);         // верхний
-            ctx.lineTo(-r, 0);         // левый
-            ctx.lineTo(0, r);          // нижний
-        } else if (u.type === 'mg_gunner') {
-            ctx.rect(-r * 0.85, -r * 0.85, r * 1.7, r * 1.7); // квадрат
-        } else {
-            ctx.arc(0, 0, r, 0, Math.PI * 2); // стрелки — круг
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.strokeStyle = col.a;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        // Маркеры вида пехоты: пулемётчик — короткий «ствол» спереди,
-        // снайпер — длинный ствол + прицел, гранатомётчик — «дуло»,
-        // стрелок — только указатель направления
-        if (u.type === 'mg_gunner') {
-            ctx.strokeStyle = col.s;
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(sz / 2 + 4, 0);
-            ctx.stroke();
-        } else if (u.type === 'sniper') {
-            ctx.strokeStyle = col.s;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(sz / 2 + 8, 0);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.arc(sz / 2 + 3, 0, 2.5, 0, Math.PI * 2);
-            ctx.stroke();
-        } else if (u.type === 'grenadier') {
-            ctx.strokeStyle = col.s;
-            ctx.lineWidth = 2.5;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(sz / 2 + 5, 0);
-            ctx.stroke();
-        }
-        // Direction indicator for infantry
-        ctx.fillStyle = col.a;
-        ctx.beginPath();
-        ctx.moveTo(sz / 2, 0);
-        ctx.lineTo(sz / 2 - 3, -2);
-        ctx.lineTo(sz / 2 - 3, 2);
-        ctx.closePath();
-        ctx.fill();
+    const r = sz / 2;
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    if (u.type === 'sniper') {
+        ctx.moveTo(r, 0);
+        ctx.lineTo(-r * 0.8, -r * 0.9);
+        ctx.lineTo(-r * 0.8, r * 0.9);
+    } else if (u.type === 'grenadier') {
+        ctx.moveTo(r, 0); ctx.lineTo(0, -r);
+        ctx.lineTo(-r, 0); ctx.lineTo(0, r);
+    } else if (u.type === 'mg_gunner') {
+        ctx.rect(-r * 0.85, -r * 0.85, r * 1.7, r * 1.7);
+    } else if (u.type === 'assualt_varden' || u.type === 'assualt_colonist') {
+        // Штурмовик — пятиугольник «остриём вперёд»
+        ctx.moveTo(r, 0);
+        ctx.lineTo(r * 0.2, -r);
+        ctx.lineTo(-r * 0.9, -r * 0.6);
+        ctx.lineTo(-r * 0.9, r * 0.6);
+        ctx.lineTo(r * 0.2, r);
+    } else if (u.type === 'smuggler_varden' || u.type === 'poacher_colonist') {
+        // Контрабандист / Браконьер — вытянутый шестиугольник
+        ctx.moveTo(r, 0);
+        ctx.lineTo(r * 0.4, -r * 0.8);
+        ctx.lineTo(-r * 0.7, -r * 0.7);
+        ctx.lineTo(-r, 0);
+        ctx.lineTo(-r * 0.7, r * 0.7);
+        ctx.lineTo(r * 0.4, r * 0.8);
+    } else if (u.type === 'medic_varden' || u.type === 'medic_colonist') {
+        // Медик — круг (как стрелок), но с красным крестом ниже
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
     } else {
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();}
+     else {
         // Vehicle body (centered at 0,0)
         ctx.fillStyle = col.p;
         ctx.fillRect(-sz / 2, -sz / 3, sz, sz * 0.65);
@@ -1793,6 +1772,51 @@ if (u.type === 'devitt') {
     ctx.lineWidth = 1;
     ctx.strokeRect(-sz * 0.4, sz * 0.02, sz * 0.12, sz * 0.1);
 }
+
+    // ===== МАРКЕРЫ НОВОЙ ПЕХОТЫ =====
+
+    // Штурмовик — короткий толстый ствол + «дульный тормоз» (квадратик)
+    if (u.type === 'assualt_varden' || u.type === 'assualt_colonist') {
+        ctx.strokeStyle = col.s;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(sz / 2 + 5, 0);
+        ctx.stroke();
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(sz / 2 + 5, -2, 3, 4);
+    }
+
+    // Контрабандист / Браконьер — длинный тонкий ствол с прицелом
+    if (u.type === 'smuggler_varden' || u.type === 'poacher_colonist') {
+        ctx.strokeStyle = col.s;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(sz / 2 + 7, 0);
+        ctx.stroke();
+        // прицел
+        ctx.beginPath();
+        ctx.arc(sz / 2 + 3, 0, 2.5, 0, Math.PI * 2);
+        ctx.stroke();
+        // «сумка» сбоку (контрабандист/браконьер)
+        ctx.fillStyle = '#8b7355';
+        ctx.fillRect(-r * 0.6, -r * 0.9, 3, 4);
+    }
+
+    // Медик — красный крест в центре (вместо ствола)
+    if (u.type === 'medic_varden' || u.type === 'medic_colonist') {
+        ctx.fillStyle = '#dc2626';
+        // вертикальная перекладина
+        ctx.fillRect(-1.5, -r * 0.55, 3, r * 1.1);
+        // горизонтальная перекладина
+        ctx.fillRect(-r * 0.55, -1.5, r * 1.1, 3);
+        // белая обводка вокруг креста (чтобы читался на любом фоне)
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(-r * 0.55, -1.5, r * 1.1, 3);
+        ctx.strokeRect(-1.5, -r * 0.55, 3, r * 1.1);
+    }
 
 // ===== HATCHET (американский M24 Chaffee) =====
 if (u.type === 'hatchet') {
@@ -2739,6 +2763,18 @@ if (u.type === 'nemesis') {
     ctx.strokeStyle = col.a;
     ctx.lineWidth = 1;
     ctx.strokeRect(-sz * 0.52, sz * 0.05, sz * 0.1, sz * 0.09);
+}
+
+// ===== МИНИ-ИКОНКА НАД МЕДИКОМ =====
+if (u.isMedic && u.hp > 0) {
+    // Красный крестик над головой — видно, кто лечит
+    ctx.fillStyle = '#dc2626';
+    ctx.fillRect(x - 2, y - sz / 2 - 12, 4, 10);
+    ctx.fillRect(x - 5, y - sz / 2 - 9, 10, 4);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(x - 2, y - sz / 2 - 12, 4, 10);
+    ctx.strokeRect(x - 5, y - sz / 2 - 9, 10, 4);
 }
 
         // Falchion - Medium tank
@@ -4485,6 +4521,117 @@ if (u.type === 'colonial_artillery150' || u.type === 'colonial_artillery') {
             ctx.fill();
         }
 
+// Скорая помощь — белый фургон с красным крестом и «молниями»
+if (u.type === 'medic_truck') {
+    // ==== ГУСЕНИЦЫ/КОЛЁСА (колёсный фургон, 4 колеса) ====
+    ctx.fillStyle = '#1a1a1a';
+    // задняя ось
+    ctx.fillRect(-sz * 0.34, -sz * 0.34, sz * 0.14, sz * 0.12);
+    ctx.fillRect(-sz * 0.34,  sz * 0.22, sz * 0.14, sz * 0.12);
+    // передняя ось
+    ctx.fillRect( sz * 0.18, -sz * 0.34, sz * 0.14, sz * 0.12);
+    ctx.fillRect( sz * 0.18,  sz * 0.22, sz * 0.14, sz * 0.12);
+
+    // ==== КУЗОВ (белый медицинский фургон) ====
+    ctx.fillStyle = '#f8fafc';
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.44, -sz * 0.28);          // корма
+    ctx.lineTo( sz * 0.22, -sz * 0.28);          // верх кабины
+    ctx.lineTo( sz * 0.44, -sz * 0.16);          // скошенное лобовое стекло
+    ctx.lineTo( sz * 0.44,  sz * 0.16);          // низ лба
+    ctx.lineTo( sz * 0.22,  sz * 0.28);          // низ кабины
+    ctx.lineTo(-sz * 0.44,  sz * 0.28);          // низ кормы
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // ==== КАБИНА / ЛОБОВОЕ СТЕКЛО ====
+    ctx.fillStyle = '#93c5fd';                   // голубое стекло
+    ctx.beginPath();
+    ctx.moveTo( sz * 0.28, -sz * 0.18);
+    ctx.lineTo( sz * 0.4,  -sz * 0.1);
+    ctx.lineTo( sz * 0.4,   sz * 0.1);
+    ctx.lineTo( sz * 0.28,  sz * 0.18);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#60a5fa';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // боковые стёкла кабины
+    ctx.fillStyle = '#bfdbfe';
+    ctx.fillRect( sz * 0.14, -sz * 0.26, sz * 0.1, sz * 0.08);
+    ctx.fillRect( sz * 0.14,  sz * 0.18, sz * 0.1, sz * 0.08);
+
+    // ==== КРАСНАЯ ПОЛОСА ПО БОРТУ (характерный «медицинский» окрас) ====
+    ctx.fillStyle = '#dc2626';
+    ctx.fillRect(-sz * 0.38, -sz * 0.24, sz * 0.56, sz * 0.06);  // верхняя полоса
+    ctx.fillRect(-sz * 0.38,  sz * 0.18, sz * 0.56, sz * 0.06);  // нижняя полоса
+
+    // ==== ЗАДНЯЯ ДВЕРЬ (распашные створки с «молниями») ====
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillRect(-sz * 0.46, -sz * 0.22, sz * 0.08, sz * 0.44);
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sz * 0.46, -sz * 0.22, sz * 0.08, sz * 0.44);
+    // молнии-«зигзаги» на дверях
+    ctx.strokeStyle = '#dc2626';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.44, -sz * 0.14);
+    ctx.lineTo(-sz * 0.41, -sz * 0.06);
+    ctx.lineTo(-sz * 0.44,  sz * 0.02);
+    ctx.lineTo(-sz * 0.41,  sz * 0.1);
+    ctx.stroke();
+
+    // ==== КРАСНЫЙ КРЕСТ НА КРЫШЕ (главный маркер) ====
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-sz * 0.16, -sz * 0.12, sz * 0.28, sz * 0.24);   // белый квадрат-фон
+    ctx.strokeStyle = '#dc2626';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-sz * 0.16, -sz * 0.12, sz * 0.28, sz * 0.24);
+    ctx.fillStyle = '#dc2626';
+    // вертикальная перекладина
+    ctx.fillRect(-sz * 0.04, -sz * 0.1, sz * 0.08, sz * 0.2);
+    // горизонтальная перекладина
+    ctx.fillRect(-sz * 0.14, -sz * 0.02, sz * 0.28, sz * 0.08);
+
+    // ==== ПРОБЛЕСКОВЫЙ МАЯЧОК (красно-синий, на крыше кабины) ====
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc( sz * 0.2, -sz * 0.12, sz * 0.035, Math.PI, 0);
+    ctx.fill();
+    ctx.fillStyle = '#3b82f6';
+    ctx.beginPath();
+    ctx.arc( sz * 0.2,  sz * 0.12, sz * 0.035, 0, Math.PI);
+    ctx.fill();
+    // «дуга» мигалки
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc( sz * 0.2, 0, sz * 0.06, Math.PI * 1.15, Math.PI * 1.85);
+    ctx.stroke();
+
+    // ==== ФАРЫ ====
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.arc( sz * 0.42, -sz * 0.2, sz * 0.025, 0, Math.PI * 2);
+    ctx.arc( sz * 0.42,  sz * 0.2, sz * 0.025, 0, Math.PI * 2);
+    ctx.fill();
+
+    // ==== «+» на решётке радиатора ====
+    ctx.strokeStyle = '#dc2626';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo( sz * 0.4, -sz * 0.02);
+    ctx.lineTo( sz * 0.4,  sz * 0.02);
+    ctx.moveTo( sz * 0.38, 0);
+    ctx.lineTo( sz * 0.42, 0);
+    ctx.stroke();
+}
+
         // Инженерная машина
         if (u.type === 'engineer') {
             ctx.fillStyle = col.s;
@@ -4641,6 +4788,236 @@ if (u.type === 'colonial_artillery150' || u.type === 'colonial_artillery') {
         ctx.textBaseline = 'middle';
         ctx.fillText(u.label || u.type, x, y - sz / 2 - 21);
     }
+}
+
+// ===== ТРУП: отрисовка =====
+// Простой «поваленный» вариант: чёрный силуэт с крестом/дымом, без поворота
+// к направлению (чтобы визуально отличать от живых). Прозрачность плавно
+// падает к концу срока жизни.
+// ===== ТРУП: отрисовка с анимацией =====
+// Для пехоты: пятно крови растекается в первые ~0.5 сек, затем силуэт лежащего.
+// Для техники: тёмный сгоревший корпус + пульсирующий дым + мерцающий огонь
+// (огонь гаснет через ~5 сек после смерти, дым остаётся до конца жизни трупа).
+//
+// ВАЖНО: функция не знает G.time — анимация строится на реальном времени
+// (performance.now()), т.к. труп — чисто визуальный объект. Это допустимо:
+// труп не влияет на геймплей, и его анимация не должна зависеть от тиков.
+function drawCorpse(ctx, c, cam, G) {
+    const x = c.x - cam.x;
+    const y = c.y - cam.y;
+    if (x < -60 || x > ctx.canvas.width + 60 ||
+        y < -60 || y > ctx.canvas.height + 60) return;
+
+    // Прогресс жизни трупа (0 — только что умер, 1 — исчез)
+    // и «возраст» в секундах для анимации.
+    const now = performance.now() / 1000;
+    const birthReal = c._bornReal !== undefined ? c._bornReal : now;
+    if (c._bornReal === undefined) c._bornReal = now;
+    const ageSec = now - birthReal;
+    const totalSec = (c.lifetime || 36000) / 60;   // lifetime в тиках → в секундах
+    const lifeT = Math.min(1, ageSec / totalSec);  // 0..1 — насколько труп «старый»
+
+    // Базовая прозрачность: 0.8 в начале, плавно к 0.3 к концу жизни
+    const baseAlpha = 0.8 - lifeT * 0.5;
+
+    const sz = c.size;
+    const col = (COLORS && COLORS[c.faction]) || COLORS.neutral;
+
+    ctx.save();
+
+    if (c.isInfantry) {
+        // ============================================================
+        // ПЕХОТА
+        // ============================================================
+        // 1) Пятно крови — «растекается» в первые 0.5 сек.
+        const spreadT = Math.min(1, ageSec / 0.5);
+        const blotR = (c._blotR || 14) * (0.3 + 0.7 * spreadT);
+        ctx.globalAlpha = baseAlpha * 0.55;
+        // внешний тёмно-красный ореол
+        ctx.fillStyle = 'rgba(80, 15, 15, 0.85)';
+        ctx.beginPath();
+        ctx.ellipse(x, y + sz * 0.15, blotR, blotR * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // внутреннее «свежее» пятно
+        ctx.globalAlpha = baseAlpha * 0.7;
+        ctx.fillStyle = 'rgba(140, 30, 30, 0.9)';
+        ctx.beginPath();
+        ctx.ellipse(x, y + sz * 0.15, blotR * 0.7, blotR * 0.45, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 2) Силуэт лежащего — тонкие линии «руки-ноги», медленно бледнеет.
+        ctx.globalAlpha = baseAlpha;
+        ctx.strokeStyle = '#1a1a1a';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        // туловище (по диагонали)
+        ctx.moveTo(x - sz * 0.45, y - sz * 0.1);
+        ctx.lineTo(x + sz * 0.35, y + sz * 0.15);
+        // «рука» 1
+        ctx.moveTo(x - sz * 0.25, y - sz * 0.35);
+        ctx.lineTo(x + sz * 0.05, y + sz * 0.25);
+        // «рука» 2
+        ctx.moveTo(x - sz * 0.05, y - sz * 0.3);
+        ctx.lineTo(x - sz * 0.35, y + sz * 0.2);
+        // «нога»
+        ctx.moveTo(x + sz * 0.1, y + sz * 0.2);
+        ctx.lineTo(x + sz * 0.35, y - sz * 0.05);
+        ctx.stroke();
+
+        // 3) Голова (тёмный кружок в «вершине» фигуры)
+        ctx.fillStyle = '#2a2a2a';
+        ctx.beginPath();
+        ctx.arc(x - sz * 0.45, y - sz * 0.1, sz * 0.18, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 4) Маленький «крестик» над трупом — только первые 30% жизни
+        if (lifeT < 0.3) {
+            ctx.globalAlpha = baseAlpha * (1 - lifeT / 0.3);
+            ctx.strokeStyle = '#7f1d1d';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(x + sz * 0.6, y - sz * 0.55);
+            ctx.lineTo(x + sz * 0.6, y - sz * 0.2);
+            ctx.moveTo(x + sz * 0.45, y - sz * 0.375);
+            ctx.lineTo(x + sz * 0.75, y - sz * 0.375);
+            ctx.stroke();
+        }
+    } else {
+        // ============================================================
+        // ТЕХНИКА
+        // ============================================================
+        // 1) Тёмное пятно «гари» под корпусом (растекается в первую секунду).
+        const spreadT = Math.min(1, ageSec / 1.0);
+        const blotR = (c._blotR || 26) * (0.4 + 0.6 * spreadT);
+        ctx.globalAlpha = baseAlpha * 0.5;
+        ctx.fillStyle = 'rgba(15, 10, 5, 0.9)';
+        ctx.beginPath();
+        ctx.ellipse(x, y + sz * 0.25, blotR, blotR * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 2) Сгоревший корпус (тёмный, чуть повёрнут к direction).
+        ctx.globalAlpha = baseAlpha;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(c.direction || 0);
+        // тень-подложка
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(-sz * 0.55, -sz * 0.4, sz * 1.1, sz * 0.8);
+        // корпус
+        ctx.fillStyle = '#231f1a';
+        ctx.fillRect(-sz * 0.5, -sz * 0.3, sz, sz * 0.6);
+        ctx.strokeStyle = '#0a0805';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(-sz * 0.5, -sz * 0.3, sz, sz * 0.6);
+        // «обгоревшая» башня / рубка
+        ctx.fillStyle = '#15110c';
+        ctx.beginPath();
+        ctx.arc(-sz * 0.05, -sz * 0.05, sz * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+        // трещины — рваные линии
+        ctx.strokeStyle = '#0a0503';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(-sz * 0.4, -sz * 0.1);
+        ctx.lineTo(-sz * 0.15, sz * 0.15);
+        ctx.moveTo(sz * 0.15, -sz * 0.25);
+        ctx.lineTo(sz * 0.35, sz * 0.15);
+        ctx.moveTo(-sz * 0.25, sz * 0.2);
+        ctx.lineTo(sz * 0.2, sz * 0.25);
+        ctx.stroke();
+        ctx.restore();
+
+        // 3) ДЫМ — 3 «клуба», каждый дрейфует/пульсирует со своим ритмом.
+        // Клубы поднимаются ВВЕРХ и медленно рассеиваются.
+        const smokeCount = 3;
+        for (let i = 0; i < smokeCount; i++) {
+            const seed = (c._seed || 0) + i * 1.7;
+            // «высота» клуба: со временем поднимается всё выше и выше
+            const rise = (ageSec * (0.5 + i * 0.15)) % 4;   // 0..4 (модуль — цикл)
+            const drift = Math.sin(now * 0.7 + seed) * sz * 0.15;
+            const puffR = sz * (0.18 + i * 0.04) * (1 + 0.3 * Math.sin(now * 2 + seed));
+            const puffX = x - sz * 0.15 + i * sz * 0.12 + drift;
+            const puffY = y - sz * 0.3 - rise * sz * 0.4;
+            const puffAlpha = baseAlpha * (0.45 - i * 0.1) * (1 - rise / 5);
+            if (puffAlpha <= 0) continue;
+            ctx.globalAlpha = puffAlpha;
+            // тёмно-серый дым с лёгким коричневым оттенком гари
+            const g = ctx.createRadialGradient(puffX, puffY, 0, puffX, puffY, puffR);
+            g.addColorStop(0, 'rgba(60, 55, 50, 0.9)');
+            g.addColorStop(1, 'rgba(60, 55, 50, 0)');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(puffX, puffY, puffR, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 4) ОГОНЬ — мерцает 5 сек после смерти, потом исчезает.
+        const fireAlive = c._fireUntil && c._fireUntil > 0;
+        // c._fireUntil — тик игры (game.time), а не real-time, поэтому
+        // переводим: считаем, что fire живёт первые 5 сек реального времени.
+        if (ageSec < 5) {
+            const fade = Math.max(0, 1 - ageSec / 5);   // 1 → 0 за 5 сек
+            const flicker = 0.6 + 0.4 * Math.abs(Math.sin(now * 9 + (c._seed || 0)));
+            const fireR = sz * 0.28 * flicker;
+            // 3 языка пламени с мерцанием
+            const positions = [
+                { dx: -sz * 0.15, dy: -sz * 0.15 },
+                { dx: sz * 0.1,   dy: -sz * 0.2 },
+                { dx: 0,          dy: -sz * 0.05 },
+            ];
+            for (let i = 0; i < positions.length; i++) {
+                const p = positions[i];
+                const phase = now * (6 + i) + (c._seed || 0) + i;
+                const scale = 0.7 + 0.3 * Math.abs(Math.sin(phase));
+                const fx = x + p.dx;
+                const fy = y + p.dy;
+                const fr = fireR * scale;
+                // внутренний жёлтый
+                ctx.globalAlpha = fade * 0.9;
+                ctx.fillStyle = '#fde047';
+                ctx.beginPath();
+                ctx.moveTo(fx, fy - fr);
+                ctx.quadraticCurveTo(fx + fr * 0.6, fy - fr * 0.2, fx, fy + fr * 0.3);
+                ctx.quadraticCurveTo(fx - fr * 0.6, fy - fr * 0.2, fx, fy - fr);
+                ctx.fill();
+                // внешний оранжевый
+                ctx.globalAlpha = fade * 0.7;
+                ctx.fillStyle = '#f97316';
+                ctx.beginPath();
+                ctx.moveTo(fx, fy - fr * 1.3);
+                ctx.quadraticCurveTo(fx + fr * 0.9, fy - fr * 0.1, fx, fy + fr * 0.5);
+                ctx.quadraticCurveTo(fx - fr * 0.9, fy - fr * 0.1, fx, fy - fr * 1.3);
+                ctx.fill();
+            }
+            // «свечение» вокруг огня
+            const grd = ctx.createRadialGradient(x, y - sz * 0.1, 0, x, y - sz * 0.1, sz * 0.6);
+            grd.addColorStop(0, `rgba(255, 180, 80, ${0.25 * fade})`);
+            grd.addColorStop(1, 'rgba(255, 180, 80, 0)');
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = grd;
+            ctx.beginPath();
+            ctx.arc(x, y - sz * 0.1, sz * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 5) Мелкие обломки-искры (для антуража) — 1-2 точки, мерцают.
+        if (ageSec < 8) {
+            const fade = Math.max(0, 1 - ageSec / 8);
+            for (let i = 0; i < 2; i++) {
+                const seed = (c._seed || 0) + i * 3.1;
+                const px = x + Math.sin(now * 1.3 + seed) * sz * 0.4;
+                const py = y + Math.cos(now * 1.7 + seed) * sz * 0.3;
+                ctx.globalAlpha = fade * (0.5 + 0.5 * Math.abs(Math.sin(now * 5 + seed)));
+                ctx.fillStyle = i === 0 ? '#fbbf24' : '#fb923c';
+                ctx.beginPath();
+                ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }
+
+    ctx.restore();
 }
 
 function drawMinimap(ctx, G, canvas) {

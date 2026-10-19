@@ -404,7 +404,8 @@ export class AI {
             u.faction === this.G.ai && u.hp > 0 &&
             u.tx === undefined && !u.aoe &&
             u.type !== 'truck' && u.type !== 'fuel_truck' &&
-            u.type !== 'engineer' && u.type !== 'flatbed'
+            u.type !== 'engineer' && u.type !== 'flatbed' &&
+            u.type !== 'medic_truck' // ===== ФИКС МЕДИКА: медик не идёт захватывать точки =====
         );
         if (idle.length === 0) return;
 
@@ -537,7 +538,7 @@ export class AI {
         const base = this.getAIMainBase();
         if (!base) return;
 
-        const LOGISTICS = ['truck', 'fuel_truck', 'engineer', 'flatbed'];
+        const LOGISTICS = ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck']; // ===== ФИКС МЕДИКА =====
         const combatVehicles = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 && !isInfUnit(u) &&
             !LOGISTICS.includes(u.type)
@@ -649,6 +650,29 @@ export class AI {
         if (!getModeFlags(this.G).logisticsAllowed) return;
         if (this.timer % 90 !== 0) return; // приказ раз в 1.5 секунды
 
+        // ===== ФИКС МЕДИКА: ИИ производит одну скорую помощь, если её нет =====
+        // Без этой ветки бот НИКОГДА не строил medic_truck, и раненую пехоту
+        // лечить было некому (инженер чинит только технику).
+        const hasMedic = this.G.units.some(u =>
+            u.faction === this.G.ai && u.type === 'medic_truck' && u.hp > 0);
+        if (!hasMedic) {
+            const factory = this.G.buildings.find(b =>
+                b.faction === this.G.ai && b.type === 'factory' && b.hp > 0);
+            if (factory) {
+                const cost = VEHICLE_COSTS.medic_truck;
+                if (cost &&
+                    this.aiResources.s >= cost.s &&
+                    this.aiResources.c >= cost.c &&
+                    this.aiResources.m >= cost.m) {
+                    this.spendResources(cost);
+                    const unit = createVehicle('medic_truck', this.G.ai,
+                        factory.x + 60, factory.y + 60);
+                    this.G.units.push(unit);
+                    aiLog(`[AI][MEDIC] т.${this.timer}: произведена скорая помощь (лечит пехоту)`);
+                }
+            }
+        }
+
         const sendToNeedy = (logType, predicate) => {
             const vehicles = this.G.units.filter(u =>
                 u.faction === this.G.ai && u.hp > 0 && !isInfUnit(u) &&
@@ -676,6 +700,37 @@ export class AI {
         sendToNeedy('fuel_truck', u => u.fuel !== undefined && u.maxFuel !== undefined && u.fuel < u.maxFuel * 0.3);
         // Flatbed — к артиллерии (снаряды)
         sendToNeedy('flatbed', u => !!u.aoe);
+        // ===== ФИКС МЕДИКА: скорая помощь — к РАНЕНОЙ ПЕХОТЕ =====
+        // sendToNeedy фильтрует цели через !isInfUnit(u) — для медика это
+        // не подходит: ему нужны именно пехотинцы. Поэтому отправляем медика
+        // отдельным проходом, минуя общий фильтр.
+        this.sendMedicToWoundedInfantry();
+    }
+
+    // ===== ФИКС МЕДИКА: отправка медика к раненой пехоте =====
+    // Вынесено отдельным методом, потому что sendToNeedy() намеренно
+    // исключает пехоту из целей (инженер/грузовик/бензовоз лечат технику).
+    sendMedicToWoundedInfantry() {
+        const medics = this.G.units.filter(u =>
+            u.faction === this.G.ai && u.type === 'medic_truck' && u.hp > 0);
+        if (medics.length === 0) return;
+
+        // Самая раненая пехота (по проценту HP), которой ещё можно помочь
+        const wounded = this.G.units.filter(u =>
+            u.faction === this.G.ai && u.hp > 0 && isInfUnit(u) &&
+            u.hp < (u.maxHp || 100) * 0.6
+        ).sort((a, b) => a.hp / (a.maxHp || 1) - b.hp / (b.maxHp || 1));
+        if (wounded.length === 0) return;
+
+        // Каждый медик едет к ближайшему к нему раненому
+        for (const m of medics) {
+            const nearest = wounded.reduce((best, u) =>
+                dist(m.x, m.y, u.x, u.y) < dist(m.x, m.y, best.x, best.y) ? u : best);
+            if (!nearest) continue;
+            if (m.tx !== undefined && dist(m.x, m.y, nearest.x, nearest.y) < 60) continue;
+            m.tx = nearest.x + (Math.random() - 0.5) * 20;
+            m.ty = nearest.y + (Math.random() - 0.5) * 20;
+        }
     }
 
     // ===== ОТВОД ПОВРЕЖДЁННОЙ ТЕХНИКИ =====
@@ -706,7 +761,8 @@ export class AI {
         const vehicles = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 &&
             !isInfUnit(u) && u.type !== 'truck' &&
-            u.type !== 'fuel_truck' && u.type !== 'engineer' && u.type !== 'flatbed'
+            u.type !== 'fuel_truck' && u.type !== 'engineer' &&
+            u.type !== 'flatbed' && u.type !== 'medic_truck' // ===== ФИКС МЕДИКА =====
         );
         for (const v of vehicles) {
             // ===== ФИКС «юниты едут хрен пойми куда» =====
@@ -736,7 +792,8 @@ export class AI {
         const damaged = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 &&
             !isInfUnit(u) && u.type !== 'truck' &&
-            u.type !== 'fuel_truck' && u.type !== 'engineer' && u.type !== 'flatbed' &&
+            u.type !== 'fuel_truck' && u.type !== 'engineer' &&
+            u.type !== 'flatbed' && u.type !== 'medic_truck' && // ===== ФИКС МЕДИКА =====
             u.hp < (u.maxHp || 100) * 0.5
         );
         if (damaged.length === 0) return;
@@ -754,6 +811,7 @@ export class AI {
                 u.faction === this.G.ai && u.hp > 0 && !u.aoe &&
                 u.type !== 'truck' && u.type !== 'fuel_truck' &&
                 u.type !== 'engineer' && u.type !== 'flatbed' &&
+                u.type !== 'medic_truck' && // ===== ФИКС МЕДИКА =====
                 dist(u.x, u.y, base.x, base.y) < 1600
             );
             attackers.forEach(u => {
@@ -815,7 +873,8 @@ export class AI {
         const t = u.type;
         if (t === 'infantry') return 'infantry';
         if (t.includes('artillery')) return 'artillery';
-        if (t === 'truck' || t === 'fuel_truck' || t === 'flatbed') return 'supply';
+        // ===== ФИКС МЕДИКА: медик — это тоже логистика/снабжение =====
+        if (t === 'truck' || t === 'fuel_truck' || t === 'flatbed' || t === 'medic_truck') return 'supply';
         if (t === 'engineer') return 'engineer';
         if (t === 'niska' || t === 'javelin') return 'apc';
         // Миномётная поддержка (Hoplite, Devitt MMR) — артиллерия, не бронетехника
@@ -1201,7 +1260,7 @@ export class AI {
 
         const playerUnits = this.G.units.filter(u => u.faction === this.G.faction && u.hp > 0);
         const playerTanks = playerUnits.filter(u => !isInfUnit(u) && !u.aoe &&
-            !['truck', 'fuel_truck', 'engineer', 'flatbed'].includes(u.type)).length;
+            !['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck'].includes(u.type)).length; // ===== ФИКС МЕДИКА =====
         const massThreshold = playerTanks >= 10 || playerUnits.length > 30;
         if (!massThreshold) return false;
 
@@ -1423,7 +1482,8 @@ export class AI {
             u.faction === this.G.ai && u.hp > 0 && !u.aoe && u.tx === undefined &&
             !u.retreatToBase && !u.garrisonedAt &&
             u.type !== 'truck' && u.type !== 'fuel_truck' &&
-            u.type !== 'engineer' && u.type !== 'flatbed'
+            u.type !== 'engineer' && u.type !== 'flatbed' &&
+            u.type !== 'medic_truck' // ===== ФИКС МЕДИКА =====
         );
     }
 

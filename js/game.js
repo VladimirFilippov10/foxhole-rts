@@ -1,6 +1,8 @@
 // ===== GAME LOGIC =====
-import { dist, distToSeg, GAME_MODES, SUPPLY_SYSTEM, getModeFlags, isUnitAllowedByRestriction, isBuildingAllowedByRestriction, DEFAULT_RESTRICTION, DEFAULT_ECONOMY, MAP_W, MAP_H, detailScale } from './constants.js';
-import { AI } from './ai.js';
+import { dist, distToSeg, GAME_MODES, SUPPLY_SYSTEM, getModeFlags,
+    isUnitAllowedByRestriction, isBuildingAllowedByRestriction,
+    DEFAULT_RESTRICTION, DEFAULT_ECONOMY, MAP_W, MAP_H, detailScale,
+    CORPSE_LIFETIME } from './constants.js';import { AI } from './ai.js';
 import { createVehicle, isInfUnit, isTechVehicle, INFANTRY_TYPES, getDefenseDamageVsTech, getUnitAttackDamage, ARTILLERY_TYPES, LOGISTICS_TYPES } from './vehicles.js';
 
 // ===== МАСШТАБ ГРАФИКИ (минимализм / классический) =====
@@ -34,6 +36,7 @@ export class Game {
         this.restriction = restriction || DEFAULT_RESTRICTION;
         this.economy = economy || DEFAULT_ECONOMY;
         this.units = [];
+        this.corpses = [];
         this.buildings = [];
         this.cps = [];
         this.mines = [];
@@ -93,6 +96,30 @@ export class Game {
         
         this.aiController = new AI(this);
     }
+
+    // ===== ТРУП: создаётся при смерти юнита =====
+// Копирует визуальные параметры юнита в отдельный объект, который
+// НЕ участвует в updateUnit, НЕ имеет коллизии и НЕ выбирается мышью.
+spawnCorpse(u) {
+    if (!u || !Number.isFinite(u.x) || !Number.isFinite(u.y)) return;
+    const isInf = isInfUnit(u);
+    const lifetime = isInf ? CORPSE_LIFETIME.infantry : CORPSE_LIFETIME.vehicle;
+    this.corpses.push({
+        x: u.x,
+        y: u.y,
+        type: u.type,
+        faction: u.faction,
+        direction: u.direction || 0,
+        size: u.size || (isInf ? 8 : 20),
+        label: u.label || '',
+        isInfantry: isInf,
+        // для артиллерии/миномётов — чтобы моделька нарисовалась правильно
+        isArtillery: u.isArtillery === true,
+        isMortar: u.isMortar === true,
+        bornAt: this.time,
+        lifetime,
+    });
+}
 
     update() {
         if (this.over) return;
@@ -163,7 +190,16 @@ export class Game {
         this.updateUnits();
         
         // Remove dead
-        this.units = this.units.filter(u => u.hp > 0);
+// Remove dead + spawn corpses (труп создаётся ровно один раз — при hp <= 0)
+        this.units = this.units.filter(u => {
+            if (u.hp > 0) return true;
+    // юнит умер в этом тике — оставляем труп
+                if (!u._corpseSpawned) {
+                        this.spawnCorpse(u);
+                        u._corpseSpawned = true;
+                                        }
+                    return false;
+                });
         this.buildings = this.buildings.filter(b => b.hp > 0);
 
         // Capture points
@@ -194,6 +230,9 @@ export class Game {
             p.life--;
             return p.life > 0;
         });
+        this.corpses = this.corpses.filter(c =>
+    this.time - c.bornAt < c.lifetime
+);
         
         // Tracers
         this.updateTracers();
@@ -571,7 +610,7 @@ export class Game {
             
             // Логистика: грузовики, бензовозы, инженеры, flatbed
             if (u.type === 'truck' || u.type === 'fuel_truck' || u.type === 'engineer' || 
-                u.type === 'flatbed') {
+                u.type === 'flatbed' || u.type === 'medic_truck') {
                 this.handleLogistics(u);
             }
             
@@ -1489,7 +1528,7 @@ export class Game {
         if (!flags.allowUnit(type)) return false;
 
         const limits = faction === this.faction ? this.unitLimits : this.aiUnitLimits;
-        const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed'];
+        const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck'];
         const units = this.units.filter(u => u.faction === faction && u.hp > 0);
 
         if (type === 'infantry' || INFANTRY_TYPES.includes(type)) {
@@ -1624,15 +1663,16 @@ export class Game {
         // Теперь: цель = ближайший НУЖДАЮЩИЙСЯ союзник (именно в этом ресурсе),
         // пополнение идёт НЕПРЕРЫВНО каждый тик, пока логист стоит рядом,
         // ёмкости логистов увеличены (см. SUPPLY_SYSTEM).
-
-        const needsResource = (u) => {
-            switch (unit.type) {
-                case 'truck':      return u.ammo !== undefined && u.maxAmmo !== undefined && u.ammo < u.maxAmmo - 0.5;
-                case 'fuel_truck': return u.fuel !== undefined && u.maxFuel !== undefined && u.fuel < u.maxFuel - 0.5;
-                case 'engineer':   return u.hp < u.maxHp - 0.5;
-                case 'flatbed':    return !!u.aoe && u.ammo !== undefined && u.maxAmmo !== undefined && u.ammo < u.maxAmmo - 0.5;
-                default: return false;
-            }
+// В handleLogistics → needsResource:
+const needsResource = (u) => {
+    switch (unit.type) {
+        case 'truck':      return u.ammo !== undefined && u.maxAmmo !== undefined && u.ammo < u.maxAmmo - 0.5;
+        case 'fuel_truck': return u.fuel !== undefined && u.maxFuel !== undefined && u.fuel < u.maxFuel - 0.5;
+        case 'engineer':   return u.hp < u.maxHp - 0.5;
+        case 'medic_truck': return isInfUnit(u) && u.hp < u.maxHp - 0.5;   // ← только пехота
+        case 'flatbed':    return !!u.aoe && u.ammo !== undefined && u.maxAmmo !== undefined && u.ammo < u.maxAmmo - 0.5;
+        default: return false;
+    }
         };
 
         let target = null, tDist = Infinity;
@@ -1653,6 +1693,7 @@ export class Game {
         else if (unit.type === 'fuel_truck') unit.supplyFuel(target);
         else if (unit.type === 'engineer') unit.repairUnit(target);
         else if (unit.type === 'flatbed') unit.supplyArtillery(target);
+        else if (unit.type === 'medic_truck') unit.healUnit(target);   // ← добавить
     }
 
     // Система обороны территорий (улучшение занимает время)

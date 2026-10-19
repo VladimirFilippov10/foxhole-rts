@@ -18,6 +18,10 @@ export const MAX_STEPS_PER_FRAME = 5;        // защита от «зависа
 // ВАЖНО: масштаб задаётся здесь ДО импорта map.js — из map.js эти значения
 // импортируются как let-привязки ES-модулей, поэтому live-переключение
 // setGraphicsMode() мгновенно действует на все модули (map/game/renderer/ai).
+export const CORPSE_LIFETIME = {
+    infantry: 60 * 60 * 10,   // 10 минут  = 36 000 тиков
+    vehicle:  60 * 60 * 20,   // 20 минут  = 72 000 тиков
+};
 export const GRAPHICS_OPTIONS = [
     { id: 'minimal',     name: 'Минимализм',   icon: '⬜', description: 'Текущая графика: компактная карта, лёгкая детализация' },
     { id: 'classic_map', name: 'Классический', icon: '🏞️', description: 'Карта ×2, повышенная детализация карты, юнитов и обороны' },
@@ -123,7 +127,7 @@ export const DEFAULT_RESTRICTION = 'classic';
 export const DEFAULT_ECONOMY = 'classic';
 
 // ===== ЛОГИСТИКА (вкладка «Снабжение») — единый список для всех модулей =====
-export const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed'];
+export const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck'];
 
 // ===== ЭКОНОМИКА «ВЫМИРАНИЕ» =====
 // Множитель фарма падает с 1.0 до ATTRITION_MIN за ATTRITION_DECAY_TICKS
@@ -150,8 +154,11 @@ export const BARREL_ARTILLERY_TYPES = [
 ];
 
 // Пехота (базовый тип 'infantry' + виды)
-export const INFANTRY_UNIT_TYPES = ['infantry', 'rifleman', 'mg_gunner', 'grenadier', 'sniper'];
-
+export const INFANTRY_UNIT_TYPES = [
+    'infantry', 'rifleman', 'mg_gunner', 'grenadier', 'sniper',
+    'assualt_varden', 'assualt_colonist', 'smuggler_varden', 'poacher_colonist',
+    'medic_varden', 'medic_colonist',
+];
 // Все боевые/вспомогательные юниты (для фильтрации карточек производства в UI)
 export const ALL_UNIT_TYPES = [
     ...INFANTRY_UNIT_TYPES,
@@ -250,6 +257,14 @@ export const VEHICLE_COSTS = {
     fuel_truck: { s: 30, c: 20, m: 5, buildTime: 12 }, // Бензовоз - перевозит топливо
     engineer: { s: 20, c: 35, m: 10, buildTime: 20 }, // Инженерная машина - ремонтирует
     flatbed: { s: 35, c: 25, m: 10, buildTime: 15 }, // Flatbed truck
+    medic_truck: {s: 50, c:20, m: 5, buildTime: 25},
+
+    assualt_varden:  { s: 20, c: 5, m: 2, buildTime: 12 },  // Штурмовик
+    assualt_colonist: { s: 20, c: 10, m: 4, buildTime: 12 }, // Штурмовик (тот же тип)
+    smuggler_varden: { s: 35, c: 20, m: 5, buildTime: 18 }, // Контрабандист
+    poacher_colonist:{ s: 40, c: 10, m: 10, buildTime: 18 }, // Браконьер
+    medic_varden:    { s: 30, c: 10, m: 5, buildTime: 15 }, // Медик-пехотинец
+    medic_colonist:  { s: 30, c: 10, m: 5, buildTime: 15 }, // Медик-пехотинец
 };
 
 export const BUILDING_COSTS = {
@@ -286,10 +301,12 @@ export const SUPPLY_SYSTEM = {
     // ВАЖНО (фикс «пополняет один раз и не полностью»): ёмкости должны быть
     // БОЛЬШЕ, чем maxHp/maxAmmo/maxFuel техники — иначе инженеру/грузовику
     // физически не хватало «заряда» даже на один полный ремонт/пополнение.
-    truckCapacity: 400, // Вместимость грузовика (запас БК на несколько танков)
-    fuelTruckCapacity: 400, // Вместимость бензовоза
-    engineerRepairRate: 0.5, // HP/тик скорости ремонта
-    engineerCapacity: 500, // Материалы: больше макс. HP самой прочной техники (480)
+    truckCapacity: 500, // Вместимость грузовика (запас БК на несколько танков)
+    fuelTruckCapacity: 800, // Вместимость бензовоза
+    medicTruckCapacity: 1200,
+    medicHealRate: 0.05,
+    engineerRepairRate: 0.25, // HP/тик скорости ремонта
+    engineerCapacity: 600, // Материалы: больше макс. HP самой прочной техники (480)
     flatbedCapacity: 300, // Вместимость flatbed для артиллерии
     artilleryAmmoConsumption: 5, // Расход БК артиллерией за выстрел
     logisticsReplenishRate: 2, // Скорость пополнения логистики на базе (было 0.5 — вечный возврат)

@@ -238,6 +238,18 @@ export class MedicVarden extends InfantryBase {
         this.cd = 60;
         this.label = 'Медик';
     }
+     healUnit(targetUnit) {
+        if (!targetUnit || typeof targetUnit !== 'object') return 0;
+        if (targetUnit.isInfantry !== true && targetUnit.type !== 'infantry') return 0;
+        const hp = Number(targetUnit.hp);
+        const maxHp = Number(targetUnit.maxHp);
+        if (!Number.isFinite(hp) || !Number.isFinite(maxHp)) return 0;
+        if (hp >= maxHp - 0.5) return 0;
+        const amount = Math.min(this.healRate, maxHp - hp);
+        if (!Number.isFinite(amount) || amount <= 0) return 0;
+        targetUnit.hp = hp + amount;
+        return amount;
+    }
 }
 
 export class MedicColonist extends InfantryBase {
@@ -249,6 +261,18 @@ export class MedicColonist extends InfantryBase {
         this.spd = 0.45; // Очень медленно
         this.cd = 50;
         this.label = 'Медик';
+    }
+     healUnit(targetUnit) {
+        if (!targetUnit || typeof targetUnit !== 'object') return 0;
+        if (targetUnit.isInfantry !== true && targetUnit.type !== 'infantry') return 0;
+        const hp = Number(targetUnit.hp);
+        const maxHp = Number(targetUnit.maxHp);
+        if (!Number.isFinite(hp) || !Number.isFinite(maxHp)) return 0;
+        if (hp >= maxHp - 0.5) return 0;
+        const amount = Math.min(this.healRate, maxHp - hp);
+        if (!Number.isFinite(amount) || amount <= 0) return 0;
+        targetUnit.hp = hp + amount;
+        return amount;
     }
 }
 
@@ -800,7 +824,7 @@ export function isArtilleryUnit(u) {
 
 export class MedicTruck extends Vehicle {
     constructor(faction, x, y) {
-        super('fuel_truck', faction, x, y);
+        super('medic_truck', faction, x, y);
         this.hp = this.maxHp = 110;
         this.dmg = 0;
         this.range = 0;
@@ -809,27 +833,44 @@ export class MedicTruck extends Vehicle {
         this.size = 24;
         this.armor = 10;
         this.label = 'Скорая помощь';
-        this.cargoType = 'fuel';
-    //    this.cargoCapacity = SUPPLY_SYSTEM.fuelTruckCapacity;
-      //  this.currentCargo = SUPPLY_SYSTEM.fuelTruckCapacity;
+        this.cargoType = 'med';
+        this.cargoCapacity = SUPPLY_SYSTEM.medicTruckCapacity;
+        this.currentCargo = SUPPLY_SYSTEM.medicTruckCapacity;
     }
     
-    // Пополнение топлива у другой техники
+    // Лечит ТОЛЬКО пехоту. Технику чинит инженер (Engineer.repairUnit).
     healUnit(targetUnit) {
-        if (this.currentCargo > 0 && targetUnit.hp < targetUnit.hp) {
-            const amount = Math.min(
-                this.currentCargo,
-                targetUnit.hp - targetUnit.hp, // заменить на запас медикоментов
-                200 // Скорость пополнения (за тик) — бак наполняется полностью
+        if (!targetUnit || typeof targetUnit !== 'object') return 0;
+        // Защита: медик не должен лечить технику
+        if (targetUnit.isInfantry !== true && targetUnit.type !== 'infantry') return 0;
+        const cargo = Number(this.currentCargo);
+        if (!Number.isFinite(cargo) || cargo <= 0) return 0;
+        const hp = Number(targetUnit.hp);
+        const maxHp = Number(targetUnit.maxHp);
+        if (!Number.isFinite(hp) || !Number.isFinite(maxHp)) return 0;
+        if (hp >= maxHp - 0.5) return 0;
+
+        const amount = Math.min(
+            Number(SUPPLY_SYSTEM.medicHealRate) || 0.05,
+            maxHp - hp,
+            cargo
+        );
+        if (!Number.isFinite(amount) || amount <= 0) return 0;
+        targetUnit.hp = hp + amount;
+        this.currentCargo = cargo - amount;
+        return amount;
+    }
+    
+    replenishAtBase(gameTime) {
+        if (!baseRegenTick(this, gameTime)) return;
+        if (this.currentCargo < this.cargoCapacity) {
+            this.currentCargo = Math.min(
+                this.cargoCapacity,
+                this.currentCargo + this.cargoCapacity * (SUPPLY_SYSTEM.baseRegenPercent ?? 0.01)
             );
-            targetUnit.fuel += amount;
-            this.currentCargo -= amount;
-            return amount;
         }
-        return 0;
     }
 }
-
 export class Truck extends Vehicle {
     constructor(faction, x, y) {
         super('truck', faction, x, y);
@@ -940,15 +981,6 @@ export class Engineer extends Vehicle {
     
     // Ремонт другой техники
     repairUnit(targetUnit) {
-        // ===== ФИКС NaN-КООРДИНАТ: защита от «битого» ремонта =====
-        // Раньше сюда мог попасть targetUnit с повреждёнными данными (hp = NaN
-        // из-за битого урона) или вызов без цели. Арифметика min(NaN, ...) = NaN
-        // портила hp/груз инженера, дальше ИИ/сепарация считали dist() от битых
-        // значений и юниты получали tx/ty = NaN — в консоли мелькали строки
-        // «[GAME][FIX] Повреждены координаты у devitt/vabjo36kt1». Теперь все
-        // входящие значения валидируются, а результат ремонта никогда не может
-        // стать NaN. (Поле lastResupplyTick здесь НЕ записывается — оно нигде
-        // не инициализировано и раньше рождало NaN-арифметику в логистике.)
         if (!targetUnit || typeof targetUnit !== 'object') return 0;
         const cargo = Number(this.currentCargo);
         if (!Number.isFinite(cargo) || cargo <= 0) return 0;
@@ -958,7 +990,7 @@ export class Engineer extends Vehicle {
         if (hp >= maxHp - 0.5) return 0;
 
         const amount = Math.min(
-            Number(SUPPLY_SYSTEM.engineerRepairRate) || 0,
+            Number(SUPPLY_SYSTEM.medicHealRate) || 0,
             maxHp - hp,
             cargo
         );
@@ -1036,13 +1068,29 @@ function createInfantry(type, faction, x, y) {
             return isWardens ? new InfantryVarden(faction, x, y)
                              : new InfantryColonist(faction, x, y);
         case 'mg_gunner':
-            return new MgGunner(faction, x, y);          // общий для обеих фракций
+            return new MgGunner(faction, x, y);
         case 'grenadier':
             return isWardens ? new GrenadierVarden(faction, x, y)
                              : new GrenadierColonist(faction, x, y);
         case 'sniper':
             return isWardens ? new SniperVarden(faction, x, y)
                              : new SniperColonist(faction, x, y);
+
+        // ===== НОВАЯ ПЕХОТА =====
+        case 'assualt_varden':
+        case 'assualt_colonist':
+            // тип assualt_varden — общий; класс выбираем по фракции
+            return isWardens ? new AssualtVarden(faction, x, y)
+                             : new AssualtColonist(faction, x, y);
+        case 'smuggler_varden':
+            return new smuggler(faction, x, y);
+        case 'poacher_colonist':
+            return new poacher(faction, x, y);
+        case 'medic_varden':
+            return new MedicVarden(faction, x, y);
+        case 'medic_colonist':
+            return new MedicColonist(faction, x, y);
+
         default:
             return null;
     }
@@ -1084,6 +1132,7 @@ export function createVehicle(type, faction, x, y) {
         fuel_truck: FuelTruck,
         engineer: Engineer,
         flatbed: Flatbed,
+        medic_truck: MedicTruck,
     };
     const creator = map[type];
     if (!creator) return new Vehicle(type, faction, x, y);
@@ -1092,13 +1141,16 @@ export function createVehicle(type, faction, x, y) {
 
 // Доступная техника по фракциям
 export const FACTION_VEHICLES = {
-    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'noble_widow', 'gallagher_highwayman', 'niska', 'warden_artillery150', 'warden_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'gallagher_outlaw','niska_blinder'],
-    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin', 'hoplite', 'colonial_artillery150', 'colonial_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha'],
+    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'noble_widow', 'gallagher_highwayman', 'niska', 'warden_artillery150', 'warden_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'gallagher_outlaw','niska_blinder', 'medic_truck'],
+    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin', 'hoplite', 'colonial_artillery150', 'colonial_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha', 'medic_truck'],
 };
 
 // ===== Помощники по видам пехоты =====
-export const INFANTRY_TYPES = ['rifleman', 'mg_gunner', 'grenadier', 'sniper'];
-
+export const INFANTRY_TYPES = [
+    'rifleman', 'mg_gunner', 'grenadier', 'sniper',
+    'assualt_varden', 'smuggler_varden', 'poacher_colonist',
+    'medic_varden', 'medic_colonist',
+];
 // Пехота, доступная для производства каждой фракции.
 // Снайпер — общий тип ('sniper'), класс выбирается по фракции:
 //   wardens → SniperVarden, colonials → SniperColonist.
@@ -1107,8 +1159,10 @@ export const INFANTRY_TYPES = ['rifleman', 'mg_gunner', 'grenadier', 'sniper'];
 //   colonials → GrenadierColonist (дальше бросает, радиус взрыва больше).
 // Пулемётчик (mg_gunner) — единый класс MgGunner для обеих фракций.
 export const FACTION_INFANTRY = {
-    wardens:   ['rifleman', 'mg_gunner', 'grenadier', 'sniper', 'varden_medic'],
-    colonials: ['rifleman', 'mg_gunner', 'grenadier', 'sniper', 'colonist_medic'],
+    wardens:   ['rifleman', 'mg_gunner', 'grenadier', 'sniper',
+                'assualt_varden', 'smuggler_varden', 'medic_varden'],
+    colonials: ['rifleman', 'mg_gunner', 'grenadier', 'sniper',
+                'assualt_varden', 'poacher_colonist', 'medic_colonist'],
 };
 
 // Юнит — пехота? (новый флаг isInfantry + обратная совместимость со старым
@@ -1119,7 +1173,7 @@ export function isInfUnit(u) {
 }
 
 // Логистика (не считается боевой техникой ни у игрока, ни у ИИ)
-export const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed'];
+export const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck'];
 export function isLogisticsUnit(u) {
     return !!u && LOGISTICS_TYPES.includes(u.type);
 }

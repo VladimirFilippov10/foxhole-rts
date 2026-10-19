@@ -74,6 +74,13 @@ const VEHICLE_INFO = {
     mg_gunner: { name: 'Пулемётчик', icon: '🛡️', stats: 'HP:45 DMG:10 RNG:95 CD:0.5с x2 по пехоте SPD:0.2 — оборона (общий для обеих фракций)', cost: VEHICLE_COSTS.mg_gunner },
     grenadier: { name: 'Гранатомётчик / Гренадер', icon: '💣', stats: 'AoE по пехоте: W: HP:40 DMG:60 RNG:45 r15 · C: HP:40 DMG:25 RNG:70 r25', cost: VEHICLE_COSTS.grenadier },
     sniper: { name: 'Снайпер', icon: '🎯', stats: 'W: HP:20 DMG:45 RNG:260 CD:16с · C: HP:30 DMG:35 RNG:230 CD:13с', cost: VEHICLE_COSTS.sniper },
+    // ===== НОВАЯ ПЕХОТА =====
+assualt_varden:   { name: 'Штурмовик', icon: '⚔️', stats: 'W: HP:45 DMG:5 RNG:110 CD:0.8с · C: HP:50 DMG:6 RNG:90 CD:1с', cost: VEHICLE_COSTS.assualt_varden },
+smuggler_varden:  { name: 'Контрабандист', icon: '💰', stats: 'HP:60 DMG:20 RNG:140 CD:2.3с SPD:0.7', cost: VEHICLE_COSTS.smuggler_varden },
+poacher_colonist: { name: 'Браконьер', icon: '🎯', stats: 'HP:40 DMG:35 RNG:190 CD:5.8с SPD:0.7', cost: VEHICLE_COSTS.poacher_colonist },
+medic_varden:     { name: 'Медик', icon: '⚕️', stats: 'HP:30 DMG:2 Лечит пехоту в радиусе 80 (0.08 HP/тик)', cost: VEHICLE_COSTS.medic_varden },
+medic_colonist:   { name: 'Медик', icon: '⚕️', stats: 'HP:25 DMG:4 Лечит пехоту в радиусе 80 (0.08 HP/тик)', cost: VEHICLE_COSTS.medic_colonist },
+
 
     // Wardens tanks
     king_spire: { name: 'King Spire Mk.I', icon: '🔍', stats: 'HP:135 DMG:15 RNG:140 SPD:1.3 ARM:25 Разведка 120', cost: VEHICLE_COSTS.king_spire },
@@ -106,6 +113,7 @@ const VEHICLE_INFO = {
     fuel_truck: { name: 'Бензовоз', icon: '⛽', stats: 'HP:80 SPD:1.3 Без оружия Пополняет топливо (запас 400)', cost: VEHICLE_COSTS.fuel_truck },
     engineer: { name: 'Инженер', icon: '🔧', stats: 'HP:120 SPD:1.1 Без оружия Ремонт в радиусе 100 (запас 500)', cost: VEHICLE_COSTS.engineer },
     flatbed: { name: 'Flatbed', icon: '🚛', stats: 'HP:150 SPD:1.0 Без оружия Снаряды для артиллерии (запас 300)', cost: VEHICLE_COSTS.flatbed },
+    medic_truck: { name: 'Скорая помощь', icon: '🚛', stats: 'HP:150 SPD:1.0  Машина скорой помощи', cost: VEHICLE_COSTS.medic_truck },
 };
 
 // Defense upgrade info
@@ -746,10 +754,11 @@ const PRODUCTION_TABS = [
 const FACTION_INFANTRY_TYPES = ['rifleman', 'mg_gunner', 'grenadier', 'sniper'];
 
 const TAB_TYPES = {
-    infantry: ['infantry', ...FACTION_INFANTRY_TYPES],
+    infantry: ['infantry', 'assualt_varden', 'smuggler_varden', 'poacher_colonist',
+               'medic_varden', 'medic_colonist', ...FACTION_INFANTRY_TYPES],
     vehicles: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw', 'niska', 'spatha', 'talos', 'noble_widow', 'niska_blinder',
                'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin'],
-    supply:   ['truck', 'fuel_truck', 'engineer', 'flatbed'],
+    supply:   ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck'],
     // Поддержка: ствольная артиллерия + миномётные машины (Hoplite, Devitt MMR)
     support:  ['warden_artillery120', 'warden_artillery150','colonial_artillery120','colonial_artillery150', 'hoplite', 'devitt_mmr', 'god_loader'],
 };

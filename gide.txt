@@ -1,0 +1,668 @@
+================================================================================
+              ГАЙД: ДОБАВЛЕНИЕ НОВОЙ ТЕХНИКИ И ПЕХОТЫ В ИГРУ
+================================================================================
+
+ФАЙЛЫ, КОТОРЫЕ УЧАСТВУЮТ:
+  constants.js  — стоимость, типы, режимы ограничений
+  vehicles.js   — класс юнита, фабрики createVehicle / createInfantry, списки фракций
+  main.js       — карточка в меню завода, вкладки производства
+  renderer.js   — отрисовка юнита (drawUnit)
+  game.js       — боевая логика (лечение медика и т.п.)
+  ai.js         — производство/использование ИИ (опционально)
+
+
+================================================================================
+  ЧАСТЬ A. НОВАЯ ТЕХНИКА
+================================================================================
+
+Замени:
+  my_tank  -> свой тип (латиница, snake_case)
+  MyTank   -> имя класса (CamelCase)
+  WARDENS  -> своя фракция (wardens или colonials)
+
+
+--------------------------------------------------------------------------------
+A1. constants.js -> VEHICLE_COSTS
+--------------------------------------------------------------------------------
+
+Найди:  export const VEHICLE_COSTS = {
+Добавь строку:
+
+    my_tank: { s: 60, c: 80, m: 30, buildTime: 35 },
+
+  s = припасы, c = компоненты, m = материалы, buildTime = секунды
+
+
+--------------------------------------------------------------------------------
+A2. constants.js -> ALL_UNIT_TYPES
+--------------------------------------------------------------------------------
+
+Найди:  export const ALL_UNIT_TYPES = [
+Добавь 'my_tank' в список техники:
+
+    export const ALL_UNIT_TYPES = [
+        ...INFANTRY_UNIT_TYPES,
+        'king_spire', 'devitt', /* ... */, 'my_tank',
+        // ...
+    ];
+
+
+--------------------------------------------------------------------------------
+A3. constants.js -> BARREL_ARTILLERY_TYPES  (ТОЛЬКО ЕСЛИ АРТИЛЛЕРИЯ)
+--------------------------------------------------------------------------------
+
+Если это ствольная артиллерия — добавь:
+
+    export const BARREL_ARTILLERY_TYPES = [
+        'warden_artillery120', 'warden_artillery150',
+        'colonial_artillery120', 'colonial_artillery150',
+        'god_loader',
+        'my_tank',
+    ];
+
+Если обычный танк/БТР — пропусти A3.
+
+
+--------------------------------------------------------------------------------
+A4. vehicles.js -> новый класс (перед createVehicle)
+--------------------------------------------------------------------------------
+
+Добавь класс после других классов техники:
+
+    export class MyTank extends Vehicle {
+        constructor(faction, x, y) {
+            super('my_tank', faction, x, y);
+            this.hp = this.maxHp = 280;
+            this.dmg = 55;
+            this.range = 165;
+            this.spd = 1.2;
+            this.cd = 320;
+            this.size = 24;
+            this.armor = 40;
+            this.label = 'My Tank';
+            this.tracked = true;
+            this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.5);
+            this.ammo = this.maxAmmo;
+        }
+    }
+
+ОСОБЫЕ ФЛАГИ (добавляй в конструктор по необходимости):
+
+  this.aoe = true; this.aoeRadius = 60;        — AoE-урон
+  this.minRange = 100;                          — минимальная дистанция
+  this.isArtillery = true;                      — считается артиллерией
+  this.isMortar = true;                         — категоризация ИИ
+  this.revealRadius = 120;                      — разведка
+  this.dualGun = true;                          — двойной выстрел
+  this.grenadeLauncher = true;
+  this.grenadeRadius = 40;                      — AoE по пехоте
+  this.antiInfantry = true;
+  this.infantryMultiplier = 2.5;                — бонус по пехоте
+  this.canBoost = true; this.boostSpd = 2.8;    — ускорение
+  this.armorPierce = 70;                        — бронепробитие
+
+
+--------------------------------------------------------------------------------
+A5. vehicles.js -> createVehicle -> map
+--------------------------------------------------------------------------------
+
+Найди:  const map = {
+Добавь:
+
+    const map = {
+        king_spire: KingSpire,
+        devitt: Devitt,
+        // ...
+        my_tank: MyTank,
+        // ...
+    };
+
+
+--------------------------------------------------------------------------------
+A6. vehicles.js -> FACTION_VEHICLES
+--------------------------------------------------------------------------------
+
+Найди:  export const FACTION_VEHICLES = {
+Добавь 'my_tank' в массив своей фракции:
+
+    export const FACTION_VEHICLES = {
+        wardens: [
+            'king_spire', 'devitt', /* ... */, 'medic_truck',
+            'my_tank',
+        ],
+        colonials: [ /* ... */ ],
+    };
+
+
+--------------------------------------------------------------------------------
+A7. main.js -> VEHICLE_INFO
+--------------------------------------------------------------------------------
+
+Найди:  const VEHICLE_INFO = {
+Добавь карточку:
+
+    my_tank: {
+        name: 'My Tank',
+        icon: '🚀',
+        stats: 'HP:280 DMG:55 RNG:165 SPD:1.2 ARM:40 CD:5.3с БК:50',
+        cost: VEHICLE_COSTS.my_tank,
+    },
+
+
+--------------------------------------------------------------------------------
+A8. main.js -> TAB_TYPES
+--------------------------------------------------------------------------------
+
+Найди:  const TAB_TYPES = {
+Добавь тип в ОДНУ из вкладок:
+
+    const TAB_TYPES = {
+        infantry: [ /* ... */ ],
+        vehicles: [ /* ... */, 'my_tank' ],   — обычная техника
+        supply:   [ /* ... */ ],              — логистика
+        support:  [ /* ... */ ],              — артиллерия, миномёты
+    };
+
+Правило:
+  Танк, БТР, разведка     -> vehicles
+  Артиллерия, миномёт     -> support
+  Грузовик, инженер, медик -> supply
+
+ВНИМАНИЕ: тип должен быть ровно в ОДНОЙ вкладке.
+
+
+--------------------------------------------------------------------------------
+A9. renderer.js -> drawUnit -> блок техники
+--------------------------------------------------------------------------------
+
+Найди в function drawUnit ветку } else { (после if (isInfUnit(u))).
+Внутри неё добавь:
+
+    if (u.type === 'my_tank') {
+        // Гусеницы
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(-sz * 0.5, -sz * 0.34, sz, sz * 0.1);
+        ctx.fillRect(-sz * 0.5,  sz * 0.24, sz, sz * 0.1);
+
+        // Катки
+        ctx.fillStyle = '#374151';
+        for (let i = 0; i < 5; i++) {
+            const wx = -sz * 0.4 + i * sz * 0.2;
+            ctx.beginPath();
+            ctx.arc(wx, -sz * 0.29, sz * 0.04, 0, Math.PI * 2);
+            ctx.arc(wx,  sz * 0.29, sz * 0.04, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Корпус
+        ctx.fillStyle = col.p;
+        ctx.fillRect(-sz * 0.48, -sz * 0.24, sz * 0.96, sz * 0.48);
+        ctx.strokeStyle = col.a;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(-sz * 0.48, -sz * 0.24, sz * 0.96, sz * 0.48);
+
+        // Башня
+        ctx.fillStyle = col.s;
+        ctx.beginPath();
+        ctx.arc(0, 0, sz * 0.26, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = col.a;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Орудие
+        ctx.strokeStyle = col.a;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(sz * 0.24, 0);
+        ctx.lineTo(sz * 0.8, 0);
+        ctx.stroke();
+
+        // Дульный срез
+        ctx.fillStyle = '#1a1a1a';
+        ctx.beginPath();
+        ctx.arc(sz * 0.8, 0, sz * 0.02, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+Если пропустить — юнит будет рисоваться как fallback-прямоугольник.
+
+
+--------------------------------------------------------------------------------
+A10. ai.js -> vehicleRoster()  (ОПЦИОНАЛЬНО)
+--------------------------------------------------------------------------------
+
+Если хочешь, чтобы ИИ строил этот юнит:
+
+    vehicleRoster() {
+        return this.G.ai === 'wardens'
+            ? ['devitt', 'niska', 'king_spire', 'silverhand',
+               'gallagher_highwayman', 'gallagher_outlaw', 'my_tank']
+            : ['hatchet', 'javelin', 'scorpion', 'nemesis',
+               'falchion', 'spatha'];
+    }
+
+И (опционально) в spawnVehicle -> блок if (this.G.ai === 'wardens'):
+
+    if (this.difficulty >= 2) {
+        types.push('silverhand', 'gallagher_highwayman',
+                   'gallagher_outlaw', 'my_tank');
+    }
+
+
+--------------------------------------------------------------------------------
+ИТОГОВЫЙ ЧЕК-ЛИСТ ПО ТЕХНИКЕ
+--------------------------------------------------------------------------------
+
+[ ] A1.  constants.js -> VEHICLE_COSTS.my_tank
+[ ] A2.  constants.js -> ALL_UNIT_TYPES (добавить 'my_tank')
+[ ] A3.  constants.js -> BARREL_ARTILLERY_TYPES (только если артиллерия)
+[ ] A4.  vehicles.js  -> класс MyTank extends Vehicle
+[ ] A5.  vehicles.js  -> createVehicle -> map.my_tank = MyTank
+[ ] A6.  vehicles.js  -> FACTION_VEHICLES.WARDENS (добавить 'my_tank')
+[ ] A7.  main.js      -> VEHICLE_INFO.my_tank
+[ ] A8.  main.js      -> TAB_TYPES (в одну из вкладок)
+[ ] A9.  renderer.js  -> drawUnit -> if (u.type === 'my_tank')
+[ ] A10. ai.js        -> vehicleRoster / spawnVehicle (опционально)
+
+
+================================================================================
+  ЧАСТЬ B. НОВАЯ ПЕХОТА
+================================================================================
+
+Замени:
+  my_infantry  -> свой тип
+  MyInfantry   -> имя класса
+
+
+--------------------------------------------------------------------------------
+B1. constants.js -> VEHICLE_COSTS
+--------------------------------------------------------------------------------
+
+    my_infantry: { s: 20, c: 5, m: 2, buildTime: 12 },
+
+
+--------------------------------------------------------------------------------
+B2. constants.js -> INFANTRY_UNIT_TYPES
+--------------------------------------------------------------------------------
+
+Найди:  export const INFANTRY_UNIT_TYPES = [
+Добавь:
+
+    export const INFANTRY_UNIT_TYPES = [
+        'infantry', 'rifleman', 'mg_gunner', 'grenadier', 'sniper',
+        'assualt_varden', 'assualt_colonist', 'smuggler_varden',
+        'poacher_colonist', 'medic_varden', 'medic_colonist',
+        'my_infantry',
+    ];
+
+ALL_UNIT_TYPES собирается из INFANTRY_UNIT_TYPES — отдельно добавлять не надо.
+
+
+--------------------------------------------------------------------------------
+B3. vehicles.js -> новый класс (наследуется от InfantryBase)
+--------------------------------------------------------------------------------
+
+Добавь класс рядом с другими классами пехоты:
+
+    export class MyInfantry extends InfantryBase {
+        constructor(faction, x, y) {
+            super('my_infantry', faction, x, y);
+            this.hp = this.maxHp = 45;
+            this.dmg = 12;
+            this.range = 140;
+            this.spd = 0.55;
+            this.cd = 90;
+            this.label = 'Мой пехотинец';
+        }
+    }
+
+ОСОБЫЕ ФЛАГИ (по необходимости):
+
+  this.antiInfantry = true;
+  this.infantryMultiplier = 2.0;                — бонус по пехоте
+  this.grenadeLauncher = true;
+  this.grenadeRadius = 20;                      — AoE по пехоте
+  this.isMedic = true;
+  this.healRange = 80;
+  this.healRate = 0.08;                         — лечит пехоту (см. B12)
+
+InfantryBase уже выставляет isInfantry = true, size = 8, maxFuel = 0.
+Ничего из этого повторять НЕ надо.
+
+
+--------------------------------------------------------------------------------
+B4. vehicles.js -> createInfantry -> case
+--------------------------------------------------------------------------------
+
+Найди:  function createInfantry(type, faction, x, y) {
+Добавь case:
+
+    function createInfantry(type, faction, x, y) {
+        const isWardens = faction === 'wardens';
+        switch (type) {
+            case 'rifleman':
+            case 'infantry':
+                // ...
+            case 'my_infantry':
+                return new MyInfantry(faction, x, y);
+            default:
+                return null;
+        }
+    }
+
+ВАРИАНТ: один тип, разные классы по фракции (как grenadier):
+
+    case 'my_infantry':
+        return isWardens ? new MyInfantryVarden(faction, x, y)
+                         : new MyInfantryColonist(faction, x, y);
+
+ВАРИАНТ: два отдельных типа (как medic_varden / medic_colonist):
+
+    case 'medic_varden':
+        return new MedicVarden(faction, x, y);
+    case 'medic_colonist':
+        return new MedicColonist(faction, x, y);
+
+
+--------------------------------------------------------------------------------
+B5. vehicles.js -> FACTION_INFANTRY
+--------------------------------------------------------------------------------
+
+    export const FACTION_INFANTRY = {
+        wardens: [
+            'rifleman', 'mg_gunner', 'grenadier', 'sniper',
+            'assualt_varden', 'smuggler_varden', 'medic_varden',
+            'my_infantry',
+        ],
+        colonials: [
+            'rifleman', 'mg_gunner', 'grenadier', 'sniper',
+            'assualt_varden', 'poacher_colonist', 'medic_colonist',
+        ],
+    };
+
+Без этого шага карточка НЕ появится в меню завода.
+
+
+--------------------------------------------------------------------------------
+B6. vehicles.js -> INFANTRY_TYPES
+--------------------------------------------------------------------------------
+
+    export const INFANTRY_TYPES = [
+        'rifleman', 'mg_gunner', 'grenadier', 'sniper',
+        'assualt_varden', 'smuggler_varden', 'poacher_colonist',
+        'medic_varden', 'medic_colonist',
+        'my_infantry',
+    ];
+
+Используется в canProduceUnit для проверки лимита пехоты.
+Без него юнит НЕ сможет производиться (упрётся в лимит техники).
+
+
+--------------------------------------------------------------------------------
+B7. main.js -> VEHICLE_INFO
+--------------------------------------------------------------------------------
+
+    my_infantry: {
+        name: 'Мой пехотинец',
+        icon: '🪖',
+        stats: 'HP:45 DMG:12 RNG:140 SPD:0.55 CD:1.5с',
+        cost: VEHICLE_COSTS.my_infantry,
+    },
+
+
+--------------------------------------------------------------------------------
+B8. main.js -> FACTION_INFANTRY_TYPES
+--------------------------------------------------------------------------------
+
+Найди:  const FACTION_INFANTRY_TYPES = [
+Добавь:
+
+    const FACTION_INFANTRY_TYPES = [
+        'rifleman', 'mg_gunner', 'grenadier', 'sniper',
+        'assualt_varden', 'smuggler_varden', 'poacher_colonist',
+        'medic_varden', 'medic_colonist',
+        'my_infantry',
+    ];
+
+
+--------------------------------------------------------------------------------
+B9. main.js -> TAB_TYPES.infantry
+--------------------------------------------------------------------------------
+
+    const TAB_TYPES = {
+        infantry: [
+            'infantry',
+            ...FACTION_INFANTRY_TYPES,
+            'my_infantry',
+        ],
+        vehicles: [ /* ... */ ],
+        supply:   [ /* ... */ ],
+        support:  [ /* ... */ ],
+    };
+
+FACTION_INFANTRY_TYPES и TAB_TYPES.infantry — РАЗНЫЕ константы, добавь в обе.
+
+
+--------------------------------------------------------------------------------
+B10. main.js -> factionUnitName  (ОПЦИОНАЛЬНО)
+--------------------------------------------------------------------------------
+
+Только если у юнита РАЗНЫЕ названия по фракциям:
+
+    function factionUnitName(type, info) {
+        if (type === 'grenadier') {
+            return game && game.faction === 'colonials'
+                ? 'Гренадер' : 'Гранатомётчик';
+        }
+        if (type === 'my_infantry') {
+            return game && game.faction === 'colonials'
+                ? 'Мой колонист' : 'Мой варден';
+        }
+        return info?.name || type;
+    }
+
+Если название общее — пропусти B10.
+
+
+--------------------------------------------------------------------------------
+B11. renderer.js -> drawUnit -> блок if (isInfUnit(u))
+--------------------------------------------------------------------------------
+
+Найди внутри drawUnit блок if (isInfUnit(u)) {.
+Добавь свою форму в цепочку if / else if:
+
+    if (isInfUnit(u)) {
+        const r = sz / 2;
+        ctx.fillStyle = col.p;
+        ctx.beginPath();
+        if (u.type === 'sniper') {
+            ctx.moveTo(r, 0);
+            ctx.lineTo(-r * 0.8, -r * 0.9);
+            ctx.lineTo(-r * 0.8, r * 0.9);
+        } else if (u.type === 'grenadier') {
+            ctx.moveTo(r, 0); ctx.lineTo(0, -r);
+            ctx.lineTo(-r, 0); ctx.lineTo(0, r);
+        } else if (u.type === 'mg_gunner') {
+            ctx.rect(-r * 0.85, -r * 0.85, r * 1.7, r * 1.7);
+        } else if (u.type === 'my_infantry') {
+            // ромб
+            ctx.moveTo(r, 0); ctx.lineTo(0, -r);
+            ctx.lineTo(-r, 0); ctx.lineTo(0, r);
+        } else {
+            ctx.arc(0, 0, r, 0, Math.PI * 2);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = col.a;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // ...
+    }
+
+Маркер "ствола" (если нужен) — в блоке маркеров внутри isInfUnit:
+
+    if (u.type === 'my_infantry') {
+        ctx.strokeStyle = col.s;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(sz / 2 + 4, 0);
+        ctx.stroke();
+    }
+
+Если пропустить — юнит будет рисоваться как "круг" (fallback).
+
+
+--------------------------------------------------------------------------------
+B12. game.js -> updateUnit  (ТОЛЬКО ДЛЯ МЕДИКА)
+--------------------------------------------------------------------------------
+
+Пропусти B12, если юнит НЕ лечит.
+
+Добавь блок в updateUnit ПОСЛЕ блока логистики и ДО поиска ближайшего
+врага (найди // Find nearest enemy):
+
+    // ===== ПЕХОТНЫЙ МЕДИК =====
+    if (u.isMedic && u.hp > 0) {
+        const now = this.time;
+        if (now - (u._lastHealTick || 0) >= (u.healTickInterval || 30)) {
+            u._lastHealTick = now;
+            const range = u.healRange || 80;
+            let target = null, bestDist = Infinity;
+            for (const o of this.units) {
+                if (o === u || o.faction !== u.faction || o.hp <= 0) continue;
+                if (!isInfUnit(o)) continue;
+                if (o.hp >= o.maxHp - 0.5) continue;
+                const d = dist(u.x, u.y, o.x, o.y);
+                if (d <= range && d < bestDist) { bestDist = d; target = o; }
+            }
+            if (target && typeof u.healUnit === 'function') {
+                u.healUnit(target);
+            }
+        }
+    }
+
+И в класс медика (B3) добавь метод:
+
+    healUnit(targetUnit) {
+        if (!targetUnit || typeof targetUnit !== 'object') return 0;
+        if (targetUnit.isInfantry !== true
+            && targetUnit.type !== 'infantry') return 0;
+        const hp = Number(targetUnit.hp);
+        const maxHp = Number(targetUnit.maxHp);
+        if (!Number.isFinite(hp) || !Number.isFinite(maxHp)) return 0;
+        if (hp >= maxHp - 0.5) return 0;
+        const amount = Math.min(this.healRate || 0.08, maxHp - hp);
+        if (!Number.isFinite(amount) || amount <= 0) return 0;
+        targetUnit.hp = hp + amount;
+        return amount;
+    }
+
+
+--------------------------------------------------------------------------------
+B13. ai.js -> pickInfantryType  (ОПЦИОНАЛЬНО)
+--------------------------------------------------------------------------------
+
+Если хочешь, чтобы ИИ производил этот тип:
+
+    pickInfantryType(role) {
+        const isWardens = this.G.ai === 'wardens';
+        const medicType = isWardens ? 'medic_varden' : 'medic_colonist';
+        const r = Math.random();
+        if (role === 'defense') {
+            return r < 0.70 ? 'mg_gunner'
+                 : (r < 0.90 ? 'rifleman' : medicType);
+        }
+        if (r < 0.35) return 'rifleman';
+        if (r < 0.55) return 'grenadier';
+        if (r < 0.70) return 'mg_gunner';
+        if (r < 0.80) return 'assualt_varden';
+        if (r < 0.88) return 'sniper';
+        if (r < 0.95) return 'my_infantry';
+        return medicType;
+    }
+
+
+--------------------------------------------------------------------------------
+ИТОГОВЫЙ ЧЕК-ЛИСТ ПО ПЕХОТЕ
+--------------------------------------------------------------------------------
+
+[ ] B1.  constants.js -> VEHICLE_COSTS.my_infantry
+[ ] B2.  constants.js -> INFANTRY_UNIT_TYPES (добавить 'my_infantry')
+[ ] B3.  vehicles.js  -> класс MyInfantry extends InfantryBase
+[ ] B4.  vehicles.js  -> createInfantry -> case 'my_infantry'
+[ ] B5.  vehicles.js  -> FACTION_INFANTRY.WARDENS (добавить 'my_infantry')
+[ ] B6.  vehicles.js  -> INFANTRY_TYPES (добавить 'my_infantry')
+[ ] B7.  main.js      -> VEHICLE_INFO.my_infantry
+[ ] B8.  main.js      -> FACTION_INFANTRY_TYPES (добавить 'my_infantry')
+[ ] B9.  main.js      -> TAB_TYPES.infantry (добавить 'my_infantry')
+[ ] B10. main.js      -> factionUnitName (только если разные имена)
+[ ] B11. renderer.js  -> drawUnit -> else if (u.type === 'my_infantry')
+[ ] B12. game.js      -> updateUnit -> блок "ПЕХОТНЫЙ МЕДИК" (для медика)
+[ ] B13. ai.js        -> pickInfantryType (опционально)
+
+
+================================================================================
+  СВОДНАЯ ТАБЛИЦА: ЧТО ГДЕ ЛЕЖИТ
+================================================================================
+
+  Что                        Файл             Константа / функция
+  ------------------------------------------------------------------------
+  Стоимость                  constants.js     VEHICLE_COSTS
+  Типы пехоты                constants.js     INFANTRY_UNIT_TYPES
+  Типы артиллерии            constants.js     BARREL_ARTILLERY_TYPES
+  Все типы (UI)              constants.js     ALL_UNIT_TYPES
+  Класс юнита                vehicles.js      class MyX extends ...
+  Фабрика техники            vehicles.js      createVehicle -> map
+  Фабрика пехоты             vehicles.js      createInfantry -> switch/case
+  Техника фракции            vehicles.js      FACTION_VEHICLES
+  Пехота фракции             vehicles.js      FACTION_INFANTRY
+  Типы пехоты (game)         vehicles.js      INFANTRY_TYPES
+  Карточка в меню            main.js          VEHICLE_INFO
+  Вкладки производства       main.js          TAB_TYPES
+  Пехота в UI                main.js          FACTION_INFANTRY_TYPES
+  Фракционное имя            main.js          factionUnitName
+  Моделька                   renderer.js      drawUnit
+  Лечение                    game.js          updateUnit -> блок МЕДИК
+  ИИ техника                 ai.js            vehicleRoster / spawnVehicle
+  ИИ пехота                  ai.js            pickInfantryType
+
+
+================================================================================
+  ЧАСТЫЕ ОШИБКИ
+================================================================================
+
+  Симптом                                    Причина
+  ------------------------------------------------------------------------
+  Карточки нет в меню завода                 не добавлен в FACTION_VEHICLES
+                                             (техника) / FACTION_INFANTRY (пехота)
+
+  "Недостаточно ресурсов" всегда             нет VEHICLE_COSTS[type]
+
+  Юнит = базовый (HP 100, dmg 10)            нет map[type] (техника)
+                                             / case (пехота)
+
+  Не рисуется (прямоугольник)                нет ветки в renderer.js -> drawUnit
+
+  TypeError: Cannot read properties          VEHICLE_COSTS[type] = undefined
+  of undefined
+
+  Пехота не производится                     не добавлен в INFANTRY_TYPES
+  (упирается в лимит техники)                (vehicles.js)
+
+  ИИ не строит                               не добавлен в vehicleRoster
+                                             / pickInfantryType
+
+  Медик не лечит                             нет isMedic / healUnit()
+                                             ИЛИ нет блока B12 в game.js
+
+  Артиллерия не стреляет через ИИ            нет isArtillery = true
+                                             / isMortar = true
+
+  Артиллерия в лоб едет на базу              нет minRange или isArtillery
+
+
+================================================================================
+  КОНЕЦ ГАЙДА
+================================================================================
