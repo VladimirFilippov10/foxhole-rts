@@ -1,6 +1,7 @@
 // ===== MAIN ENTRY POINT =====
 import { VEHICLE_COSTS, dist, GAME_MODES, FIXED_STEP_MS, MAX_STEPS_PER_FRAME,
-    RESTRICTION_OPTIONS, ECONOMY_OPTIONS, DEFAULT_RESTRICTION, DEFAULT_ECONOMY,
+    RESTRICTION_OPTIONS, ECONOMY_OPTIONS, FOG_OPTIONS,
+    DEFAULT_RESTRICTION, DEFAULT_ECONOMY, DEFAULT_FOG,
     getModeFlags } from './constants.js';
 import { createVehicle, FACTION_VEHICLES, FACTION_INFANTRY, INFANTRY_TYPES } from './vehicles.js';
 import { getCapturePointsInWorld, getResourcePointsInWorld } from './map.js';
@@ -14,12 +15,13 @@ const globalKeys = {};
 let selectedMap = 'deadlands';
 let selectedFaction = 'wardens';
 let selectedGameMode = 'normal';
+let selectedRestriction = DEFAULT_RESTRICTION;
+let selectedEconomy = DEFAULT_ECONOMY;
+let selectedFog = DEFAULT_FOG;
 // Дополнительные настройки режима (выбираются на экране «Настройки игры»,
 // в каждой группе ровно одно значение — radio-поведение):
 //  selectedRestriction: classic | infantry_only | vehicles_only | no_artillery
 //  selectedEconomy:     classic | attrition (Вымирание) | scarcity (Дефицит)
-let selectedRestriction = DEFAULT_RESTRICTION;
-let selectedEconomy = DEFAULT_ECONOMY;
 let lastClickTime = 0;
 let factoryMenuOpen = false;
 let aoeMode = false;
@@ -262,6 +264,12 @@ function renderModeToggles() {
         id => { selectedRestriction = id; });
     renderToggleRow('economyRow', ECONOMY_OPTIONS, selectedEconomy,
         id => { selectedEconomy = id; });
+    // ===== ТУМАН ВОЙНЫ =====
+    const fogRow = document.getElementById('fogRow');
+    if (fogRow) {
+        renderToggleRow('fogRow', FOG_OPTIONS, selectedFog,
+            id => { selectedFog = id; });
+    }
 }
 
 window.selectGameMode = function(mode) {
@@ -287,7 +295,8 @@ function startGame() {
         
         document.getElementById('hudTop').style.display = 'flex';
         document.getElementById('controlsHint').style.display = 'block';
-        
+        game = new Game(selectedFaction, selectedGameMode,
+    selectedRestriction, selectedEconomy, selectedFog);
         const badge = document.getElementById('factionBadge');
         badge.className = 'faction-badge ' + selectedFaction;
         badge.innerHTML = selectedFaction === 'wardens' ? '🛡️ WARDENS' : '⚔️ COLONIALS';
@@ -306,7 +315,6 @@ function startGame() {
         }
         
         // Create game with selected mode
-        game = new Game(selectedFaction, selectedGameMode, selectedRestriction, selectedEconomy);
         // Передаём текущее состояние клавиш в игру (см. globalKeys выше)
         game.keys = globalKeys;
         

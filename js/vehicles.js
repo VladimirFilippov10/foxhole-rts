@@ -15,29 +15,33 @@ export class Vehicle {
         this.tx = undefined;
         this.ty = undefined;
         this.lastAtk = 0;
-        this.gameTime = 0; // Для расчёта перезарядки
-        this.direction = 0; // Направление в радианах (0 = вправо)
+        this.gameTime = 0;
+        this.direction = 0;
         this.lastHitDmg = 0;
         this.game = null;
         this.hp = 100;
         this.maxHp = 100;
         this.dmg = 10;
         this.range = 100;
-        this.spd = 1.0; // Базовая скорость
+        this.spd = 1.0;
         this.cd = 60;
         this.size = 20;
         this.label = 'Vehicle';
         this.armor = 0;
-        this.tracked = false; // Гусеничная техника (танки, БТР, артиллерия)
-        
+        this.tracked = false;
+
         // Система БК и топлива
         this.ammo = SUPPLY_SYSTEM.maxAmmo;
         this.maxAmmo = SUPPLY_SYSTEM.maxAmmo;
         this.fuel = SUPPLY_SYSTEM.maxFuel;
         this.maxFuel = SUPPLY_SYSTEM.maxFuel;
-    }
-    
 
+        // ===== ТУМАН ВОЙНЫ: базовые значения (переопределяются в наследниках) =====
+        this.stealth = 20;          // скрытность
+        this.detectRange = 80;      // радиус обнаружения
+        this.visibilityRange = 0;   // кэш радиуса видимости (считается в game.js)
+        this.visionBase = 100;      // "обзор" — база для процентов detectRange
+    }
 
     takeDamage(dmg, src = null, game = null) {
         const d = Number(dmg);
@@ -48,86 +52,74 @@ export class Vehicle {
         if (src && src.armorPierce) {
             const pa = Number(src.armorPierce);
             const tArmor = Math.max(0, Number(this.armor) || 0);
-            const half = pa / 2; // 35 при пороге 70
+            const half = pa / 2;
             let mult;
             if (tArmor >= pa) mult = 0.5;
             else if (tArmor >= half) mult = 1.0;
-            else mult = 1 + (half - tArmor) / half; // 1 → 3 прогрессивно
+            else mult = 1 + (half - tArmor) / half;
             effective = d * mult;
         }
 
-        // ===== ВЫЧИТАНИЕ БРОНИ =====
-        // Урон после брони (минимум 1, чтобы даже слабый выстрел наносил урон)
         const armor = Number(this.armor) || 0;
         let finalDamage = Math.max(1, effective - armor);
         const G = game || this.game;
+
+        // Бонус обороны города
         if (G && typeof G.getCityDefenseBonus === 'function') {
             const bonus = G.getCityDefenseBonus(this);
             if (bonus > 0) {
                 finalDamage = Math.max(1, Math.floor(finalDamage * (1 - bonus)));
             }
         }
-        this.hp -= finalDamage;
 
-        // Запоминаем последний урон (для эффекта отрыва башни)
+        // Бонус укрытия (только при включённом тумане войны + в кустах)
+        if (G && typeof G.getConcealDefenseBonus === 'function') {
+            const cb = G.getConcealDefenseBonus(this);
+            if (cb > 0) {
+                finalDamage = Math.max(1, Math.floor(finalDamage * (1 - cb)));
+            }
+        }
+
+        this.hp -= finalDamage;
         this.lastHitDmg = finalDamage;
     }
-    
+
     canAttack() {
-        // Артиллерия расходует за выстрел artilleryAmmoConsumption снарядов
         if (this.isArtillery) return this.ammo >= SUPPLY_SYSTEM.artilleryAmmoConsumption;
         return this.ammo >= SUPPLY_SYSTEM.ammoConsumption;
     }
-    
+
     useAmmo() {
         const cost = this.isArtillery ? SUPPLY_SYSTEM.artilleryAmmoConsumption
                                       : SUPPLY_SYSTEM.ammoConsumption;
         this.ammo = Math.max(0, this.ammo - cost);
     }
-    
+
     useFuel() {
-        // Пехота не расходует топливо (топливо — только у техники на ходу)
         if (this.isInfantry) return;
         this.fuel = Math.max(0, this.fuel - SUPPLY_SYSTEM.fuelConsumption);
     }
-    
+
     canMove() {
-        // Пехоте топливо не нужно — она всегда может двигаться
         if (this.isInfantry) return true;
         return this.fuel > 0;
     }
-    
-    // Пополнение HP/БК/топлива в НАШЕЙ базе.
-    // ИСПРАВЛЕНИЕ «бессмертные юниты»: раньше база чинила технику почти
-    // мгновенно (0.15 HP/тик + пополнение БК/топлива с множителем x4 каждый
-    // тик). Теперь по правилу баланса: ремонт, пополнение БК и топлива идут
-    // по 1% от максимума каждые 100 тиков (baseRegenInterval), то есть полный
-    // цикл восстановления ~10000 тиков — техника на базе уязвима и не может
-    // бесконечно «отсиживаться» от боя.
+
     regenerateAtBase(gameTime) {
-        // throttle: срабатывает раз в baseRegenInterval тиков
         const interval = SUPPLY_SYSTEM.baseRegenInterval || 100;
         if (gameTime !== undefined) {
             if (this._lastBaseRegen === undefined) this._lastBaseRegen = gameTime;
             if (gameTime - this._lastBaseRegen < interval) return;
             this._lastBaseRegen = gameTime;
         }
-        const pct = SUPPLY_SYSTEM.baseRegenPercent ?? 0.01; // 1% за интервал
-        if (this.hp < this.maxHp) {
-            this.hp = Math.min(this.maxHp, this.hp + this.maxHp * pct);
-        }
-        if (this.ammo < this.maxAmmo) {
-            this.ammo = Math.min(this.maxAmmo, this.ammo + this.maxAmmo * pct);
-        }
-        if (this.fuel < this.maxFuel) {
-            this.fuel = Math.min(this.maxFuel, this.fuel + this.maxFuel * pct);
-        }
+        const pct = SUPPLY_SYSTEM.baseRegenPercent ?? 0.01;
+        if (this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + this.maxHp * pct);
+        if (this.ammo < this.maxAmmo) this.ammo = Math.min(this.maxAmmo, this.ammo + this.maxAmmo * pct);
+        if (this.fuel < this.maxFuel) this.fuel = Math.min(this.maxFuel, this.fuel + this.maxFuel * pct);
     }
 }
 
-// Вспомогательный throttled-тик пополнения на базе: срабатывает раз в
-// baseRegenInterval (100) тиков — «по 1% каждые 100 тиков» вместо мгновенного
-// заполнения каждый тик (фикс «бессмертные юниты» / «мгновенный ремонт»).
+// Вспомогательный throttled-тик пополнения логистики на базе
 function baseRegenTick(unit, gameTime, interval) {
     const iv = interval || SUPPLY_SYSTEM.baseRegenInterval || 100;
     if (gameTime !== undefined) {
@@ -139,23 +131,19 @@ function baseRegenTick(unit, gameTime, interval) {
 }
 
 // ===== ИНФАНТЕРИЯ (базовый класс) =====
-// Все виды пехоты считаются «пехотой» (isInfantry = true): проходят сквозь
-// здания, не попадают в лимит техники и корректно обрабатываются игрой,
-// ИИ и рендером. Разные виды — разные характеристики и роли:
-//   rifleman     — обычная стрелковая пехота (универсальная, идёт в атаку)
-//   mg_gunner    — пулемётчик: дешёвый DPS, короткая дальность — ОСНОВА ОБОРОНЫ
-//   sniper       — снайпер: большая дальность и урон, мало HP — высылается к
-//                  захваченным противником точкам (1 снайпер на 1 город)
+// По умолчанию пехота получает скрытность 20 и обнаружение 80.
+// Наследники переопределяют значения, если нужны другие ТТХ.
 export class InfantryBase extends Vehicle {
     constructor(type, faction, x, y) {
         super(type, faction, x, y);
         this.isInfantry = true;
         this.size = 8;
         this.spd = 0.5;
-        // Пехоте топливо не нужно (убрано для баланса/логики): полоска топлива
-        // у неё не рисуется, возврат на базу по «пустому баку» не срабатывает.
         this.maxFuel = 0;
         this.fuel = 0;
+        this.stealth = 20;
+        this.detectRange = 80;
+        this.visionBase = 100;
     }
 }
 
@@ -165,9 +153,12 @@ export class InfantryVarden extends InfantryBase {
         this.hp = this.maxHp = 35;
         this.dmg = 8;
         this.range = 130;
-        this.spd = 0.5; // Очень медленно
+        this.spd = 0.5;
         this.cd = 120;
         this.label = 'Стрелок';
+        this.stealth = 20;
+        this.detectRange = 80;
+        this.visionBase = 100;
     }
 }
 
@@ -177,9 +168,12 @@ export class InfantryColonist extends InfantryBase {
         this.hp = this.maxHp = 30;
         this.dmg = 6;
         this.range = 120;
-        this.spd = 0.55; // Очень медленно
+        this.spd = 0.55;
         this.cd = 100;
         this.label = 'Стрелок';
+        this.stealth = 20;
+        this.detectRange = 80;
+        this.visionBase = 100;
     }
 }
 
@@ -189,9 +183,12 @@ export class AssualtVarden extends InfantryBase {
         this.hp = this.maxHp = 45;
         this.dmg = 5;
         this.range = 110;
-        this.spd = 0.6; // Очень медленно
+        this.spd = 0.6;
         this.cd = 50;
         this.label = 'Штурмовик';
+        this.stealth = 15;
+        this.detectRange = 90;
+        this.visionBase = 110;
     }
 }
 
@@ -201,33 +198,46 @@ export class AssualtColonist extends InfantryBase {
         this.hp = this.maxHp = 50;
         this.dmg = 6;
         this.range = 90;
-        this.spd = 0.7; // Очень медленно
+        this.spd = 0.7;
         this.cd = 60;
         this.label = 'Штурмовик';
+        this.stealth = 15;
+        this.detectRange = 90;
+        this.visionBase = 110;
     }
 }
 
-export class smuggler extends InfantryBase { //контрабандист
+// Контрабандист — элитный разведчик wardens.
+// Обзор 180, обнаружение = обзор (без штрафа).
+export class smuggler extends InfantryBase {
     constructor(faction, x, y) {
         super('smuggler_varden', faction, x, y);
         this.hp = this.maxHp = 60;
         this.dmg = 20;
         this.range = 140;
-        this.spd = 0.7; // Очень медленно
+        this.spd = 0.7;
         this.cd = 140;
-        this.label = 'Контробандист';
+        this.label = 'Контрабандист';
+        this.stealth = 60;
+        this.visionBase = 180;
+        this.detectRange = 180;
     }
 }
 
-export class poacher extends InfantryBase { // браконьер
+// Браконьер — элитный стрелок colonials.
+// Обзор 190, обнаружение = обзор −10% = 171 → округляем до 170.
+export class poacher extends InfantryBase {
     constructor(faction, x, y) {
         super('poacher_colonist', faction, x, y);
         this.hp = this.maxHp = 40;
         this.dmg = 35;
         this.range = 190;
-        this.spd = 0.7; // Очень медленно
+        this.spd = 0.7;
         this.cd = 350;
         this.label = 'Браконьер';
+        this.stealth = 80;
+        this.visionBase = 190;
+        this.detectRange = Math.round(this.visionBase * 0.9); // −10% = 171
     }
 }
 
@@ -237,19 +247,22 @@ export class MedicVarden extends InfantryBase {
         this.hp = this.maxHp = 30;
         this.dmg = 2;
         this.range = 110;
-        this.spd = 0.5; // Очень медленно
+        this.spd = 0.5;
         this.cd = 60;
         this.label = 'Медик';
         this.isMedic = true;
-        this.healRate = 0.15;       // 0.15 HP за тик (~9 HP в секунду)
-        this.healRange = 80;        // Радиус лечения в пикселях
-        this.healInterval = 60;     // Лечит раз в секунду (60 тиков)
+        this.healRate = 0.15;
+        this.healRange = 80;
+        this.healInterval = 60;
         this.lastHealTime = 0;
         this.cargoType = 'med';
         this.cargoCapacity = 100;
         this.currentCargo = 100;
+        this.stealth = 20;
+        this.detectRange = 80;
+        this.visionBase = 100;
     }
-     healUnit(targetUnit) {
+    healUnit(targetUnit) {
         if (!targetUnit || typeof targetUnit !== 'object') return 0;
         if (targetUnit.isInfantry !== true && targetUnit.type !== 'infantry') return 0;
         const hp = Number(targetUnit.hp);
@@ -269,19 +282,22 @@ export class MedicColonist extends InfantryBase {
         this.hp = this.maxHp = 25;
         this.dmg = 4;
         this.range = 110;
-        this.spd = 0.45; // Очень медленно
+        this.spd = 0.45;
         this.cd = 50;
         this.label = 'Медик';
         this.isMedic = true;
-        this.healRate = 0.15;       // 0.15 HP за тик (~9 HP в секунду)
-        this.healRange = 80;        // Радиус лечения в пикселях
-        this.healInterval = 60;     // Лечит раз в секунду (60 тиков)
+        this.healRate = 0.15;
+        this.healRange = 80;
+        this.healInterval = 60;
         this.lastHealTime = 0;
         this.cargoType = 'med';
         this.cargoCapacity = 100;
         this.currentCargo = 100;
+        this.stealth = 20;
+        this.detectRange = 80;
+        this.visionBase = 100;
     }
-     healUnit(targetUnit) {
+    healUnit(targetUnit) {
         if (!targetUnit || typeof targetUnit !== 'object') return 0;
         if (targetUnit.isInfantry !== true && targetUnit.type !== 'infantry') return 0;
         const hp = Number(targetUnit.hp);
@@ -298,43 +314,52 @@ export class MedicColonist extends InfantryBase {
 export class MgGunner extends InfantryBase {
     constructor(faction, x, y) {
         super('mg_gunner', faction, x, y);
-        this.hp = this.maxHp = 65;      // крепче стрелка — держит оборону
-        this.dmg = 10;                   // небольшой урон...
-        this.range = 130;                // ...зато короткая дистанция
-        this.spd = 0.2;                // почти неподвижен — позиционная роль
-        this.cd = 40;                   // очень скорострельный пулемёт
-        this.antiInfantry = true;       // эффективен против пехоты
-        this.infantryMultiplier = 1.5;  // x2 урона по пехоте
+        this.hp = this.maxHp = 65;
+        this.dmg = 10;
+        this.range = 130;
+        this.spd = 0.2;
+        this.cd = 40;
+        this.antiInfantry = true;
+        this.infantryMultiplier = 1.5;
         this.label = 'Пулемётчик';
+        this.stealth = 25;
+        this.detectRange = 100;
+        this.visionBase = 120;
     }
 }
 
+// Снайпер Wardens. Обзор 225, обнаружение = обзор −20% = 180.
 export class SniperVarden extends InfantryBase {
     constructor(faction, x, y) {
         super('sniper', faction, x, y);
-        this.hp = this.maxHp = 20;      // хрупкий
-        this.dmg = 45;                  // высокий одиночный урон
-        this.range = 300;               // стреляет с дальней дистанции
-        this.spd = 0.4;                // чуть быстрее обычной пехоты — доходит до позиции
-        this.cd = 900;                  // редкие, но точные выстрелы
+        this.hp = this.maxHp = 20;
+        this.dmg = 45;
+        this.range = 300;
+        this.spd = 0.4;
+        this.cd = 900;
         this.label = 'Снайпер';
+        this.stealth = 100;
+        this.visionBase = 225;
+        this.detectRange = Math.round(this.visionBase * 0.8); // −20% = 180
     }
 }
 
+// Снайпер Colonials. Чуть слабее, обнаружение тоже −20% от обзора 225 → 180.
 export class SniperColonist extends InfantryBase {
     constructor(faction, x, y) {
         super('sniper', faction, x, y);
-        this.hp = this.maxHp = 30;      // хрупкий
-        this.dmg = 35;                  // высокий одиночный урон
-        this.range = 250;               // стреляет с дальней дистанции
-        this.spd = 0.5;                // чуть быстрее обычной пехоты — доходит до позиции
-        this.cd = 700;                  // редкие, но точные выстрелы
+        this.hp = this.maxHp = 30;
+        this.dmg = 35;
+        this.range = 250;
+        this.spd = 0.5;
+        this.cd = 700;
         this.label = 'Снайпер';
+        this.stealth = 100;
+        this.visionBase = 225;
+        this.detectRange = Math.round(this.visionBase * 0.8); // −20% = 180
     }
 }
 
-// Гранатомётчик — наступательная пехота: средний DPS и AoE-урон по
-// скоплениям вражеской пехоты (гранаты задевают всех в радиусе).
 export class GrenadierVarden extends InfantryBase {
     constructor(faction, x, y) {
         super('grenadier', faction, x, y);
@@ -343,9 +368,12 @@ export class GrenadierVarden extends InfantryBase {
         this.range = 110;
         this.spd = 0.8;
         this.cd = 250;
-        this.grenadeLauncher = true;    // AoE по пехоте вокруг цели (game.js)
+        this.grenadeLauncher = true;
         this.grenadeRadius = 15;
         this.label = 'Гранатомётчик';
+        this.stealth = 18;
+        this.detectRange = 90;
+        this.visionBase = 110;
     }
 }
 
@@ -357,42 +385,50 @@ export class GrenadierColonist extends InfantryBase {
         this.range = 120;
         this.spd = 0.9;
         this.cd = 200;
-        this.grenadeLauncher = true;    // AoE по пехоте вокруг цели (game.js)
+        this.grenadeLauncher = true;
         this.grenadeRadius = 30;
         this.label = 'Гренадер';
+        this.stealth = 18;
+        this.detectRange = 90;
+        this.visionBase = 110;
     }
 }
 
 // ===== WARDENS VEHICLES =====
 
-// King Spire Mk. I - Разведывательный танк
+// King Spire — разведывательный танк
 export class KingSpire extends Vehicle {
     constructor(faction, x, y) {
         super('king_spire', faction, x, y);
-        this.hp = this.maxHp = 150; // Нормализовано из 1350
-        this.dmg = 18; // 12.7мм пулемет
+        this.hp = this.maxHp = 150;
+        this.dmg = 18;
         this.range = 140;
-        this.spd = 1.3; // 7.22 м/с нормализовано
-        this.offRoadSpd = 1.0; // 5.05 м/с
-        this.cd = 50; // Быстрая скорострельность пулемета
+        this.spd = 1.3;
+        this.offRoadSpd = 1.0;
+        this.cd = 50;
         this.size = 20;
         this.armor = 25;
         this.label = 'King Spire';
         this.tracked = true;
-        this.revealRadius = 120; // Разведка (60м * 2 для масштаба)
+        this.revealRadius = 120;
         this.crew = 2;
+        // Разведчик: видит лучше обычной техники
+        this.visionBase = Math.round(this.range * 1.2); // 168
+        this.detectRange = Math.round(this.range * 0.8); // 112
+        this.stealth = 50;
     }
 }
 
+// Noble Widow — ПТ-техника (повышенная маскировка)
 export class NobleWidow extends Vehicle {
     constructor(faction, x, y) {
         super('noble_widow', faction, x, y);
         this.hp = this.maxHp = 420;
-        this.dmg = 150; // Тяжёлые пушки
+        this.dmg = 150;
         this.range = 250;
-        this.spd = 0.2; // 7.75 м/с нормализовано
-        this.offRoadSpd = 0.15; // 5.42 м/с
-        this.cd = 700; // Тяжелые пушки
+        this.spd = 0.2;
+        this.offRoadSpd = 0.15;
+        this.cd = 700;
         this.size = 28;
         this.armor = 70;
         this.label = 'Noble Widow';
@@ -400,41 +436,44 @@ export class NobleWidow extends Vehicle {
         this.crew = 4;
         this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.8);
         this.ammo = this.maxAmmo;
+        // ПТ: обнаружение = range × 0.9 (видимость всё равно 1.2×range)
+        this.visionBase = Math.round(this.range * 1.2); // 300
+        this.detectRange = Math.round(this.range * 0.9); // 225
+        this.stealth = 80;
     }
 }
 
-
-
-// Devitt Mk. III - Легкий танк (обновленный)
+// Devitt Mk. III — лёгкий танк
 export class Devitt extends Vehicle {
     constructor(faction, x, y) {
         super('devitt', faction, x, y);
-        this.hp = this.maxHp = 200; // Нормализовано из 1950
-        this.dmg = 45; // 40мм пушка
+        this.hp = this.maxHp = 200;
+        this.dmg = 45;
         this.range = 150;
-        this.spd = 1.6; // 8.27 м/с нормализовано
-        this.offRoadSpd = 1.1; // 5.79 м/с
-        this.cd = 290; // 40мм пушка
+        this.spd = 1.6;
+        this.offRoadSpd = 1.1;
+        this.cd = 290;
         this.size = 22;
         this.armor = 40;
         this.label = 'Devitt Mk.III';
         this.tracked = true;
         this.crew = 3;
-        // БАЛАНС: урон > 40 → БК в два раза меньше (было 100)
         this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.5);
         this.ammo = this.maxAmmo;
+        this.visionBase = Math.round(this.range * 1.2); // 180
+        this.detectRange = Math.round(this.range * 0.8); // 120
+        this.stealth = 40;
     }
 }
 
-// Devitt MMR — миномётная версия (поддержка/AoE). Отдельный тип 'devitt_mmr',
-// чтобы ИИ и рендер отличали её от обычного лёгкого танка Devitt.
+// Devitt MMR — миномёт (поддержка)
 export class DevittMMR extends Vehicle {
     constructor(faction, x, y) {
         super('devitt_mmr', faction, x, y);
         this.hp = this.maxHp = 160;
         this.dmg = 25;
         this.range = 240;
-        this.minRange = 90; // миномёт: не стреляет в упор
+        this.minRange = 90;
         this.spd = 1.1;
         this.offRoadSpd = 1.0;
         this.cd = 300;
@@ -443,110 +482,117 @@ export class DevittMMR extends Vehicle {
         this.label = 'Devitt MMR';
         this.tracked = true;
         this.crew = 3;
-        this.isMortar = true; // поддержка: обрабатывается как артиллерия
-        this.aoe = true; // Area of Effect attack
+        this.isMortar = true;
+        this.aoe = true;
         this.aoeRadius = 30;
-        // БК порезан на 30% для баланса (было 100)
         this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.7);
         this.ammo = this.maxAmmo;
+        // Поддержка: видимость 100 (фикс), обнаружение обычное
+        this.visionBase = 100;
+        this.detectRange = Math.round(this.range * 0.8); // 192
+        this.stealth = 40;
     }
 }
 
-// Silverhand Mk. IV - Штурмовой танк
+// Silverhand Mk. IV — штурмовой танк
 export class Silverhand extends Vehicle {
     constructor(faction, x, y) {
         super('silverhand', faction, x, y);
-        this.hp = this.maxHp = 310; // Нормализовано из 3100
-        this.dmg = 85; // 40мм + 68мм пушки
+        this.hp = this.maxHp = 310;
+        this.dmg = 85;
         this.range = 170;
-        this.spd = 1.1; // 7.75 м/с нормализовано
-        this.offRoadSpd = 1.1; // 5.42 м/с
-        this.cd = 500; // Тяжелые пушки
+        this.spd = 1.1;
+        this.offRoadSpd = 1.1;
+        this.cd = 500;
         this.size = 28;
         this.armor = 50;
         this.label = 'Silverhand Mk.IV';
         this.tracked = true;
         this.crew = 4;
-        this.dualGun = true; // Два орудия
-        // БАЛАНС: урон > 40 → БК в два раза меньше (было 100)
+        this.dualGun = true;
         this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.5);
         this.ammo = this.maxAmmo;
+        this.visionBase = Math.round(this.range * 1.2); // 204
+        this.detectRange = Math.round(this.range * 0.8); // 136
+        this.stealth = 40;
     }
 }
 
-// Gallagher Highwayman Mk. III - Крейсерский танк
+// Gallagher Highwayman — крейсерский танк (буст)
 export class GallagherHighwayman extends Vehicle {
     constructor(faction, x, y) {
         super('gallagher_highwayman', faction, x, y);
-        this.hp = this.maxHp = 295; // Нормализовано из 2950
-        this.dmg = 35; // Спаренные 14.5мм пушки
+        this.hp = this.maxHp = 295;
+        this.dmg = 35;
         this.range = 165;
-        this.spd = 1.7; // Высокая базовая скорость
+        this.spd = 1.7;
         this.offRoadSpd = 1.2;
-        this.boostSpd = 2.8; // Ускорение с бустом
-        this.cd = 60; // Быстрая скорострельность
+        this.boostSpd = 2.8;
+        this.cd = 60;
         this.size = 24;
         this.armor = 45;
         this.label = 'Gallagher Highwayman';
         this.tracked = true;
         this.crew = 3;
-        this.canBoost = true; // Может использовать буст
-        this.boosting = false;
-        this.boostFuelCost = 0.5; // Дополнительный расход топлива при бусте
-        this.maxFuel = Math.round(SUPPLY_SYSTEM.maxFuel * 3);
-        this.fuel = this.maxFuel;
-    }
-    
-    
-    activateBoost() {
-        if (this.fuel > 20 && !this.boosting) {
-            this.boosting = true;
-            this.spd = this.boostSpd;
-        }
-    }
-    
-    deactivateBoost() {
-        this.boosting = false;
-        this.spd = 1.7; // Возврат к базовой скорости
-    }
-}
-
-
-export class GallagherOutlaw extends Vehicle {
-    constructor(faction, x, y) {
-        super('gallagher_outlaw', faction, x, y);
-        this.hp = this.maxHp = 370;
-        this.dmg = 45; // Усиленное спаренное орудие
-        this.range = 190;
-        this.spd = 1.5;
-        this.offRoadSpd = 1.2;
-        this.boostSpd = 2.8; // Ускорение с бустом
-        this.cd = 150;
-        this.size = 26; // Чуть крупнее Highwayman
-        this.armor = 30;
-        this.label = 'Gallagher Outlaw Mk. II';
-        this.tracked = true;
-        this.crew = 3;
-        this.canBoost = true; // Может использовать буст
+        this.canBoost = true;
         this.boosting = false;
         this.boostFuelCost = 0.5;
         this.maxFuel = Math.round(SUPPLY_SYSTEM.maxFuel * 3);
         this.fuel = this.maxFuel;
+        this.visionBase = Math.round(this.range * 1.2); // 198
+        this.detectRange = Math.round(this.range * 0.8); // 132
+        this.stealth = 40;
     }
-
     activateBoost() {
         if (this.fuel > 20 && !this.boosting) {
             this.boosting = true;
             this.spd = this.boostSpd;
         }
     }
-
     deactivateBoost() {
         this.boosting = false;
-        this.spd = 1.5; // Возврат к базовой скорости Outlaw
+        this.spd = 1.7;
     }
 }
 
+// Gallagher Outlaw — тяжёлый крейсер (буст)
+export class GallagherOutlaw extends Vehicle {
+    constructor(faction, x, y) {
+        super('gallagher_outlaw', faction, x, y);
+        this.hp = this.maxHp = 370;
+        this.dmg = 45;
+        this.range = 190;
+        this.spd = 1.5;
+        this.offRoadSpd = 1.2;
+        this.boostSpd = 2.8;
+        this.cd = 150;
+        this.size = 26;
+        this.armor = 30;
+        this.label = 'Gallagher Outlaw Mk. II';
+        this.tracked = true;
+        this.crew = 3;
+        this.canBoost = true;
+        this.boosting = false;
+        this.boostFuelCost = 0.5;
+        this.maxFuel = Math.round(SUPPLY_SYSTEM.maxFuel * 3);
+        this.fuel = this.maxFuel;
+        this.visionBase = Math.round(this.range * 1.2); // 228
+        this.detectRange = Math.round(this.range * 0.8); // 152
+        this.stealth = 40;
+    }
+    activateBoost() {
+        if (this.fuel > 20 && !this.boosting) {
+            this.boosting = true;
+            this.spd = this.boostSpd;
+        }
+    }
+    deactivateBoost() {
+        this.boosting = false;
+        this.spd = 1.5;
+    }
+}
+
+// Niska APC
 export class Niska extends Vehicle {
     constructor(faction, x, y) {
         super('niska', faction, x, y);
@@ -558,10 +604,14 @@ export class Niska extends Vehicle {
         this.size = 22;
         this.armor = 20;
         this.label = 'Niska APC';
-        this.tracked = true; // Гусеничный БТР
+        this.tracked = true;
+        this.visionBase = Math.round(this.range * 1.2); // 180
+        this.detectRange = Math.round(this.range * 0.8); // 120
+        this.stealth = 45;
     }
 }
 
+// Niska Blinder — ПТ/разведка с высокой маскировкой
 export class NiskaBlinder extends Vehicle {
     constructor(faction, x, y) {
         super('niska_blinder', faction, x, y);
@@ -573,72 +623,83 @@ export class NiskaBlinder extends Vehicle {
         this.size = 22;
         this.armor = 25;
         this.label = 'Niska Blinder';
-        this.tracked = true; // Гусеничный БТР
+        this.tracked = true;
+        // ПТ: обнаружение −10% от обзора, скрытность как у ПТ
+        this.visionBase = Math.round(this.range * 1.2); // 228
+        this.detectRange = Math.round(this.range * 0.9); // 171
+        this.stealth = 80;
     }
 }
 
 // ===== COLONIALS VEHICLES =====
 
-// H-5 "Hatchet" - Легкий танк (обновленный)
 export class Hatchet extends Vehicle {
     constructor(faction, x, y) {
         super('hatchet', faction, x, y);
-        this.hp = this.maxHp = 195; // Нормализовано из 1950
-        this.dmg = 45; // 40мм пушка
+        this.hp = this.maxHp = 195;
+        this.dmg = 45;
         this.range = 160;
-        this.spd = 1.3; // 8.27 м/с нормализовано
-        this.offRoadSpd = 1.1; // 5.79 м/с
-        this.cd = 350; // 40мм пушка
+        this.spd = 1.3;
+        this.offRoadSpd = 1.1;
+        this.cd = 350;
         this.size = 22;
         this.armor = 5;
         this.label = 'H-5 Hatchet';
         this.tracked = true;
         this.crew = 3;
-        this.extraFuel = 25; // Увеличенный топливный бак (325л vs 300л)
-        // БАЛАНС: урон > 40 → БК в два раза меньше (было 100)
+        this.extraFuel = 25;
         this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.5);
         this.ammo = this.maxAmmo;
+        this.visionBase = Math.round(this.range * 1.2); // 192
+        this.detectRange = Math.round(this.range * 0.8); // 128
+        this.stealth = 40;
     }
 }
 
-// HC-2 "Scorpion" - Легкий пехотный танк
 export class Scorpion extends Vehicle {
     constructor(faction, x, y) {
         super('scorpion', faction, x, y);
-        this.hp = this.maxHp = 330; // Нормализовано из 3300
-        this.dmg = 15; // Два 12.7мм пулемета
+        this.hp = this.maxHp = 330;
+        this.dmg = 15;
         this.range = 130;
-        this.spd = 0.7; // Средняя скорость
+        this.spd = 0.7;
         this.offRoadSpd = 0.9;
-        this.cd = 50; // Очень быстрая скорострельность пулеметов
+        this.cd = 50;
         this.size = 22;
         this.armor = 20;
         this.label = 'HC-2 Scorpion';
         this.tracked = true;
         this.crew = 3;
-        this.revealRadius = 120; // Разведка
-        this.antiInfantry = true; // Эффективен против пехоты
-        this.infantryMultiplier = 2.5; // Урон по пехоте x2.5
+        this.revealRadius = 120;
+        this.antiInfantry = true;
+        this.infantryMultiplier = 2.5;
+        this.visionBase = Math.round(this.range * 1.2); // 156
+        this.detectRange = Math.round(this.range * 0.8); // 104
+        this.stealth = 40;
     }
 }
 
-// 90T-v "Nemesis" - Штурмовой танк
+// Nemesis — ПТ-танк (повышенная маскировка, −10% обнаружение)
 export class Nemesis extends Vehicle {
     constructor(faction, x, y) {
         super('nemesis', faction, x, y);
-        this.hp = this.maxHp = 365; // Нормализовано из 3650
-        this.dmg = 110; // 68мм пушка + гранатомет
+        this.hp = this.maxHp = 365;
+        this.dmg = 110;
         this.range = 190;
-        this.spd = 1.3; // 8.45 м/с нормализовано - самый быстрый штурмовой
-        this.offRoadSpd = 0.7; // 5.92 м/с
-        this.cd = 400; // Тяжелая пушка
+        this.spd = 1.3;
+        this.offRoadSpd = 0.7;
+        this.cd = 400;
         this.size = 28;
         this.armor = 50;
         this.label = '90T-v Nemesis';
         this.tracked = true;
         this.crew = 4;
-        this.grenadeLauncher = true; // Гранатомет для подавления пехоты
-        this.grenadeRadius = 40; // Радиус поражения гранат
+        this.grenadeLauncher = true;
+        this.grenadeRadius = 40;
+        // ПТ: обнаружение −10% от обзора, скрытность как у ПТ
+        this.visionBase = Math.round(this.range * 1.2); // 228
+        this.detectRange = Math.round(this.range * 0.9); // 171
+        this.stealth = 80;
     }
 }
 
@@ -653,7 +714,10 @@ export class Falchion extends Vehicle {
         this.size = 26;
         this.armor = 35;
         this.label = 'Falchion';
-        this.tracked = true; // Гусеничный танк
+        this.tracked = true;
+        this.visionBase = Math.round(this.range * 1.2); // 180
+        this.detectRange = Math.round(this.range * 0.8); // 120
+        this.stealth = 40;
     }
 }
 
@@ -668,10 +732,16 @@ export class Spatha extends Vehicle {
         this.size = 26;
         this.armor = 70;
         this.label = 'Spatha';
-        this.tracked = true; // Гусеничный танк
+        this.tracked = true;
+        this.visionBase = Math.round(this.range * 1.2); // 216
+        this.detectRange = Math.round(this.range * 0.8); // 144
+        this.stealth = 40;
     }
 }
 
+// Talos — ПТ-техника (тяжёлый штурмовик, тоже считается ПТ по вашей просьбе? — по умолчанию НЕТ).
+// В списке ПТ — только те, что вы назвали: Niska Blinder, Noble Widow, Nemesis.
+// Talos оставлен обычной техникой (0.8).
 export class Talos extends Vehicle {
     constructor(faction, x, y) {
         super('talos', faction, x, y);
@@ -683,160 +753,170 @@ export class Talos extends Vehicle {
         this.size = 26;
         this.armor = 45;
         this.label = 'Talos';
-        this.tracked = true; // Гусеничный танк
-        this.armorPierce = 70; // порог бронепробития (см. takeDamage)
+        this.tracked = true;
+        this.armorPierce = 70;
+        this.visionBase = Math.round(this.range * 1.2); // 180
+        this.detectRange = Math.round(this.range * 0.8); // 120
+        this.stealth = 40;
     }
 }
 
-
-// Javelin — БТР колонистов (обычная бронетехника, вкладка «Техника»)
+// Javelin — БТР колонистов
 export class Javelin extends Vehicle {
     constructor(faction, x, y) {
         super('javelin', faction, x, y);
         this.hp = this.maxHp = 200;
         this.dmg = 7;
         this.range = 140;
-        this.spd = 1.65; // Самый быстрый
+        this.spd = 1.65;
         this.cd = 65;
         this.size = 20;
         this.armor = 25;
         this.label = 'Javelin APC';
-        this.tracked = true; // Гусеничный БТР
+        this.tracked = true;
+        this.visionBase = Math.round(this.range * 1.2); // 168
+        this.detectRange = Math.round(this.range * 0.8); // 112
+        this.stealth = 45;
     }
 }
 
-// Hoplite — миномётная поддержка колонистов (вкладка «Поддержка»).
-// Обрабатывается ИИ как артиллерия (AoE-урон), а не как бронетехника.
+// Hoplite — миномёт (поддержка)
 export class Hoplite extends Vehicle {
     constructor(faction, x, y) {
         super('hoplite', faction, x, y);
         this.hp = this.maxHp = 150;
         this.dmg = 25;
         this.range = 180;
-        this.minRange = 80; // миномёт: не стреляет в упор
+        this.minRange = 80;
         this.spd = 1.3;
         this.cd = 150;
         this.size = 20;
         this.armor = 15;
         this.label = 'Hoplite Mortar';
-        this.tracked = true; // Гусеничная база
-        this.isMortar = true; // поддержка: обрабатывается как артиллерия
-        this.aoe = true; // Area of Effect attack
-        this.aoeRadius = 30; // Большой радиус поражения
-        // БК порезан на 30% для баланса (было 100)
+        this.tracked = true;
+        this.isMortar = true;
+        this.aoe = true;
+        this.aoeRadius = 30;
         this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.7);
         this.ammo = this.maxAmmo;
+        // Поддержка: видимость 100
+        this.visionBase = 100;
+        this.detectRange = Math.round(this.range * 0.8); // 144
+        this.stealth = 40;
     }
 }
 
 // ===== ARTILLERY (фракционная) =====
-// Канонические типы юнитов (совпадают с ключами VEHICLE_COSTS):
-//   wardens:   warden_artillery120 / warden_artillery150
-//   colonials: colonial_artillery120 / colonial_artillery150
-// Обратная совместимость со старыми сохранениями/скриптами:
-//   'warden_artillery' / 'warden_artillery_150' → 150 мм Wardens
-//   'colonial_artillery' / 'colonial_artillery_150' → 150 мм Colonials
-//   'colonial_artillery_120' → 120 мм Colonials
-// Все арты помечаются флагами isArtillery/isMortar — так их находит ИИ
-// (unitCategory + manageArtillery) и игра (AoE-логика, снабжение flatbed).
+
+// Wardens 120 мм
 export class WardenArtillery120 extends Vehicle {
     constructor(faction, x, y) {
         super('warden_artillery120', faction, x, y);
-        this.hp = this.maxHp = 100; // Живучесть выше, чем у 150 мм
+        this.hp = this.maxHp = 100;
         this.dmg = 60;
-        this.range = 600; // Дальность 600
-        this.minRange = 100; // Минимальная дальность - не может стрелять в упор
-        this.spd = 0.6; // Медленная, но подвижнее 150 мм
-        this.cd = 400; // ~6.7 секунд при 60 FPS
+        this.range = 600;
+        this.minRange = 100;
+        this.spd = 0.6;
+        this.cd = 400;
         this.size = 24;
         this.armor = 25;
         this.label = 'Warden Artillery 120mm';
-        this.aoe = true; // Area of Effect attack
-        this.aoeRadius = 65; // Радиус поражения
-        this.tracked = true; // Гусеничная артиллерия
-        this.isArtillery = true; // ствольная артиллерия (ведение огня через manageArtillery)
-        this.isMortar = true;  // категоризация ИИ: «артиллерия», а не бронетехника
-        // БАЛАНС: БК у 120 мм в два раза меньше, чем у 150 мм
+        this.aoe = true;
+        this.aoeRadius = 65;
+        this.tracked = true;
+        this.isArtillery = true;
+        this.isMortar = true;
         this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.5);
         this.ammo = this.maxAmmo;
+        // Артиллерия: видимость 100 (фикс), обнаружение обычное
+        this.visionBase = 100;
+        this.detectRange = Math.round(this.range * 0.8);
+        this.stealth = 40;
     }
 }
 
+// Wardens 150 мм
 export class WardenArtillery150mm extends Vehicle {
     constructor(faction, x, y) {
         super('warden_artillery150', faction, x, y);
-        this.hp = this.maxHp = 80; // Хуже живучесть
-        this.dmg = 95; // Больше урона
-        this.range = 550; // Дальность 550
-        this.minRange = 180; // Минимальная дальность - не может стрелять в упор
-        this.spd = 0.3; // Очень медленная
-        this.cd = 550; // ~9 секунд при 60 FPS
+        this.hp = this.maxHp = 80;
+        this.dmg = 95;
+        this.range = 550;
+        this.minRange = 180;
+        this.spd = 0.3;
+        this.cd = 550;
         this.size = 24;
         this.armor = 30;
         this.label = 'Warden Artillery 150mm';
-        this.aoe = true; // Area of Effect attack
-        this.aoeRadius = 100; // Большой радиус поражения
-        this.tracked = true; // Гусеничная артиллерия
+        this.aoe = true;
+        this.aoeRadius = 100;
+        this.tracked = true;
         this.isArtillery = true;
         this.isMortar = true;
+        this.visionBase = 100;
+        this.detectRange = Math.round(this.range * 0.8);
+        this.stealth = 40;
     }
 }
 
+// Colonials 150 мм
 export class ColonialArtillery150mm extends Vehicle {
     constructor(faction, x, y) {
         super('colonial_artillery150', faction, x, y);
-        this.hp = this.maxHp = 90; // Чуть лучше живучесть
-        this.dmg = 85; // Немного меньше урона
-        this.range = 550; // Дальность 550
-        this.minRange = 150; // Минимальная дальность - не может стрелять в упор
-        this.spd = 0.5; // Быстрее варденской
-        this.cd = 450; // ~7.5 секунд при 60 FPS
+        this.hp = this.maxHp = 90;
+        this.dmg = 85;
+        this.range = 550;
+        this.minRange = 150;
+        this.spd = 0.5;
+        this.cd = 450;
         this.size = 22;
-        this.armor = 15; // Немного брони
+        this.armor = 15;
         this.label = 'Colonial Artillery 150mm';
-        this.aoe = true; // Area of Effect attack
-        this.aoeRadius = 80; // Средний радиус поражения
-        this.tracked = true; // Гусеничная артиллерия
+        this.aoe = true;
+        this.aoeRadius = 80;
+        this.tracked = true;
         this.isArtillery = true;
         this.isMortar = true;
+        this.visionBase = 100;
+        this.detectRange = Math.round(this.range * 0.8);
+        this.stealth = 40;
     }
 }
 
+// Colonials 120 мм
 export class ColonialArtillery120mm extends Vehicle {
     constructor(faction, x, y) {
         super('colonial_artillery120', faction, x, y);
-        this.hp = this.maxHp = 60; // Хрупкая
-        this.dmg = 55; // Немного меньше урона
-        this.range = 400; // Дальность 400
-        this.minRange = 60; // Минимальная дальность - не может стрелять в упор
-        this.spd = 0.7; // Быстрая
-        this.cd = 400; // ~6.7 секунд при 60 FPS
+        this.hp = this.maxHp = 60;
+        this.dmg = 55;
+        this.range = 400;
+        this.minRange = 60;
+        this.spd = 0.7;
+        this.cd = 400;
         this.size = 22;
-        this.armor = 15; // Немного брони
+        this.armor = 15;
         this.label = 'Colonial Artillery 120mm';
-        this.aoe = true; // Area of Effect attack
-        this.aoeRadius = 45; // Средний радиус поражения
-        this.tracked = true; // Гусеничная артиллерия
+        this.aoe = true;
+        this.aoeRadius = 45;
+        this.tracked = true;
         this.isArtillery = true;
         this.isMortar = true;
-        // БК порезан на 30% для баланса (было 100)
         this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.7);
         this.ammo = this.maxAmmo;
+        this.visionBase = 100;
+        this.detectRange = Math.round(this.range * 0.8);
+        this.stealth = 40;
     }
 }
 
-// Алиасы старых типов (сохранения/тесты): 'warden_artillery' → 150 мм,
-// 'colonial_artillery' → 150 мм. Модель остаётся старой для 150 мм.
 const WardenArtillery = WardenArtillery150mm;
 const ColonialArtillery = ColonialArtillery150mm;
 
-// Все виды ствольной артиллерии (для проверок по типу)
 export const ARTILLERY_TYPES = [
     'warden_artillery120', 'warden_artillery150',
     'colonial_artillery120', 'colonial_artillery150',
 ];
 
-// Юнит — ствольная артиллерия? (учитывает старые типы из сохранений)
 export function isArtilleryUnit(u) {
     if (!u) return false;
     if (ARTILLERY_TYPES.includes(u.type)) return true;
@@ -859,12 +939,13 @@ export class MedicTruck extends Vehicle {
         this.cargoType = 'med';
         this.cargoCapacity = SUPPLY_SYSTEM.medicTruckCapacity;
         this.currentCargo = SUPPLY_SYSTEM.medicTruckCapacity;
+        // Логистика не воюет — но должна как-то видеть. Дадим скромные параметры.
+        this.stealth = 50;
+        this.visionBase = 80;
+        this.detectRange = 60;
     }
-    
-    // Лечит ТОЛЬКО пехоту. Технику чинит инженер (Engineer.repairUnit).
     healUnit(targetUnit) {
         if (!targetUnit || typeof targetUnit !== 'object') return 0;
-        // Защита: медик не должен лечить технику
         if (targetUnit.isInfantry !== true && targetUnit.type !== 'infantry') return 0;
         const cargo = Number(this.currentCargo);
         if (!Number.isFinite(cargo) || cargo <= 0) return 0;
@@ -872,7 +953,6 @@ export class MedicTruck extends Vehicle {
         const maxHp = Number(targetUnit.maxHp);
         if (!Number.isFinite(hp) || !Number.isFinite(maxHp)) return 0;
         if (hp >= maxHp - 0.5) return 0;
-
         const amount = Math.min(
             Number(SUPPLY_SYSTEM.medicHealRate) || 0.05,
             maxHp - hp,
@@ -883,7 +963,6 @@ export class MedicTruck extends Vehicle {
         this.currentCargo = cargo - amount;
         return amount;
     }
-    
     replenishAtBase(gameTime) {
         if (!baseRegenTick(this, gameTime)) return;
         if (this.currentCargo < this.cargoCapacity) {
@@ -894,31 +973,31 @@ export class MedicTruck extends Vehicle {
         }
     }
 }
+
 export class Truck extends Vehicle {
     constructor(faction, x, y) {
         super('truck', faction, x, y);
         this.hp = this.maxHp = 100;
-        this.dmg = 0; // Без оружия
+        this.dmg = 0;
         this.range = 0;
-        this.spd = 1.5; // Быстрый
+        this.spd = 1.5;
         this.cd = 0;
         this.size = 22;
         this.armor = 2;
         this.label = 'Грузовик';
-        this.cargoType = 'ammo'; // Тип груза
+        this.cargoType = 'ammo';
         this.cargoCapacity = SUPPLY_SYSTEM.truckCapacity;
         this.currentCargo = SUPPLY_SYSTEM.truckCapacity;
+        this.stealth = 50;
+        this.visionBase = 80;
+        this.detectRange = 60;
     }
-    
-    // Пополнение БК у другой техники
     supplyAmmo(targetUnit) {
         if (this.currentCargo > 0 && targetUnit.ammo < targetUnit.maxAmmo) {
-            // ИСПРАВЛЕНИЕ: скорость за тик поднята (20 -> 40), пополнение
-            // вызывается непрерывно каждым тиком — цель наполняется ДО КОНЦА
             const amount = Math.min(
                 this.currentCargo,
                 targetUnit.maxAmmo - targetUnit.ammo,
-                40 // Скорость пополнения (за тик)
+                40
             );
             targetUnit.ammo += amount;
             this.currentCargo -= amount;
@@ -926,8 +1005,6 @@ export class Truck extends Vehicle {
         }
         return 0;
     }
-    
-    // Пополнение груза на базе
     replenishAtBase(gameTime) {
         if (!baseRegenTick(this, gameTime)) return;
         if (this.currentCargo < this.cargoCapacity) {
@@ -938,8 +1015,6 @@ export class Truck extends Vehicle {
         }
     }
 }
-
-
 
 export class FuelTruck extends Vehicle {
     constructor(faction, x, y) {
@@ -955,15 +1030,16 @@ export class FuelTruck extends Vehicle {
         this.cargoType = 'fuel';
         this.cargoCapacity = SUPPLY_SYSTEM.fuelTruckCapacity;
         this.currentCargo = SUPPLY_SYSTEM.fuelTruckCapacity;
+        this.stealth = 50;
+        this.visionBase = 80;
+        this.detectRange = 60;
     }
-    
-    // Пополнение топлива у другой техники
     supplyFuel(targetUnit) {
         if (this.currentCargo > 0 && targetUnit.fuel < targetUnit.maxFuel) {
             const amount = Math.min(
                 this.currentCargo,
                 targetUnit.maxFuel - targetUnit.fuel,
-                350 // Скорость пополнения (за тик) — бак наполняется полностью
+                350
             );
             targetUnit.fuel += amount;
             this.currentCargo -= amount;
@@ -971,9 +1047,6 @@ export class FuelTruck extends Vehicle {
         }
         return 0;
     }
-    
-    
-    // Пополнение топлива на базе
     replenishAtBase(gameTime) {
         if (!baseRegenTick(this, gameTime)) return;
         if (this.currentCargo < this.cargoCapacity) {
@@ -991,18 +1064,19 @@ export class Engineer extends Vehicle {
         this.hp = this.maxHp = 120;
         this.dmg = 0;
         this.range = 0;
-        this.spd = 1.1; // Медленная
+        this.spd = 1.1;
         this.cd = 0;
         this.size = 24;
         this.armor = 3;
         this.label = 'Инженерная машина';
-        this.repairRange = 100; // Радиус ремонта
+        this.repairRange = 100;
         this.cargoType = 'repair';
         this.cargoCapacity = SUPPLY_SYSTEM.engineerCapacity;
         this.currentCargo = SUPPLY_SYSTEM.engineerCapacity;
+        this.stealth = 50;
+        this.visionBase = 80;
+        this.detectRange = 60;
     }
-    
-    // Ремонт другой техники
     repairUnit(targetUnit) {
         if (!targetUnit || typeof targetUnit !== 'object') return 0;
         const cargo = Number(this.currentCargo);
@@ -1011,7 +1085,6 @@ export class Engineer extends Vehicle {
         const maxHp = Number(targetUnit.maxHp);
         if (!Number.isFinite(hp) || !Number.isFinite(maxHp)) return 0;
         if (hp >= maxHp - 0.5) return 0;
-
         const amount = Math.min(
             Number(SUPPLY_SYSTEM.medicHealRate) || 0,
             maxHp - hp,
@@ -1022,8 +1095,6 @@ export class Engineer extends Vehicle {
         this.currentCargo = cargo - amount;
         return amount;
     }
-    
-    // Пополнение материалов на базе
     replenishAtBase(gameTime) {
         if (!baseRegenTick(this, gameTime)) return;
         if (this.currentCargo < this.cargoCapacity) {
@@ -1035,7 +1106,7 @@ export class Engineer extends Vehicle {
     }
 }
 
-// ===== СТРОИТЕЛЬНАЯ ТЕХНИКА (Универсальная для обеих фракций) =====
+// ===== СТРОИТЕЛЬНАЯ ТЕХНИКА =====
 export class ConstructionTruck extends Vehicle {
     constructor(faction, x, y) {
         super('construction_truck', faction, x, y);
@@ -1048,14 +1119,13 @@ export class ConstructionTruck extends Vehicle {
         this.armor = 10;
         this.label = 'Строймашина';
         this.tracked = false;
-        
-        // Логистика: запас материалов для ремонта
         this.cargoType = 'construction';
         this.cargoCapacity = 400;
         this.currentCargo = 400;
+        this.stealth = 50;
+        this.visionBase = 80;
+        this.detectRange = 60;
     }
-    
-    // Пополнение запаса на базе
     replenishAtBase(gameTime) {
         if (!baseRegenTick(this, gameTime)) return;
         if (this.currentCargo < this.cargoCapacity) {
@@ -1067,7 +1137,6 @@ export class ConstructionTruck extends Vehicle {
     }
 }
 
-// ===== ПОЖАРНАЯ МАШИНА (Универсальная для обеих фракций) =====
 export class FireTruck extends Vehicle {
     constructor(faction, x, y) {
         super('fire_truck', faction, x, y);
@@ -1080,14 +1149,14 @@ export class FireTruck extends Vehicle {
         this.armor = 5;
         this.label = 'Пожарная';
         this.tracked = false;
-        
-        // Запас воды (условный)
         this.cargoType = 'water';
         this.cargoCapacity = 300;
         this.currentCargo = 300;
-        this.healRange = 150; // Радиус действия в городе
+        this.healRange = 150;
+        this.stealth = 50;
+        this.visionBase = 80;
+        this.detectRange = 60;
     }
-    
     replenishAtBase(gameTime) {
         if (!baseRegenTick(this, gameTime)) return;
         if (this.currentCargo < this.cargoCapacity) {
@@ -1099,7 +1168,6 @@ export class FireTruck extends Vehicle {
     }
 }
 
-// ===== FLATBED TRUCK FOR ARTILLERY (общий для обеих фракций) =====
 export class Flatbed extends Vehicle {
     constructor(faction, x, y) {
         super('flatbed', faction, x, y);
@@ -1114,15 +1182,16 @@ export class Flatbed extends Vehicle {
         this.cargoType = 'artillery_ammo';
         this.cargoCapacity = SUPPLY_SYSTEM.flatbedCapacity;
         this.currentCargo = SUPPLY_SYSTEM.flatbedCapacity;
+        this.stealth = 50;
+        this.visionBase = 80;
+        this.detectRange = 60;
     }
-    
-    // Пополнение БК артиллерии
     supplyArtillery(targetUnit) {
         if (this.currentCargo > 0 && targetUnit.ammo < targetUnit.maxAmmo) {
             const amount = Math.min(
                 this.currentCargo,
                 targetUnit.maxAmmo - targetUnit.ammo,
-                30 // Большая скорость пополнения для артиллерии
+                30
             );
             targetUnit.ammo += amount;
             this.currentCargo -= amount;
@@ -1130,8 +1199,6 @@ export class Flatbed extends Vehicle {
         }
         return 0;
     }
-    
-    // Пополнение снарядов на базе
     replenishAtBase(gameTime) {
         if (!baseRegenTick(this, gameTime)) return;
         if (this.currentCargo < this.cargoCapacity) {
@@ -1143,10 +1210,7 @@ export class Flatbed extends Vehicle {
     }
 }
 
-// Фабрика пехоты: выбирает класс по виду пехоты И фракции.
-//   wardens   — «...Varden»   (Стрелок / Пулемётчик / Снайпер / Гранатомётчик)
-//   colonials — «...Colonist» (Стрелок / Пулемётчик / Снайпер / Гренадер)
-// Пулемётчик один на обе фракции (MgGunner).
+// ===== Фабрика пехоты =====
 function createInfantry(type, faction, x, y) {
     const isWardens = faction === 'wardens';
     switch (type) {
@@ -1162,11 +1226,8 @@ function createInfantry(type, faction, x, y) {
         case 'sniper':
             return isWardens ? new SniperVarden(faction, x, y)
                              : new SniperColonist(faction, x, y);
-
-        // ===== НОВАЯ ПЕХОТА =====
         case 'assualt_varden':
         case 'assualt_colonist':
-            // тип assualt_varden — общий; класс выбираем по фракции
             return isWardens ? new AssualtVarden(faction, x, y)
                              : new AssualtColonist(faction, x, y);
         case 'smuggler_varden':
@@ -1177,14 +1238,44 @@ function createInfantry(type, faction, x, y) {
             return new MedicVarden(faction, x, y);
         case 'medic_colonist':
             return new MedicColonist(faction, x, y);
-
         default:
             return null;
     }
 }
 
+// ===== ТЕХНИКА: параметры обзора по умолчанию =====
+// Помощник нужен на случай, если тип создан не через прямой класс
+// (например, через старую фабрику карты или сохранение), и не имеет
+// выставленных вручную stealth/detectRange/visionBase.
+export const AT_VEHICLE_TYPES = ['niska_blinder', 'noble_widow', 'nemesis'];
+
+export function applyVehicleVisibilityStats(u) {
+    if (!u || isInfUnit(u)) return;
+    const rng = Number(u.range) || 0;
+    const isAT = AT_VEHICLE_TYPES.includes(u.type);
+
+    if (!Number.isFinite(u.visionBase) || u.visionBase === 100) {
+        // Не перезаписываем уже настроенные 100 (у артиллерии/поддержки).
+        // Ставим «обзор» только если это «дефолтное» значение.
+        if (u.visionBase === 100 && (u.aoe || u.isArtillery || u.isMortar)) {
+            // оставить 100
+        } else {
+            u.visionBase = Math.round(rng * 1.2);
+        }
+    }
+    if (!Number.isFinite(u.detectRange) || u.detectRange === 80) {
+        u.detectRange = Math.round(rng * (isAT ? 0.9 : 0.8));
+    }
+    if (!Number.isFinite(u.stealth) || u.stealth === 20) {
+        u.stealth = isAT ? 80 : 40;
+    }
+    if (!Number.isFinite(u.visibilityRange) || u.visibilityRange === 0) {
+        u.visibilityRange = (u.aoe || u.isArtillery || u.isMortar)
+            ? 100 : u.visionBase;
+    }
+}
+
 export function createVehicle(type, faction, x, y) {
-    // Пехота создаётся с учётом фракции (у каждой свои виды в названии класса)
     const inf = createInfantry(type, faction, x, y);
     if (inf) return inf;
 
@@ -1197,7 +1288,7 @@ export function createVehicle(type, faction, x, y) {
         gallagher_highwayman: GallagherHighwayman,
         gallagher_outlaw: GallagherOutlaw,
         niska: Niska,
-        niska_blinder:NiskaBlinder,
+        niska_blinder: NiskaBlinder,
         noble_widow: NobleWidow,
         warden_artillery120: WardenArtillery120,
         warden_artillery150: WardenArtillery150mm,
@@ -1224,14 +1315,27 @@ export function createVehicle(type, faction, x, y) {
         fire_truck: FireTruck,
     };
     const creator = map[type];
-    if (!creator) return new Vehicle(type, faction, x, y);
-    return new creator(faction, x, y);
+    if (!creator) {
+        const v = new Vehicle(type, faction, x, y);
+        applyVehicleVisibilityStats(v);
+        return v;
+    }
+    const inst = new creator(faction, x, y);
+    applyVehicleVisibilityStats(inst);
+    return inst;
 }
 
 // Доступная техника по фракциям
 export const FACTION_VEHICLES = {
-    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'noble_widow', 'gallagher_highwayman', 'niska', 'warden_artillery150', 'warden_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'gallagher_outlaw','niska_blinder', 'medic_truck', 'construction_truck', 'fire_truck'],
-    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin', 'hoplite', 'colonial_artillery150', 'colonial_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha', 'medic_truck', 'god_loader', 'construction_truck', 'fire_truck'],
+    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'noble_widow',
+              'gallagher_highwayman', 'niska', 'warden_artillery150',
+              'warden_artillery120', 'truck', 'fuel_truck', 'engineer',
+              'flatbed', 'gallagher_outlaw', 'niska_blinder', 'medic_truck',
+              'construction_truck', 'fire_truck'],
+    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin',
+                'hoplite', 'colonial_artillery150', 'colonial_artillery120',
+                'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha',
+                'medic_truck', 'god_loader', 'construction_truck', 'fire_truck'],
 };
 
 // ===== Помощники по видам пехоты =====
@@ -1240,13 +1344,7 @@ export const INFANTRY_TYPES = [
     'assualt_varden', 'smuggler_varden', 'poacher_colonist',
     'medic_varden', 'medic_colonist',
 ];
-// Пехота, доступная для производства каждой фракции.
-// Снайпер — общий тип ('sniper'), класс выбирается по фракции:
-//   wardens → SniperVarden, colonials → SniperColonist.
-// Гранатомётчик/Гренадер — один тип 'grenadier' с разными классами и статами:
-//   wardens → GrenadierVarden (короткий мощный залп),
-//   colonials → GrenadierColonist (дальше бросает, радиус взрыва больше).
-// Пулемётчик (mg_gunner) — единый класс MgGunner для обеих фракций.
+
 export const FACTION_INFANTRY = {
     wardens:   ['rifleman', 'mg_gunner', 'grenadier', 'sniper',
                 'assualt_varden', 'smuggler_varden', 'medic_varden'],
@@ -1254,61 +1352,43 @@ export const FACTION_INFANTRY = {
                 'assualt_varden', 'poacher_colonist', 'medic_colonist'],
 };
 
-// Юнит — пехота? (новый флаг isInfantry + обратная совместимость со старым
-// типом 'infantry' из сохранений/скриптов)
 export function isInfUnit(u) {
     if (!u) return false;
     return u.isInfantry === true || u.type === 'infantry' || INFANTRY_TYPES.includes(u.type);
 }
 
-// Логистика (не считается боевой техникой ни у игрока, ни у ИИ)
-export const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck', 'construction_truck', 'fire_truck'];
+export const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed',
+                                'medic_truck', 'construction_truck', 'fire_truck'];
 export function isLogisticsUnit(u) {
     return !!u && LOGISTICS_TYPES.includes(u.type);
 }
 
-// Боевая техника (всё, что не пехота и не логистика; артиллерия тоже идёт
-// в зачёт как «техника поддержки»)
 export function isTechUnit(u) {
     if (!u || u.hp <= 0) return false;
     if (isInfUnit(u)) return false;
     return !isLogisticsUnit(u);
 }
 
-// Юнит — техника? Всё, что производится во вкладке «🚗 Техника»
-// (TAB_TYPES.vehicles в main.js): тяжёлые и лёгкие боевые машины обеих
-// фракций. Используется для бонуса обороны +15% урона по технике (уровень 3).
-// Миномёты-поддержка (hoplite, devitt_mmr) и артиллерия техникой не считаются.
-// ВАЖНО: noble_widow тоже относится к технике (вкладка «🚗 Техника») —
-// раньше её не было в списке, из-за чего бонусы «по технике» (урон обороны)
-// на неё не действовали.
 export const TECHNIC_VEHICLE_TYPES = [
-    'king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska', 'gallagher_outlaw',
-    'noble_widow',
+    'king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska',
+    'gallagher_outlaw', 'noble_widow',
     'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'spatha', 'talos'
 ];
 
-// Множитель урона обороны (бункеры и территория 3 уровня) по технике.
 const DEFENSE_VS_TECH_MULT = 1.3;
-
-// Собственный бонус Noble Widow «по технике»: +25% к базовому урону (x1.25).
 const NOBLE_WIDOW_VS_TECH_MULT = 1.25;
 
 export function isTechVehicle(u) {
     if (!u) return false;
-    // Пехота/логистика/арта техникой не считаются
     if (isInfUnit(u)) return false;
     return TECHNIC_VEHICLE_TYPES.includes(u.type);
 }
 
-// Оборона (укрепления/территории) — урон по технике с коэффициентом x1.3.
 export function getDefenseDamageVsTech(baseDamage, target) {
     if (!isTechVehicle(target)) return baseDamage;
     return Math.round(baseDamage * DEFENSE_VS_TECH_MULT);
 }
 
-// Noble Widow: если цель — техника противника, урон = базовый dmg * 1.25.
-// Возвращает итоговый урон (для остальных юнитов/целей — без изменений).
 export function getUnitAttackDamage(attacker, target, baseDamage) {
     let damage = baseDamage;
     if (attacker && attacker.type === 'noble_widow' && isTechVehicle(target)) {

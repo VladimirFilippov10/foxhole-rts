@@ -8,7 +8,16 @@
 // (шаг ~16.67 мс), независимо от реального FPS. Рендер идёт каждый кадр.
 export const FIXED_STEP_MS = 1000 / 60;      // длительность одного тика логики
 export const MAX_STEPS_PER_FRAME = 5;        // защита от «зависания» после сворачивания вкладки
-
+// ===== ТУМАН ВОЙНЫ =====
+// off — видно всё (текущее поведение),
+// on  — видимость ограничена радиусом обзора юнитов и скрытностью.
+export const FOG_OPTIONS = [
+    { id: 'off', name: 'Без тумана', icon: '👁️',
+      description: 'Вся карта видна, все юниты противника отображаются' },
+    { id: 'on',  name: 'Туман войны', icon: '🌫️',
+      description: 'Видимость ограничена обзором юнитов; кусты и движение влияют на скрытность' },
+];
+export const DEFAULT_FOG = 'off';
 // ===== НАСТРОЙКА ГРАФИКИ (минимализм / классический) =====
 // Выбирается в настройках игры ДО начала боя (рядом с выбором режима).
 //  minimal     — текущая графика: карта 3000×2250, базовая детализация;
@@ -203,14 +212,15 @@ export function isBuildingAllowedByRestriction(btype, restriction) {
 export function getModeFlags(game) {
     const restriction = game?.restriction || DEFAULT_RESTRICTION;
     const economy = game?.economy || DEFAULT_ECONOMY;
+    const fog = game?.fog || DEFAULT_FOG;
     return {
         restriction,
         economy,
-        // логистика (вкладка «Снабжение») запрещена в режиме «Дефицит»
+        fog,
+        fogEnabled: fog === 'on',
         logisticsAllowed: economy !== 'scarcity',
         allowUnit(type) { return isUnitAllowedByRestriction(type, restriction); },
         allowBuilding(btype) { return isBuildingAllowedByRestriction(btype, restriction); },
-        // Множитель фарма ресурсов с учётом экономики «Вымирание»
         farmMultiplier(time) {
             const base = GAME_MODES[game?.gameMode]?.resourceMultiplier ?? 1;
             return economy === 'attrition' ? base * attritionMultiplier(time || 0) : base;

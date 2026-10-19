@@ -1,24 +1,18 @@
 // ===== AI SYSTEM - STRATEGIC BEHAVIOR =====
 import { dist, VEHICLE_COSTS, getModeFlags, attritionMultiplier } from './constants.js';
 import { createVehicle, isInfUnit, isTechUnit, isLogisticsUnit } from './vehicles.js';
+import { ROADS, isInBush } from './map.js';
 
 // ===== ПОМОЩНИКИ РЕЖИМОВ ИГРЫ ДЛЯ ИИ =====
-// Ограничение режима (classic / infantry_only / vehicles_only / no_artillery)
 function aiRestriction(G) { return G.restriction || 'classic'; }
-// Разрешён ли юнит данного типа текущим режимом ограничений
 function aiAllow(G, type) {
     return getModeFlags(G).allowUnit(type);
 }
-// Есть ли в бою ХОТЬ ОДНА сторона с пехотой и хоть одна — с техникой.
-// В режимах «только пехота» / «только техника» одна из сторон лишена
-// целого класса, поэтому квота «1 техника на 3 пехотинца» теряет смысл —
-// её надо полностью отключить (см. updateInner).
 function classesCoexist(G) {
     const r = aiRestriction(G);
     return r !== 'infantry_only' && r !== 'vehicles_only';
 }
 
-// Логирование действий бота в консоль (отключается: window.AI_LOG = false)
 let LOG_ENABLED = true;
 if (typeof window !== 'undefined') {
     Object.defineProperty(window, 'AI_LOG', {
@@ -35,58 +29,36 @@ export class AI {
         this.G = gameState;
         this.timer = 0;
         this.difficulty = 1;
-        this.defenseMode = true; // Начинаем в оборонительном режиме
+        this.defenseMode = true;
         this.lastAttackTime = 0;
-        this.accumulatedForces = 0; // Счётчик накопленных сил
-        this.attackThreshold = 6; // Порог накопления сил для атаки (был 12 — ИИ был пассивным)
-        this.artilleryPositions = []; // Позиции для артиллерии
+        this.accumulatedForces = 0;
+        this.attackThreshold = 6;
+        this.artilleryPositions = [];
 
-        // ===== ЛОГИСТИКА ИИ =====
-        // Последняя точка, в которой был замечен враг (для решения «атакуют ли базу»)
         this.lastEnemySighting = null;
-        // Логистика: max 5 «наборов» (engineer+truck+fuel_truck) и по 1 машине на точку
         this.logistics = { sets: [], lastScanAt: -9999 };
-        // Garrison — сколько юнитов остаётся охранять каждую захваченную точку
-        this.garrison = new Map(); // cpId -> [unit,...]
-        
-        // Система ресурсов ИИ (медленнее чем у игрока)
-        this.aiResources = {
-            s: 150, // Начальные ресурсы
-            c: 75,
-            m: 60,
-        };
-        this.aiResourceRate = 0.6; // Множитель скорости фарма (60% от игрока)
+        this.garrison = new Map();
 
-        // ===== КВОТА «1 ТЕХНИКА НА 3 ПЕХОТИНЦЕВ» =====
-        // Фикс краша: методы/поля squadSizeOf / infantrySpawned / vehicleDebtTarget /
-        // vehicleCount использовались в updateInner(), но НЕ были определены —
-        // весь цикл ИИ падал с TypeError и бот «не строил технику».
-        this.infantrySpawned = 0;   // сколько пехотинцев выпущено с момента последней техники
-        this.vehicleDebtTarget = 3; // нужно 3 пехоты -> 1 техника
-        this.vehicleCount = 0;      // всего произведено техники ИИ
-        this.infantryCount = 0;     // всего произведено пехотинцев ИИ
+        this.aiResources = { s: 150, c: 75, m: 60 };
+        this.aiResourceRate = 0.6;
 
-        // ===== РОДИ ПЕХОТЫ: АТАКА / ОБОРОНА / СНАЙПЕРЫ =====
-        // Состав атакующей пехоты (в процентах от отряда):
-        //   стрелки ~60%, гранатомётчики ~20%, пулемётчики ~20%
-        // В обороне (гарнизон своих точек) ИИ использует ПРЕИМУЩЕСТВЕННО
-        // пулемётчиков, а снайперов рассылает по захваченным противником
-        // городам — ровно 1 снайпер на 1 город.
-        this.sniperAssignments = new Map(); // cityKey -> id снайпера
+        this.infantrySpawned = 0;
+        this.vehicleDebtTarget = 3;
+        this.vehicleCount = 0;
+        this.infantryCount = 0;
+
+        this.sniperAssignments = new Map();
         this.lastSniperScanAt = -9999;
+
+        this._roadSamples = null;
     }
 
-    // Размер отряда пехоты по сложности
+    // ===== РАЗМЕР ОТРЯДА =====
     squadSizeOf(diff) {
         const d = diff || this.difficulty;
         return Math.min(4, 2 + Math.floor(d / 2));
     }
 
-    // ===== СОСТАВ ПЕХОТЫ =====
-    // 'attack' — смешанные отряды для штурма: стрелки + гранатомётчики
-    //            + немного пулемётчиков.
-    // 'defense' — преимущественно пулемётчики (дешёвый плотный огонь на
-    //             короткой дистанции — идеальны для обороны своих точек).
     pickInfantryType(role) {
         const r = Math.random();
         if (role === 'defense') {
@@ -97,9 +69,6 @@ export class AI {
         return 'mg_gunner';
     }
 
-    // Текущее соотношение пехота:техника «на поле» (живые юниты ИИ).
-    // Используется для догоняющего производства техники: если пехоты больше
-    // чем 3x техники — ИИ наращивает технику, пока квота 1:3 не восстановится.
     getLiveCounts() {
         let inf = 0, veh = 0;
         for (const u of this.G.units) {
@@ -110,9 +79,6 @@ export class AI {
         return { inf, veh };
     }
 
-    // ===== ПРОВЕРКА «ПОДДЕРЖКИ» =====
-    // Юнит поддержки (логистика) НИКОГДА не идёт в атаку/штурм/захват точек.
-    // Он работает только в городе (ремонт/пополнение/тушение).
     isSupportUnit(u) {
         if (!u || !u.type) return false;
         return [
@@ -121,49 +87,229 @@ export class AI {
         ].includes(u.type);
     }
 
+    // ===== НАВИГАЦИЯ ПО ДОРОГАМ =====
+
+    // Кэш дискретизированных дорог — точки через ~30 px.
+    _getRoadSamples() {
+        if (this._roadSamples) return this._roadSamples;
+        const samples = [];
+        const STEP = 30;
+        for (const road of ROADS) {
+            const fromX = road.from[0] * 250 + 125;
+            const fromY = road.from[1] * 150 + 75;
+            const toX   = road.to[0]   * 250 + 125;
+            const toY   = road.to[1]   * 150 + 75;
+            const midX = (fromX + toX) / 2 + (toY - fromY) * road.curve;
+            const midY = (fromY + toY) / 2 - (toX - fromX) * road.curve;
+            const approxLen = Math.hypot(toX - fromX, toY - fromY) + Math.abs(road.curve) * 100;
+            const n = Math.max(4, Math.floor(approxLen / STEP));
+            for (let i = 0; i <= n; i++) {
+                const t = i / n;
+                const x = (1 - t) * (1 - t) * fromX + 2 * (1 - t) * t * midX + t * t * toX;
+                const y = (1 - t) * (1 - t) * fromY + 2 * (1 - t) * t * midY + t * t * toY;
+                samples.push({ x, y, road });
+            }
+        }
+        this._roadSamples = samples;
+        return samples;
+    }
+
+    // Ближайшая точка на дороге к (x, y). Возвращает {x, y, d, index} — index
+    // полезен, чтобы потом нарезать маршрут по последовательным точкам.
+    _nearestRoadPoint(x, y) {
+        const samples = this._getRoadSamples();
+        let best = null, bestD = Infinity, bestIdx = -1;
+        for (let i = 0; i < samples.length; i++) {
+            const s = samples[i];
+            const d = dist(x, y, s.x, s.y);
+            if (d < bestD) { bestD = d; best = s; bestIdx = i; }
+        }
+        return best ? { x: best.x, y: best.y, d: bestD, index: bestIdx } : null;
+    }
+
+    // ===== МАРШРУТ «ПО ДОРОГЕ» ДЛЯ ТЕХНИКИ =====
+    // Возвращает ПОЛНЫЙ маршрут: [выход на дорогу, ...все точки дороги..., съезд к цели].
+    _routeByRoads(ax, ay, bx, by) {
+        const nearA = this._nearestRoadPoint(ax, ay);
+        const nearB = this._nearestRoadPoint(bx, by);
+
+        // Совсем нет дорог — идём напрямую
+        if (!nearA || !nearB) return [{ x: bx, y: by }];
+
+        // Если ближайшая к цели точка — та же самая (обе рядом с одной дорогой),
+        // всё равно прокладываем по дороге, но без лишних петель.
+        const direct = dist(ax, ay, bx, by);
+        const viaRoad = nearA.d + dist(nearA.x, nearA.y, nearB.x, nearB.y) + nearB.d;
+
+        // Порог «не объезжать» ослаблен до 2.0× — бот почти всегда предпочтёт дорогу.
+        if (viaRoad > direct * 2.0) return [{ x: bx, y: by }];
+
+        const samples = this._getRoadSamples();
+        const iA = nearA.index;
+        const iB = nearB.index;
+
+        const pts = [];
+        // 1) Дойти от текущей позиции до точки выхода на дорогу
+        pts.push({ x: nearA.x, y: nearA.y });
+
+        // 2) Пройти по дороге от nearA до nearB через каждую промежуточную точку
+        if (iA >= 0 && iB >= 0) {
+            if (iA === iB) {
+                // уже на нужной точке дороги — ничего дополнительно
+            } else if (iA < iB) {
+                for (let i = iA + 1; i <= iB; i++) {
+                    pts.push({ x: samples[i].x, y: samples[i].y });
+                }
+            } else {
+                // идём в обратную сторону
+                for (let i = iA - 1; i >= iB; i--) {
+                    pts.push({ x: samples[i].x, y: samples[i].y });
+                }
+            }
+        }
+
+        // 3) Съезд с дороги к цели
+        pts.push({ x: bx, y: by });
+        return pts;
+    }
+
+    // ===== МАРШРУТ «ВДОЛЬ ДОРОГ» ДЛЯ ПЕХОТЫ =====
+    // Идём по точкам дороги, но со сдвигом в сторону (лесополоса).
+    // Шаг 2 — чтобы не генерить слишком много waypoints (пехота медленная).
+    _routeAlongRoads(ax, ay, bx, by, sideOffset = 55) {
+        const nearA = this._nearestRoadPoint(ax, ay);
+        const nearB = this._nearestRoadPoint(bx, by);
+        if (!nearA || !nearB) return [{ x: bx, y: by }];
+
+        const samples = this._getRoadSamples();
+        const iA = nearA.index;
+        const iB = nearB.index;
+
+        // Стабильная сторона обхода (чтобы пехота не метался влево-вправо)
+        const sideSign = this._detourSideFor(ax + ay) || 1;
+
+        // Строим касательную в точке, чтобы получить нормаль для сдвига
+        const tangentAt = (i) => {
+            const a = samples[Math.max(0, i - 1)];
+            const b = samples[Math.min(samples.length - 1, i + 1)];
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const len = Math.hypot(dx, dy) || 1;
+            return { nx: -dy / len, ny: dx / len };
+        };
+
+        const pts = [];
+        const pushSide = (i) => {
+            const s = samples[i];
+            const { nx, ny } = tangentAt(i);
+            pts.push({
+                x: s.x + nx * sideSign * sideOffset,
+                y: s.y + ny * sideSign * sideOffset,
+            });
+        };
+
+        // 1) Выход на «обочину» у старта
+        pushSide(iA);
+
+        // 2) Вдоль дороги — каждый 2-й семпл
+        if (iA < iB) {
+            for (let i = iA + 2; i <= iB; i += 2) pushSide(i);
+            if ((iB - iA) % 2 !== 0) pushSide(iB);
+        } else if (iA > iB) {
+            for (let i = iA - 2; i >= iB; i -= 2) pushSide(i);
+            if ((iA - iB) % 2 !== 0) pushSide(iB);
+        }
+
+        // 3) Съезд к цели
+        pts.push({ x: bx, y: by });
+        return pts;
+    }
+
+    _detourSideFor(seed) {
+        const n = Math.abs(Math.floor(seed)) % 2;
+        return n ? 1 : -1;
+    }
+
+    // Единая точка входа для маршей ИИ.
+    _issueRoadMarch(u, targetX, targetY) {
+        if (!u || u.hp <= 0) return;
+        // Для пехоты — вдоль дорог (с боковым смещением).
+        // Для техники — по дорогам (по каждой точке).
+        const pts = isInfUnit(u)
+            ? this._routeAlongRoads(u.x, u.y, targetX, targetY, 55)
+            : this._routeByRoads(u.x, u.y, targetX, targetY);
+        this._queueWaypoints(u, pts);
+    }
+
+    _queueWaypoints(u, pts) {
+        if (!pts || pts.length === 0) return;
+        u._wpQueue = pts.slice();
+        this._nextWaypoint(u);
+    }
+
+    _nextWaypoint(u) {
+        if (!u._wpQueue || u._wpQueue.length === 0) {
+            u._wpQueue = null;
+            return;
+        }
+        const next = u._wpQueue.shift();
+        u.tx = next.x;
+        u.ty = next.y;
+        u.orderOrigin = { x: next.x, y: next.y };
+        u.retreatOrder = null;
+        u.moveOrder = null;
+        u.stuckCounter = 0;
+        u.detourSide = undefined;
+    }
+
+    // Скрытный подход (для снайперов) — 2 точки в обход дорог.
+    _stealthApproach(ax, ay, bx, by) {
+        const mid = { x: (ax + bx) / 2, y: (ay + by) / 2 };
+        const near = this._nearestRoadPoint(mid.x, mid.y);
+        if (near && near.d < 60) {
+            const dx = bx - ax, dy = by - ay;
+            const len = Math.hypot(dx, dy) || 1;
+            const nx = -dy / len, ny = dx / len;
+            const side = this._detourSideFor(ax + ay + bx + by);
+            mid.x += nx * side * 180;
+            mid.y += ny * side * 180;
+        }
+        return [mid, { x: bx, y: by }];
+    }
+
     update() {
         try {
             this.updateInner();
         } catch (err) {
-            // Критическая защита: если в логике ИИ возникает ошибка (например,
-            // вызов несуществующего метода), она НЕ должна прерывать игровой цикл,
-            // иначе юниты перестают обновляться и "исчезают" из игры.
             console.error('[AI] Ошибка в update() бота:', err);
-            console.error('[AI][ERROR] Ошибка в update() бота:', err);
         }
     }
 
     updateInner() {
         this.timer++;
 
-        // ===== СТАРТОВОЕ РАЗВИТИЕ ИИ =====
-        // В самом начале игры (через 3 секунды) бот строит 1 уровень обороны
-        // на главной базе и производит пожарную и строительную машины.
+        // ===== ОБСЛУЖИВАНИЕ WAYPOINTS =====
+        // Если у юнита есть очередь и он дошёл до текущей точки (tx === undefined) — выдаём следующую.
+        for (const u of this.G.units) {
+            if (u.faction !== this.G.ai || u.hp <= 0) continue;
+            if (u._wpQueue && u._wpQueue.length > 0 && u.tx === undefined) {
+                if (u.retreatToBase || u.supplyReturn) continue;
+                this._nextWaypoint(u);
+            }
+        }
+
+        // ===== СТАРТ =====
         if (this.timer === 180) {
             const base = this.getAIMainBase();
-            if (base) {
-                // 1. Строим 1 уровень обороны на базе, если его нет
-                if (base.defenseLevel === 0 && !base.upgrading) {
-                    const cpIndex = this.G.cps.indexOf(base);
-                    if (cpIndex !== -1) {
-                        this.G.upgradeTerritoryDefense(cpIndex);
-                        aiLog(`[AI][START] т.${this.timer}: Построен 1 уровень обороны на главной базе`);
-                    }
+            if (base && base.defenseLevel === 0 && !base.upgrading) {
+                const cpIndex = this.G.cps.indexOf(base);
+                if (cpIndex !== -1) {
+                    this.G.upgradeTerritoryDefense(cpIndex);
                 }
             }
-            // 2. Производим строительную и пожарную машины (прямой спавн)
             this.spawnSpecialSupportVehicles();
         }
+        if (this.timer === 7200) this.spawnEngineerAndTruck();
 
-        // ===== ПРОИЗВОДСТВО ИНЖЕНЕРА И ГРУЗОВИКА ЧЕРЕЗ 2 МИНУТЫ =====
-        // Через 2 минуты (7200 тиков) после начала боя бот производит
-        // инженерную машину и грузовик для быстрого ремонта и пополнения
-        // техники в главном городе.
-        if (this.timer === 7200) {
-            this.spawnEngineerAndTruck();
-        }
-
-        // Периодический отчёт о состоянии бота (каждые ~10 секунд)
         if (this.timer % 600 === 0) {
             const aiUnits = this.G.units.filter(u => u.faction === this.G.ai && u.hp > 0);
             const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai).length;
@@ -171,63 +317,32 @@ export class AI {
             const arts = aiUnits.filter(u => u.aoe).length;
             aiLog(`[AI][STATUS] t=${this.timer} режим=${this.defenseMode ? 'ОБОРОНА' : 'АТАКА'} силы=${this.accumulatedForces}/${this.attackThreshold} сложность=${this.difficulty} юнитов=${aiUnits.length} арт=${arts} точки(ИИ/игрок)=${aiPoints}/${playerPts} res: s=${Math.floor(this.aiResources.s)} c=${Math.floor(this.aiResources.c)} m=${Math.floor(this.aiResources.m)}`);
         }
-        this.difficulty = Math.min(3, 1 + Math.floor(this.timer / 4000)); // Ещё медленнее растёт
-        
-        // Генерация ресурсов ИИ (медленнее чем у игрока)
+        this.difficulty = Math.min(3, 1 + Math.floor(this.timer / 4000));
+
         this.updateAIResources();
 
-        // Проверка лимита пехоты влияет только на производство пехоты.
-        // Раньше при достижении лимита выходил весь update(), из-за чего
-        // бот полностью замирал: не двигал юниты, не строил укрепления,
-        // не атаковал оборону игрока.
         const canProduceInfantry = this.G.canProduceUnit('infantry', this.G.ai);
 
-        // Проверка доминирования игрока (больше 50% точек)
         const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction).length;
         const totalPoints = this.G.cps.length;
         const playerDominance = playerPoints > totalPoints * 0.5;
-        
-        // Базовые интервалы спавна (ИИ стал активнее: производство ускорено)
+
         const baseInfantryInterval = 600;
         const baseVehicleInterval = 1100;
-
-        // Раньше ИИ спавнил юнитов в 2-3 раза медленнее базового интервала —
-        // из-за этого он «сидел в обороне» и за 2 минуты не мог захватить ни одной точки.
-        // Теперь: до 50% точек у игрока — полная скорость, после — лишь 1.4x замедление.
         const spawnMultiplier = playerDominance ? 1.4 : 1.0;
         const actualInfantryInterval = Math.round(baseInfantryInterval * spawnMultiplier);
         const actualVehicleInterval = Math.round(baseVehicleInterval * spawnMultiplier);
 
-        // ===== ПРОИЗВОДСТВО ИИ: КВОТА 1 ТЕХНИКА / 3 ПЕХОТИНЦА + ДОГОНЯЮЩЕЕ СТРОИТЕЛЬСТВО =====
-        // Правила:
-        //  1) Целевое соотношение сил на поле — 3 пехотинца на 1 единицу
-        //     техники (раньше было 1:5 — ИИ спамил пехотой).
-        //  2) Если пехоты БОЛЬШЕ чем 3x техники — ИИ в приоритете наращивает
-        //     технику, пока соотношение не восстановится.
-        //  3) Если техники БОЛЬШЕ чем пехоты/3 — ИИ добирает пехоту.
-        //  4) Стратегическая доктрина по контролю карты:
-        //       игрок захватил >50% точек  → преимущество АРТИЛЛЕРИЯ
-        //                                   (дальний обстрел с оборонительных
-        //                                    позиций — контратака превосходящего
-        //                                    противника);
-        //       игрок держит <=50% точек   → преимущество ТЕХНИКА
-        //                                   (броневой клин для развития
-        //                                    наступления).
         const INF_PER_VEHICLE = 3;
         let spawnedThisTick = false;
 
         const liveInf = this.G.units.filter(u => u.faction === this.G.ai && isInfUnit(u) && u.hp > 0).length;
         const liveVeh = this.G.units.filter(u => u.faction === this.G.ai && isTechUnit(u)).length;
         const liveArt = this.G.units.filter(u => u.faction === this.G.ai && u.hp > 0 && u.aoe).length;
-        // Соотношение «на поле»: пехоты больше 3x техники -> копим технику (debt)
         const debtTarget = liveVeh * INF_PER_VEHICLE;
         const needsCatchUp = liveInf > debtTarget;
-        // Обратный перекос: техники больше, чем пехота может прикрыть -> добираем пехоту
         const needsInfCatchUp = liveVeh > 0 && liveInf < debtTarget;
 
-        // Доктрина: >50% точек у игрока — артиллерия; иначе — бронетехника.
-        // РЕЖИМ «без артиллерии»: ствольная арта запрещена — доктрина
-        // отключается (миномёты поддержки остаются обычным производством).
         const noArtMode = aiRestriction(this.G) === 'no_artillery';
         const preferArtillery = playerDominance && !noArtMode;
 
@@ -240,31 +355,18 @@ export class AI {
         const allowInf = () => canProduceInfantry &&
             this.G.canProduceUnit('infantry', this.G.ai) && this.canAffordInfantry();
 
-        // Нужна ли сейчас ещё одна единица техники (по квоте 1:3 или из-за потерь)
         const wantVehicle = (liveVeh * INF_PER_VEHICLE) < liveInf;
 
-        // ===== РЕЖИМЫ «ТОЛЬКО ПЕХОТА» / «ТОЛЬКО ТЕХНИКА» =====
-        // Квота 1 техника : 3 пехотинца в этих режимах бессмысленна (целый
-        // класс запрещён), поэтому она полностью обходится: бот спавнит то,
-        // на что хватает ресурсов и слотов, с обычными интервалами.
-        // Состав внутри класса выбирается случайно из доступных позиций
-        // (см. spawnVehicle / spawnInfantrySquad — они фильтруют типы по
-        // режиму через aiAllow()).
         if (!classesCoexist(this.G)) {
             const onlyInfantry = aiRestriction(this.G) === 'infantry_only';
             if (onlyInfantry) {
-                // Только пехота: стабильный поток отрядов по интервалу
                 if (this.timer % actualInfantryInterval === 0 && allowInf()) {
                     this.spawnInfantrySquad();
                     this.infantrySpawned += this.squadSizeOf(this.difficulty);
                     this.accumulatedForces++;
                     spawnedThisTick = true;
-                    aiLog(`[AI][SPAWN] т.${this.timer}: РЕЖИМ «ТОЛЬКО ПЕХОТА» — отряд без квоты (пехота=${liveInf})`);
                 }
             } else {
-                // Только техника: спавним при любой возможности, не проверяя
-                // соотношение пехоты/техники; если хватает на несколько
-                // позиций — берём случайную из доступных по цене
                 if (vehiclePossible && this.timer % actualVehicleInterval === 0) {
                     const before = this.G.units.length;
                     this.spawnVehicle(false);
@@ -272,38 +374,30 @@ export class AI {
                         this.vehicleCount++;
                         this.accumulatedForces += 2;
                         spawnedThisTick = true;
-                        aiLog(`[AI][SPAWN] т.${this.timer}: РЕЖИМ «ТОЛЬКО ТЕХНИКА» — машина без квоты (техника=${liveVeh}, выбор случайный из доступных)`);
                     }
                 }
             }
-            // Производство в этом тике уже решено — дальше только тактика
             this.expandAndCapture();
             this.maintainGarrisons();
             this.maintainBaseDefense();
-            if (typeof this.manageSnipers === 'function') this.manageSnipers();
+            this.manageSnipers();
             this.strategicBehavior();
             this.manageArtillery();
             this.manageLogistics();
             this.handleDamagedVehicles();
             this.buildFortifications();
+            this.manageRaiders();
             if (!spawnedThisTick) this.defensiveReactions();
             return;
         }
 
-        // «Не хватает на технику» — считаем по самому дешёвому разрешённому
-        // типу (совпадает с canAffordVehicle): при таком вердикте ИИ не тратит
-        // НИЧЕГО и копит ресурсы (см. ветку КОПЛЕНИЯ ниже).
         const affordableVehType = this.pickAffordableVehicleType();
         const wantVehicleNow = vehiclePossible && (wantVehicle || quotaMet);
         const godLoaderWanted = this.shouldSeekGodLoader();
-        // Техника запрещена режимом или завод недоступен — копиться бессмысленно,
-        // пехота идёт обычным потоком.
         const vehicleBlockedByMode = !hasFactory || !canVehicleSlot ||
             !this.getCheapestAllowedVehicleCost();
 
         if (godLoaderWanted && vehiclePossible && affordableVehType !== null) {
-            // КОЛЕНИСТЫ, затяжной бой: накапливаем бюджет на God Loader —
-            // не тратим ресурсы ни на технику, ни на пехоту, пока не хватит.
             const glCost = VEHICLE_COSTS.god_loader;
             if (this.aiResources.s >= glCost.s && this.aiResources.c >= glCost.c &&
                 this.aiResources.m >= glCost.m) {
@@ -313,19 +407,12 @@ export class AI {
                     this.accumulatedForces += 4;
                     spawnedThisTick = true;
                 }
-            } else {
-                aiLog(`[AI][SAVE] т.${this.timer}: КОПИМ НА GOD LOADER — не тратим ничего (res s=${Math.floor(this.aiResources.s)} c=${Math.floor(this.aiResources.c)} m=${Math.floor(this.aiResources.m)})`);
             }
         } else if (preferArtillery && vehiclePossible && this.timer % actualVehicleInterval === 0) {
-            // Игрок захватил >50% точек — преимущество АРТИЛЛЕРИИ: строим её
-            // в приоритете (с разумным потолком доли в составе). Если артy
-            // построить нельзя (нет ресурсов/потолок достигнут) — обычная
-            // техника по квоте, иначе пехота.
             const combatTotal = liveVeh || 1;
             const artCap = Math.max(2, Math.round(combatTotal * 0.4));
             if (this.spawnDoctrineArtillery(liveArt, artCap)) {
                 spawnedThisTick = true;
-                aiLog(`[AI][DOCTRINE] т.${this.timer}: игрок держит >50% точек — ставка на АРТИЛЛЕРИЮ (пехота=${liveInf}, техника=${liveVeh}, арта=${liveArt}/${artCap})`);
             } else if (wantVehicle || quotaMet) {
                 this.spawnVehicle(true);
                 this.vehicleCount++;
@@ -334,7 +421,6 @@ export class AI {
                 spawnedThisTick = true;
             }
         } else if (wantVehicleNow) {
-            // Квота выполнена ИЛИ нужно догнать потери техники — выпускаем технику
             const before = this.G.units.length;
             this.spawnVehicle(false);
             if (this.G.units.length > before) {
@@ -342,16 +428,9 @@ export class AI {
                 this.infantrySpawned = 0;
                 this.accumulatedForces += 2;
                 spawnedThisTick = true;
-                aiLog(`[AI][SPAWN] т.${this.timer}: ТЕХНИКА (${this.vehicleCount} всего). На поле: пехота=${liveInf}, техника=${liveVeh} (квота 1:${INF_PER_VEHICLE}${needsCatchUp ? ', ДОГОНЯЕМ ПОТЕРИ' : ''})`);
             }
         } else if (vehiclePossible && !vehicleBlockedByMode &&
                    this.timer % actualVehicleInterval === 0) {
-            // ===== ФИКС «СПАМ ПЕХОТОЙ, ЗАБЫВАЕТ ПРО ТЕХНИКУ» =====
-            // Квота 1:3 ещё не закрыта, но техника РАЗРЕШЕНА режимом и завод
-            // работает — ИИ старается строить технику при каждом удобном
-            // цикле производства: если хватает на машину — строим её;
-            // если НЕ хватает — НИЧЕГО не тратим и копим ресурсы дальше
-            // (раньше в этом случае бот сливал бюджет на пехоту).
             if (affordableVehType !== null) {
                 const before = this.G.units.length;
                 this.spawnVehicle(preferArtillery);
@@ -360,94 +439,53 @@ export class AI {
                     this.infantrySpawned = 0;
                     this.accumulatedForces += 2;
                     spawnedThisTick = true;
-                    aiLog(`[AI][SPAWN] т.${this.timer}: ТЕХНИКА вне квоты — строим, когда разрешено и хватает (техника=${liveVeh}, пехота=${liveInf})`);
                 }
-            } else {
-                aiLog(`[AI][SAVE] т.${this.timer}: на технику не хватает — копим, пехоту НЕ спамим (res s=${Math.floor(this.aiResources.s)} c=${Math.floor(this.aiResources.c)} m=${Math.floor(this.aiResources.m)})`);
             }
         } else if (this.timer % actualInfantryInterval === 0 && allowInf()) {
-            // Добираем пехоту ТОЛЬКО когда техника объективно недоступна
-            // (нет завода/слотов/запрещена режимом), либо когда на поле уже
-            // перекос в сторону техники (нужно прикрытие). Если техника
-            // разрешена, но дорогая — мы выше в ветке КОПЛЕНИЯ, сюда не доходим.
             const mustHoldInfantryLine = needsInfCatchUp ||
                 liveInf > (liveVeh + 1) * INF_PER_VEHICLE;
             if (!vehicleBlockedByMode && !mustHoldInfantryLine) {
-                // техника разрешена и мы её ждём/копим — пехоту не спамим
+                // ждём/копим технику
             } else {
                 this.spawnInfantrySquad();
                 this.infantrySpawned += this.squadSizeOf(this.difficulty);
                 this.accumulatedForces++;
                 spawnedThisTick = true;
-                if (needsInfCatchUp) {
-                    aiLog(`[AI][SPAWN] т.${this.timer}: ДОБОР ПЕХОТЫ под технику (пехота=${liveInf}, техника=${liveVeh}, квота ${INF_PER_VEHICLE}:1)`);
-                }
             }
         }
 
-        // Активное расширение: юниты без приказа сами идут на ближайшие
-        // нейтральные/вражеские точки и захватывают их
         this.expandAndCapture();
-
-        // Гарнизон: минимум 1 юнит охраны на каждой захваченной точке
         this.maintainGarrisons();
-
-        // Оборона главной базы: пара танков постоянно держится у базы;
-        // при парке техники больше 6 — к обороне добавляется +1 машина
-        // (танк, артиллерия или миномёт).
         this.maintainBaseDefense();
-
-        // Снайперы: 1 снайпер на каждый захваченный противником город
-        if (typeof this.manageSnipers === 'function') this.manageSnipers();
-
-        // Стратегическое поведение
+        this.manageSnipers();
         this.strategicBehavior();
-        
-        // Управление артиллерией
         this.manageArtillery();
-
-        // Логистика ИИ: ремонтники / грузовики БК / бензовозы к технике,
-        // flatbed (+ремонт+топливо) к артиллерии
         this.manageLogistics();
-
-        // Отвод повреждённой техники: порог 50% HP + шанс удержать позицию.
-        // Чем меньше точек у ИИ относительно игрока — тем крепче он держится.
         this.handleDamagedVehicles();
-
-        // Строительство укреплений (линия обороны: чем ближе к базе — тем плотнее)
         this.buildFortifications();
-        
-        // ===== УПРАВЛЕНИЕ ОБОРОНОЙ ЗАХВАЧЕННЫХ ГОРОДОВ =====
         this.manageCityDefenses();
-        
-        // Оборонительные действия (не зависят от лимитов производства)
+        this.manageRaiders();
         if (!spawnedThisTick) this.defensiveReactions();
     }
 
-    // ===== СПЕЦТЕХНИКА НА СТАРТЕ =====
-    // Спавнит строймашину и пожарную машину, если их нет.
+    // ===== СПЕЦТЕХНИКА =====
     spawnSpecialSupportVehicles() {
         const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory' && b.hp > 0);
         if (!factory) return;
         const base = this.getAIMainBase();
 
-        // Строймашина
         if (!this.G.units.some(u => u.faction === this.G.ai && u.type === 'construction_truck' && u.hp > 0)) {
             const cost = VEHICLE_COSTS.construction_truck || { s: 60, c: 40, m: 30 };
             if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
                 this.spendResources(cost);
                 const unit = createVehicle('construction_truck', this.G.ai, factory.x + 60, factory.y + 60);
                 this.G.units.push(unit);
-                // Сразу отправляем в главный город (ближе к центру)
                 if (base) {
                     unit.tx = base.x + (Math.random() - 0.5) * base.radius * 0.6;
                     unit.ty = base.y + (Math.random() - 0.5) * base.radius * 0.6;
                 }
-                aiLog(`[AI][START] т.${this.timer}: Произведена строймашина`);
             }
         }
-
-        // Пожарная машина
         if (!this.G.units.some(u => u.faction === this.G.ai && u.type === 'fire_truck' && u.hp > 0)) {
             const cost = VEHICLE_COSTS.fire_truck || { s: 50, c: 30, m: 20 };
             if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
@@ -458,20 +496,15 @@ export class AI {
                     unit.tx = base.x + (Math.random() - 0.5) * base.radius * 0.6;
                     unit.ty = base.y + (Math.random() - 0.5) * base.radius * 0.6;
                 }
-                aiLog(`[AI][START] т.${this.timer}: Произведена пожарная машина`);
             }
         }
     }
 
-    // ===== ПРОИЗВОДСТВО ИНЖЕНЕРА И ГРУЗОВИКА (ЧЕРЕЗ 2 МИНУТЫ) =====
-    // Инженерная машина (ремонт) и грузовик (БК) для быстрого восстановления
-    // техники в главном городе. Они сразу едут к центру главного города.
     spawnEngineerAndTruck() {
         const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory' && b.hp > 0);
         if (!factory) return;
         const base = this.getAIMainBase();
 
-        // Инженерная машина
         if (!this.G.units.some(u => u.faction === this.G.ai && u.type === 'engineer' && u.hp > 0)) {
             const cost = VEHICLE_COSTS.engineer || { s: 20, c: 35, m: 10 };
             if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
@@ -482,11 +515,8 @@ export class AI {
                     unit.tx = base.x + (Math.random() - 0.5) * base.radius * 0.5;
                     unit.ty = base.y + (Math.random() - 0.5) * base.radius * 0.5;
                 }
-                aiLog(`[AI][ENGINEER] т.${this.timer}: Произведена инженерная машина (ремонт в главном городе)`);
             }
         }
-
-        // Грузовик (БК)
         if (!this.G.units.some(u => u.faction === this.G.ai && u.type === 'truck' && u.hp > 0)) {
             const cost = VEHICLE_COSTS.truck || { s: 25, c: 15, m: 5 };
             if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
@@ -497,73 +527,51 @@ export class AI {
                     unit.tx = base.x + (Math.random() - 0.5) * base.radius * 0.5;
                     unit.ty = base.y + (Math.random() - 0.5) * base.radius * 0.5;
                 }
-                aiLog(`[AI][TRUCK] т.${this.timer}: Произведён грузовик (пополнение БК в главном городе)`);
             }
         }
     }
 
-    // ===== УПРАВЛЕНИЕ ОБОРОНОЙ ЗАХВАЧЕННЫХ ГОРОДОВ =====
-    // 1) Если бот владеет городом 3 минуты и рядом есть враг (< 450) — строит 1 уровень обороны и пригоняет машины.
-    // 2) Каждые 3 минуты пытается повысить уровень обороны (сначала главный город).
-    // 3) При получении урона обороны — включает ремонт.
     manageCityDefenses() {
-        if (this.timer % 60 !== 0) return; // раз в секунду
-
+        if (this.timer % 60 !== 0) return;
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
         const base = this.getAIMainBase();
 
         for (const cp of aiPoints) {
             const ownedTime = this.timer - (cp._capturedAt || 0);
-            
-            // Инициализация времени захвата (если не было)
-            if (cp._capturedAt === undefined) {
-                cp._capturedAt = this.timer;
-            }
+            if (cp._capturedAt === undefined) cp._capturedAt = this.timer;
 
-            // 1. Реакция на урон обороны (включаем ремонт)
             if (cp.defenseHp !== undefined && cp._defMaxHp !== undefined) {
                 const integrity = cp.defenseHp / cp._defMaxHp;
-                if (integrity < 0.95 && !cp.repairDefense) {
-                    cp.repairDefense = true;
-                    aiLog(`[AI][REPAIR] т.${this.timer}: Оборона "${cp.name}" повреждена (${Math.floor(integrity*100)}%) — включён ремонт`);
-                }
+                if (integrity < 0.95 && !cp.repairDefense) cp.repairDefense = true;
             }
 
-            // 2. Улучшение обороны каждые 3 минуты (10800 тиков)
             if (this.timer - (cp._lastDefUpgradeAt || 0) > 10800) {
                 if (cp.defenseLevel < 3 && !cp.upgrading) {
                     const costs = [
-                        { s: 50, c: 30, m: 40 },   // Уровень 1
-                        { s: 100, c: 60, m: 80 },  // Уровень 2
-                        { s: 150, c: 90, m: 120 }, // Уровень 3
+                        { s: 50, c: 30, m: 40 },
+                        { s: 100, c: 60, m: 80 },
+                        { s: 150, c: 90, m: 120 },
                     ];
                     const cost = costs[cp.defenseLevel];
-                    
                     if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
-                        // Сначала главный город
                         if (cp === base || base.defenseLevel >= 1) {
                             this.aiResources.s -= cost.s;
                             this.aiResources.c -= cost.c;
                             this.aiResources.m -= cost.m;
-                            
                             const cpIndex = this.G.cps.indexOf(cp);
                             this.G.upgradeTerritoryDefense(cpIndex);
                             cp._lastDefUpgradeAt = this.timer;
-                            aiLog(`[AI][UPGRADE] т.${this.timer}: Город "${cp.name}" — заложено улучшение обороны до уровня ${cp.defenseLevel + 1}`);
                         }
                     }
                 }
             }
 
-            // 3. Реакция на врага рядом (радиус 450) и владение 3 минуты
-            if (ownedTime > 10800) { // 3 минуты
-                const enemyNear = this.G.units.some(u => 
+            if (ownedTime > 10800) {
+                const enemyNear = this.G.units.some(u =>
                     u.faction === this.G.faction && u.hp > 0 &&
                     dist(u.x, u.y, cp.x, cp.y) <= 450
                 );
-
                 if (enemyNear) {
-                    // Если оборона 0 уровня — строим 1 уровень
                     if (cp.defenseLevel === 0 && !cp.upgrading) {
                         const cost = { s: 50, c: 30, m: 40 };
                         if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
@@ -572,28 +580,21 @@ export class AI {
                             this.aiResources.m -= cost.m;
                             const cpIndex = this.G.cps.indexOf(cp);
                             this.G.upgradeTerritoryDefense(cpIndex);
-                            aiLog(`[AI][THREAT] т.${this.timer}: Город "${cp.name}" под угрозой — срочно построен 1 уровень обороны`);
                         }
                     }
 
-                    // Пригоняем строительную и пожарную машины
-                    const consTruck = this.G.units.find(u => 
-                        u.faction === this.G.ai && u.type === 'construction_truck' && u.hp > 0
-                    );
+                    const consTruck = this.G.units.find(u =>
+                        u.faction === this.G.ai && u.type === 'construction_truck' && u.hp > 0);
                     if (consTruck) {
-                        // Ставим цель ближе к центру города
                         const angle = Math.random() * Math.PI * 2;
                         const r = cp.radius * 0.6;
                         consTruck.tx = cp.x + Math.cos(angle) * r;
                         consTruck.ty = cp.y + Math.sin(angle) * r;
                         consTruck.garrisonedAt = null;
                         consTruck.baseDefender = false;
-                        aiLog(`[AI][THREAT] т.${this.timer}: Строймашина отправлена в "${cp.name}"`);
                     }
-
-                    const fireTruck = this.G.units.find(u => 
-                        u.faction === this.G.ai && u.type === 'fire_truck' && u.hp > 0
-                    );
+                    const fireTruck = this.G.units.find(u =>
+                        u.faction === this.G.ai && u.type === 'fire_truck' && u.hp > 0);
                     if (fireTruck) {
                         const angle = Math.random() * Math.PI * 2;
                         const r = cp.radius * 0.6;
@@ -601,23 +602,18 @@ export class AI {
                         fireTruck.ty = cp.y + Math.sin(angle) * r;
                         fireTruck.garrisonedAt = null;
                         fireTruck.baseDefender = false;
-                        aiLog(`[AI][THREAT] т.${this.timer}: Пожарная машина отправлена в "${cp.name}"`);
                     }
                 }
             }
         }
     }
 
-    // ===== Активное расширение: юниты ИИ без приказа сами идут захватывать точки =====
+    // ===== АКТИВНОЕ РАСШИРЕНИЕ =====
     expandAndCapture() {
-        // Каждые ~2 секунды отправляем свободных юнитов на ближайшие
-        // нейтральные или вражеские точки
         if (this.timer % 120 !== 0) return;
-
         const targets = this.G.cps.filter(c => c.owner !== this.G.ai);
         if (targets.length === 0) return;
 
-        // ===== ФИКС: машины поддержки НЕ идут захватывать точки =====
         const idle = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 &&
             u.tx === undefined && !u.aoe &&
@@ -625,35 +621,31 @@ export class AI {
         );
         if (idle.length === 0) return;
 
-        // Сортируем цели: нейтральные ближе всего — приоритет, затем слабые вражеские
         const sorted = targets.slice().sort((a, b) => {
             const na = (a.owner === 'neutral' ? -1000 : 0);
             const nb = (b.owner === 'neutral' ? -1000 : 0);
             return na - nb;
         });
 
-        // Отправляем до 6 свободных юнитов за раз, распределяя по точкам
         const squadSize = Math.min(6, idle.length);
         for (let i = 0; i < squadSize; i++) {
             const u = idle[i];
-            const cp = sorted[i % Math.min(sorted.length, 3)]; // делим на 2-3 ближайшие точки
-            // Цель приказа: нейтральная точка — в любую точку (там нет обороны);
-            // во вражескую — только если её оборона уже пробита, иначе ставим
-            // приказ у границы зоны (юнит не упрётся в блок-линию и не «исчезнет»).
+            const cp = sorted[i % Math.min(sorted.length, 3)];
             const canEnter = cp.owner === 'neutral' || this.G.isCityDefenseBroken(cp);
+            let tx, ty;
             if (canEnter) {
-                u.tx = cp.x + (Math.random() - 0.5) * cp.radius;
-                u.ty = cp.y + (Math.random() - 0.5) * cp.radius;
+                tx = cp.x + (Math.random() - 0.5) * cp.radius;
+                ty = cp.y + (Math.random() - 0.5) * cp.radius;
             } else {
                 const a = Math.atan2(u.y - cp.y, u.x - cp.x) || 0;
-                u.tx = cp.x + Math.cos(a) * (cp.radius + 40);
-                u.ty = cp.y + Math.sin(a) * (cp.radius + 40);
+                tx = cp.x + Math.cos(a) * (cp.radius + 40);
+                ty = cp.y + Math.sin(a) * (cp.radius + 40);
             }
+            this._issueRoadMarch(u, tx, ty);
             u.captureTarget = cp;
         }
     }
 
-    // Угрожает ли точке враг (юниты рядом или в приближении)?
     isPointThreatened(cp) {
         return this.G.units.some(u =>
             u.faction === this.G.faction && u.hp > 0 &&
@@ -661,13 +653,10 @@ export class AI {
         );
     }
 
-    // ===== Гарнизон: на каждой захваченной точке — пехота (1–5 юнитов) =====
     maintainGarrisons() {
-        if (this.timer % 300 !== 0) return; // пересмотр раз в 5 секунд
-
+        if (this.timer % 300 !== 0) return;
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
 
-        // Освобождаем юнитов, чья точка больше не принадлежит ИИ
         for (const [cpId, units] of this.garrison.entries()) {
             const cp = this.G.cps.find(c => (c.id || c.name) === cpId);
             if (!cp || cp.owner !== this.G.ai) {
@@ -680,13 +669,11 @@ export class AI {
             const key = cp.id || cp.name;
             const current = (this.garrison.get(key) || []).filter(u =>
                 u.hp > 0 && u.faction === this.G.ai &&
-                isInfUnit(u) && // гарнизон — только пехота
+                isInfUnit(u) &&
                 dist(u.x, u.y, cp.x, cp.y) <= cp.radius + 40
             );
             this.garrison.set(key, current);
 
-            // Целевой размер гарнизона: 1–5 пехотинцев.
-            // Главная база и ближний пояс — сильнее; дальние точки — 1-2.
             const base = this.getAIMainBase();
             const dBase = base ? dist(base.x, base.y, cp.x, cp.y) : 0;
             const isMainBase = (cp === base);
@@ -695,20 +682,16 @@ export class AI {
             else if (dBase < 700) desired = 3;
             else if (dBase < 1200) desired = 2;
             else desired = 1;
-            // Под угрозой — добираем до 5
             if (this.isPointThreatened(cp)) desired = Math.min(5, desired + 2);
             desired = Math.max(1, Math.min(5, desired));
 
             if (current.length >= desired) continue;
 
-            // Кого послать в гарнизон? В ПЕРВУЮ ОЧЕРЕДЬ — пехоту:
-            // свободную (без приказа), затем недавно выпущенные отряды.
             const candidates = this.G.units.filter(u =>
                 u.faction === this.G.ai && u.hp > 0 && isInfUnit(u) &&
                 !u.aoe && !u.garrisonedAt && u.isScout !== true &&
-                !u.baseDefender // обороняющие базу не снимаем с позиции
+                !u.baseDefender && !u.isSniperPost
             ).sort((a, b) => {
-                // своя очередь: без приказа раньше, затем по расстоянию
                 const oa = (a.tx === undefined ? 0 : 1);
                 const ob = (b.tx === undefined ? 0 : 1);
                 if (oa !== ob) return oa - ob;
@@ -726,7 +709,6 @@ export class AI {
             if (need > 0) this.garrison.set(key, current);
         }
 
-        // Гарнизонные юниты без приказа — возвращаем на свою точку
         for (const [key, units] of this.garrison.entries()) {
             const cp = this.G.cps.find(c => (c.id || c.name) === key);
             if (!cp || cp.owner !== this.G.ai) continue;
@@ -739,15 +721,8 @@ export class AI {
         }
     }
 
-    // ===== ОБОРОНА ГЛАВНОЙ БАЗЫ =====
-    // Пара танков ПОСТОЯННО обороняет главную базу ИИ. Если общее количество
-    // техники на поле больше 6 — к обороне добавляется +1 машина; этой
-    // дополнительной машиной может быть любой боевой юнит: танк, артиллерия
-    // или миномёт (арта при этом остаётся со своей огневой задачей — её мы
-    // просто держим у базы и не отправляем в наступление).
     maintainBaseDefense() {
-        if (this.timer % 180 !== 0) return; // ревизия раз в ~3 секунды
-
+        if (this.timer % 180 !== 0) return;
         const base = this.getAIMainBase();
         if (!base) return;
 
@@ -755,43 +730,30 @@ export class AI {
             u.faction === this.G.ai && u.hp > 0 && !isInfUnit(u) &&
             !this.isSupportUnit(u)
         );
-        // 2 танка всегда + 1 машина за каждые полные 6 единиц техники (>6 -> +1)
         const extra = combatVehicles.length > 6 ? 1 : 0;
         const desired = 2 + extra;
 
-        // Собираем текущих защитников базы (список живёт в this.baseDefenders)
         if (!this.baseDefenders) this.baseDefenders = [];
         this.baseDefenders = this.baseDefenders.filter(u => {
             if (u.hp <= 0 || u.faction !== this.G.ai || u.baseDefender !== true) return false;
             if (dist(u.x, u.y, base.x, base.y) > base.radius + 260) {
-                // ушёл с позиции — снимаем назначение, иначе флаг «прилипнет»
-                // и юнит больше никогда не сможет быть переназначен
                 u.baseDefender = false;
                 return false;
             }
             return true;
         });
 
-        // Сколько из них именно ТАНКИ (не арта/миномёты) — пару танков держим всегда
         const isArtLike = (u) => u.aoe === true || u.isArtillery === true || u.isMortar === true;
         const tanksAssigned = this.baseDefenders.filter(u => !isArtLike(u)).length;
 
         const freeSpots = desired - this.baseDefenders.length;
         if (freeSpots > 0) {
-            // Кандидаты: боевые машины вне боя/гарнизона, ближайшие к базе.
-            // orderOrigin — признак ПРИКАЗА ИГРОКА (game.js выставляет его
-            // только в пользовательских приказных циклах). Юниты, назначенные
-            // в оборону сразу при спавне, приказа ещё не имеют — их тоже
-            // берём (иначе свежая техника уходила в наступление до первой
-            // ревизии обороны и защитников базы набиралось меньше нормы).
             const candidates = this.G.units.filter(u =>
                 u.faction === this.G.ai && u.hp > 0 && !isInfUnit(u) &&
                 !this.isSupportUnit(u) && !u.baseDefender &&
                 !u.garrisonedAt && u.orderOrigin === undefined &&
                 !u.retreatToBase && u.hp >= (u.maxHp || 100) * 0.5
             ).sort((a, b) => {
-                // сначала танки (нужно держать пару танков), затем арта/миномёты;
-                // внутри группы — ближайшие к базе
                 const ta = isArtLike(a) ? 1 : 0;
                 const tb = isArtLike(b) ? 1 : 0;
                 if (tanksAssigned < 2 && ta !== tb) return ta - tb;
@@ -800,69 +762,46 @@ export class AI {
 
             for (const u of candidates) {
                 if (this.baseDefenders.length >= desired) break;
-                // Базовую пару держим ТАНКАМИ. Дополнительная машина (>6 техники)
-                // может быть и артиллерией/миномётом — но только если танков на
-                // базе уже достаточно, и миномёт не отрывается от своей огневой
-                // позиции (streakable арта остаётся в manageArtillery).
                 const isTank = !isArtLike(u);
                 if (!isTank) {
                     if (this.baseDefenders.length < 2 || extra === 0) continue;
                     if (u.isMortar && !u.aoe) continue;
                 }
                 u.baseDefender = true;
-                u.garrisonedAt = null; // сбрасываем гарнизон, чтобы не возвращался
-                // Заправляем, если топливо на нуле (иначе не доедет)
-                if (u.fuel !== undefined && u.fuel <= 0) {
-                    u.fuel = u.maxFuel * 0.5;
-                }
+                u.garrisonedAt = null;
+                if (u.fuel !== undefined && u.fuel <= 0) u.fuel = u.maxFuel * 0.5;
                 const idx = this.baseDefenders.length;
                 const angle = (idx / Math.max(3, desired)) * Math.PI * 2;
-                const r = base.radius * 0.8; // цель на краю города
+                const r = base.radius * 0.8;
                 u.tx = base.x + Math.cos(angle) * r;
                 u.ty = base.y + Math.sin(angle) * r;
                 this.baseDefenders.push(u);
-                aiLog(`[AI][BASEDEF] т.${this.timer}: ${u.label} назначен(а) в оборону главной базы (${this.baseDefenders.length}/${desired}, техника=${combatVehicles.length})`);
             }
         }
 
-        // Держим защитников на позиции: приказ переставляется КАЖДУЮ ревизию
-        // (game.js снимает tx/ty по прибытии — без этого танк после выполнения
-        // приказа уходил в общий котёл наступления). Артиллерия-защитник
-        // управляется manageArtillery — не трогаем её приказы. Флаг holdPosition
-        // тут не используется: game.js сбрасывает его при полном HP, а решение
-        // «держать позицию до конца» принимает makeRetreatDecisions сам.
         for (const u of this.baseDefenders) {
             if (u.hp <= 0) continue;
-            if (isArtLike(u)) continue; // арта стоит на огневой через manageArtillery
-            if (u.orderOrigin !== undefined) { // чужой приказ (игрок) — не мешаем
+            if (isArtLike(u)) continue;
+            if (u.orderOrigin !== undefined) {
                 u.baseDefender = false;
                 continue;
             }
-            // Защитник «прикреплён» к базе: снимаем наступательные метки
-            // (expandAndCapture/squadAttack ставят их юниту без приказа),
-            // иначе unit утаскивает в чужую атаку и оборона редеет.
             u.captureTarget = undefined;
             u.squadAttack = false;
-            // Приказ переставляем ВСЕГДА, пока защитник не на позиции или уже
-            // идёт к ней. Раньше условие включало «или tx === undefined», но
-            // game.js снимает tx/ty по прибытии, а следующий танк из очереди
-            // кандидатов мог получить наступательный приказ раньше ревизии —
-            // теперь позиция держится жёстко каждый цикл.
             const onPost = dist(u.x, u.y, base.x, base.y) <= base.radius + 40 &&
                 u.tx === undefined;
             if (!onPost) {
                 const idx = this.baseDefenders.indexOf(u);
                 const angle = ((idx < 0 ? 0 : idx) / Math.max(3, desired)) * Math.PI * 2;
-                const r = base.radius * 0.8; // цель на краю города
+                const r = base.radius * 0.8;
                 u.tx = base.x + Math.cos(angle) * r;
                 u.ty = base.y + Math.sin(angle) * r;
             }
         }
     }
 
-    // ===== Логистика ИИ: ремонтники / БК / топливо к нуждающейся технике =====
+    // ===== ЛОГИСТИКА =====
     manageLogistics() {
-        // Строймашина для ускорения ремонта
         const hasConstruction = this.G.units.some(u => u.faction === this.G.ai && u.type === 'construction_truck' && u.hp > 0);
         if (!hasConstruction) {
             const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory' && b.hp > 0);
@@ -877,11 +816,9 @@ export class AI {
                         unit.tx = base.x + (Math.random() - 0.5) * base.radius * 0.6;
                         unit.ty = base.y + (Math.random() - 0.5) * base.radius * 0.6;
                     }
-                    aiLog(`[AI][CONSTRUCTION] т.${this.timer}: произведена строймашина для ремонта обороны`);
                 }
             }
         }
-        // Пожарная машина
         const hasFireTruck = this.G.units.some(u => u.faction === this.G.ai && u.type === 'fire_truck' && u.hp > 0);
         if (!hasFireTruck) {
             const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory' && b.hp > 0);
@@ -896,18 +833,12 @@ export class AI {
                         unit.tx = base.x + (Math.random() - 0.5) * base.radius * 0.6;
                         unit.ty = base.y + (Math.random() - 0.5) * base.radius * 0.6;
                     }
-                    aiLog(`[AI][FIRE] т.${this.timer}: произведена пожарная машина для тушения пожаров`);
                 }
             }
         }
-        // ЭКОНОМИКА «Дефицит»: восстановление только на главной базе —
-        // полевую логистику бот не гоняет вовсе.
         if (!getModeFlags(this.G).logisticsAllowed) return;
-        if (this.timer % 90 !== 0) return; // приказ раз в 1.5 секунды
+        if (this.timer % 90 !== 0) return;
 
-        // ===== ФИКС МЕДИКА: ИИ производит одну скорую помощь, если её нет =====
-        // Без этой ветки бот НИКОГДА не строил medic_truck, и раненую пехоту
-        // лечить было некому (инженер чинит только технику).
         const hasMedic = this.G.units.some(u =>
             u.faction === this.G.ai && u.type === 'medic_truck' && u.hp > 0);
         if (!hasMedic) {
@@ -928,7 +859,6 @@ export class AI {
                         unit.tx = base.x + (Math.random() - 0.5) * base.radius * 0.5;
                         unit.ty = base.y + (Math.random() - 0.5) * base.radius * 0.5;
                     }
-                    aiLog(`[AI][MEDIC] т.${this.timer}: произведена скорая помощь (лечит пехоту)`);
                 }
             }
         }
@@ -947,44 +877,28 @@ export class AI {
             if (helpers.length === 0) return;
 
             const h = helpers[0];
-            if (h.tx !== undefined && dist(h.x, h.y, needy.x, needy.y) < 60) return; // уже рядом
+            if (h.tx !== undefined && dist(h.x, h.y, needy.x, needy.y) < 60) return;
             h.tx = needy.x + (Math.random() - 0.5) * 20;
             h.ty = needy.y + (Math.random() - 0.5) * 20;
         };
 
-        // Инженер — к технике с низким HP
         sendToNeedy('engineer', u => u.hp < (u.maxHp || 100) * 0.6);
-        // Грузовик — к технике с кончающимся БК
         sendToNeedy('truck', u => u.ammo !== undefined && u.maxAmmo !== undefined && u.ammo < u.maxAmmo * 0.3);
-        // Бензовоз — к технике с кончающимся топливом
         sendToNeedy('fuel_truck', u => u.fuel !== undefined && u.maxFuel !== undefined && u.fuel < u.maxFuel * 0.3);
-        // Flatbed — к артиллерии (снаряды)
         sendToNeedy('flatbed', u => !!u.aoe);
-        // ===== ФИКС МЕДИКА: скорая помощь — к РАНЕНОЙ ПЕХОТЕ =====
-        // sendToNeedy фильтрует цели через !isInfUnit(u) — для медика это
-        // не подходит: ему нужны именно пехотинцы. Поэтому отправляем медика
-        // отдельным проходом, минуя общий фильтр.
         this.sendMedicToWoundedInfantry();
     }
 
-    // ===== ФИКС МЕДИКА: отправка медика к раненой пехоте =====
-    // Вынесено отдельным методом, потому что sendToNeedy() намеренно
-    // исключает пехоту из целей (инженер/грузовик/бензовоз лечат технику).
-    // ДОПОЛНИТЕЛЬНЫЙ ФИКС: медик едет к раненой пехоте ТОЛЬКО если в атаке
-    // (пехота с приказом движения) больше 5 юнитов. Иначе медик остаётся
-    // в главном городе и лечит раненых там.
     sendMedicToWoundedInfantry() {
         const medics = this.G.units.filter(u =>
             u.faction === this.G.ai && u.type === 'medic_truck' && u.hp > 0);
         if (medics.length === 0) return;
 
-        // Считаем, сколько пехоты идёт в атаку (имеет приказ движения).
         const infantryInAttack = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 && isInfUnit(u) &&
             u.tx !== undefined
         ).length;
 
-        // Если в атаке пехоты <= 5 — медик остаётся в главном городе.
         if (infantryInAttack <= 5) {
             const base = this.getAIMainBase();
             if (base) {
@@ -998,14 +912,12 @@ export class AI {
             return;
         }
 
-        // Самая раненая пехота (по проценту HP), которой ещё можно помочь
         const wounded = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 && isInfUnit(u) &&
             u.hp < (u.maxHp || 100) * 0.6
         ).sort((a, b) => a.hp / (a.maxHp || 1) - b.hp / (b.maxHp || 1));
         if (wounded.length === 0) return;
 
-        // Каждый медик едет к ближайшему к нему раненому
         for (const m of medics) {
             const nearest = wounded.reduce((best, u) =>
                 dist(m.x, m.y, u.x, u.y) < dist(m.x, m.y, best.x, best.y) ? u : best);
@@ -1016,45 +928,31 @@ export class AI {
         }
     }
 
-    // ===== ОТВОД ПОВРЕЖДЁННОЙ ТЕХНИКИ =====
-    // Шанс НЕ отступать: чем меньше точек у ИИ по сравнению с игроком,
-    // тем крепче он держится за то, что есть.
-    //  - точки равны / у ИИ больше            -> 20% (базовый шанс)
-    //  - точек ИИ в 2 раза меньше, чем у игрока -> 80%
-    //  - ещё меньше                            -> до 95%
+    // ===== ОТВОД =====
     getHoldGroundChance() {
         const aiPts = this.G.cps.filter(c => c.owner === this.G.ai).length;
         const plPts = this.G.cps.filter(c => c.owner === this.G.faction).length;
-        const BASE = 0.2;   // 20% при равенстве точек
+        const BASE = 0.2;
         const MAXHOLD = 0.95;
-        if (plPts <= 0) return Math.min(MAXHOLD, BASE + 0.4); // игрок без точек — держим намертво
-        const ratio = aiPts / plPts;      // 1.0 — паритет, 0.5 — в 2 раза меньше
+        if (plPts <= 0) return Math.min(MAXHOLD, BASE + 0.4);
+        const ratio = aiPts / plPts;
         if (ratio >= 1) return BASE;
-        // линейная прогрессия от ratio=1 (20%) до ratio=0.5 (80%)
-        const slope = (0.8 - BASE) / (1 - 0.5); // 1.2
+        const slope = (0.8 - BASE) / (1 - 0.5);
         const chance = BASE + (1 - ratio) * slope;
         return Math.max(BASE, Math.min(MAXHOLD, chance));
     }
 
-    // Принять решение об отводе повреждённой техники. Вызывается из game.js
-    // раз в ~2 секунды, чтобы решения не «мигали» каждый кадр.
     makeRetreatDecisions() {
         if (this.timer % 120 !== 0) return;
         const holdChance = this.getHoldGroundChance();
-        // ===== ФИКС: поддержка не отводится (она и так в городе) =====
         const vehicles = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 &&
             !isInfUnit(u) && !this.isSupportUnit(u)
         );
         for (const v of vehicles) {
-            // ===== ФИКС «юниты едут хрен пойми куда» =====
-            // Юнитам, которым игрок отдал приказ движения, ИИ не навязывает
-            // свои решения об отводе/удержании — иначе его флаги перебивали
-            // приказ игрока и уводили технику в другую сторону.
             if (v.orderOrigin !== undefined) continue;
             const maxHp = v.maxHp || 100;
             if (v.hp >= maxHp * 0.5) {
-                // долечился выше порога — забываем прошлое решение
                 v.holdPosition = false;
                 v.retreatDecisionAt = undefined;
                 continue;
@@ -1063,7 +961,6 @@ export class AI {
             const stay = Math.random() < holdChance;
             v.holdPosition = stay;
             v.retreatDecisionAt = this.timer;
-            aiLog(`[AI][RETREAT] т.${this.timer}: ${v.label} HP=${Math.round(v.hp)}/${maxHp} → ${stay ? 'ДЕРЖИТ ПОЗИЦИЮ до конца' : 'отводится в тыл'} (шанс удержать=${Math.round(holdChance * 100)}%)`);
         }
     }
 
@@ -1071,7 +968,6 @@ export class AI {
         const base = this.getAIMainBase();
         if (!base) return;
 
-        // ===== ФИКС: поддержка не отводится (она и так в городе) =====
         const damaged = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 &&
             !isInfUnit(u) && !this.isSupportUnit(u) &&
@@ -1079,8 +975,6 @@ export class AI {
         );
         if (damaged.length === 0) return;
 
-        // Если у главной базы стоит вражеская техника — её нужно уничтожить
-        // всей доступной техникой и пехотой ИИ (независимо от режима).
         const enemyVehiclesAtBase = this.G.units.filter(u =>
             u.faction === this.G.faction && u.hp > 0 && !isInfUnit(u) &&
             dist(u.x, u.y, base.x, base.y) <= base.radius + 150
@@ -1096,19 +990,16 @@ export class AI {
             attackers.forEach(u => {
                 u.tx = focus.x + (Math.random() - 0.5) * 70;
                 u.ty = focus.y + (Math.random() - 0.5) * 70;
-                u.holdPosition = true; // при контратаке базу не покидаем
+                u.holdPosition = true;
                 u.retreatDecisionAt = this.timer;
             });
-            aiLog(`[AI][BASE-DEF] т.${this.timer}: техника игрока у главной базы (${enemyVehiclesAtBase.length} шт.) — в атаку ${attackers.length} юнитов`);
         }
 
         for (const v of damaged) {
-            if (v.holdPosition === true) continue;           // решил стоять до конца
-            if (v.holdPosition === undefined) continue;      // решение ещё не принято
-            if (v.isScout) continue;                         // разведка не отводится
-            // уже отведён/в тылу — не трогаем
+            if (v.holdPosition === true) continue;
+            if (v.holdPosition === undefined) continue;
+            if (v.isScout) continue;
             if (dist(v.x, v.y, base.x, base.y) <= base.radius + 120) continue;
-            // уже есть приказ движения в тыл — не переставляем
             if (v.tx !== undefined) continue;
 
             const angle = Math.atan2(base.y - v.y, base.x - v.x);
@@ -1116,15 +1007,13 @@ export class AI {
             v.tx = base.x - Math.cos(angle) * stopDist;
             v.ty = base.y - Math.sin(angle) * stopDist;
             v.retreatToBase = true;
-            aiLog(`[AI][RETREAT] т.${this.timer}: ${v.label} HP=${Math.round(v.hp)}/${v.maxHp || 100} отводится на базу (${Math.round(v.tx)}, ${Math.round(v.ty)})`);
         }
     }
 
     defensiveReactions() {
-        // Если свои территории под угрозой - отправляем свободных юнитов защищать
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
         if (aiPoints.length === 0) return;
-        
+
         const threatened = aiPoints.filter(cp => {
             const enemyNear = this.G.units.some(u =>
                 u.faction === this.G.faction && u.hp > 0 &&
@@ -1133,37 +1022,32 @@ export class AI {
             return enemyNear;
         });
         if (threatened.length === 0) return;
-        
+
         const target = threatened[0];
-        // ===== ФИКС: поддержка не идёт в оборону точек (её место — в городе) =====
         const idle = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 && u.tx === undefined && !u.aoe &&
             !u.retreatToBase &&
             !this.isSupportUnit(u)
         );
         idle.slice(0, 4).forEach(u => {
-            u.tx = target.x + (Math.random() - 0.5) * 60;
-            u.ty = target.y + (Math.random() - 0.5) * 60;
+            const tx = target.x + (Math.random() - 0.5) * 60;
+            const ty = target.y + (Math.random() - 0.5) * 60;
+            this._issueRoadMarch(u, tx, ty);
         });
     }
-    
-    // Категории юнитов (вместо отсутствующего поля category):
-    // 'infantry' | 'tank' | 'apc' | 'artillery' | 'supply' | 'engineer'
+
     unitCategory(u) {
         if (!u || !u.type) return 'other';
         const t = u.type;
         if (t === 'infantry') return 'infantry';
         if (t.includes('artillery')) return 'artillery';
-        // ===== ФИКС МЕДИКА: медик — это тоже логистика/снабжение =====
         if (t === 'truck' || t === 'fuel_truck' || t === 'flatbed' || t === 'medic_truck' || t === 'construction_truck' || t === 'fire_truck') return 'supply';
         if (t === 'engineer') return 'engineer';
         if (t === 'niska' || t === 'javelin') return 'apc';
-        // Миномётная поддержка (Hoplite, Devitt MMR) — артиллерия, не бронетехника
         if (u.isMortar || t === 'hoplite' || t === 'devitt_mmr') return 'artillery';
         return 'tank';
     }
 
-    // Главная база ИИ — точка захвата, рядом с которой стоит его town_hall.
     getAIMainBase() {
         const hall = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'town_hall');
         if (hall) {
@@ -1177,10 +1061,8 @@ export class AI {
         return this.G.cps.find(c => c.owner === this.G.ai) || null;
     }
 
-    // Сколько бункеров должно стоять на точке — «линия обороны».
-    // Чем ближе точка к базе ИИ, тем сильнее линия обороны.
     getDesiredBunkerCount(cp) {
-        const base = this.getAIMainBase(); // ГЛАВНАЯ база ИИ (не первая попавшаяся его точка!)
+        const base = this.getAIMainBase();
         if (!base) return 1;
         const dBase = dist(base.x, base.y, cp.x, cp.y);
         const isMainBase = (cp === base);
@@ -1188,22 +1070,15 @@ export class AI {
         const playerDominates = this.G.cps.filter(c => c.owner === this.G.faction).length > aiPoints;
 
         let desired;
-        if (isMainBase) {
-            desired = 4;                       // главная база — самая плотная оборона
-        } else if (dBase < 700) {
-            desired = 3;                       // ближний пояс к базе
-        } else if (dBase < 1200) {
-            desired = 2;                       // средний пояс
-        } else {
-            desired = 1;                       // дальние/фронтовые точки
-        }
-        // Под угрозой или при доминировании игрока — дополнительно укрепляем тылы
+        if (isMainBase) desired = 4;
+        else if (dBase < 700) desired = 3;
+        else if (dBase < 1200) desired = 2;
+        else desired = 1;
         if ((playerDominates || this.isPointThreatened(cp)) && !isMainBase && desired < 3) desired += 1;
         if (isMainBase && (playerDominates || this.isPointThreatened(cp))) desired = 5;
         return desired;
     }
 
-    // Тип бункера по приоритету: у базы — тяжёлые, дальше — легче
     pickBunkerType(cp, index) {
         const base = this.getAIMainBase();
         const dBase = base ? dist(base.x, base.y, cp.x, cp.y) : 99999;
@@ -1220,20 +1095,12 @@ export class AI {
     }
 
     buildFortifications() {
-        // Строим не чаще одного бункера в ~2 секунды (очередь из нескольких зданий)
         if (this.timer % 120 !== 0) return;
-
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
         if (aiPoints.length === 0) return;
 
-        // Идентификация ГЛАВНОЙ базы ИИ: точка, рядом с которой стоит его town_hall.
-        // (cps в начале массива — обе главные базы, поэтому нельзя брать просто
-        //  первую точку ИИ из списка — иначе оборона строилась не у своей базы)
         const aiMainBase = this.getAIMainBase();
 
-        // Считаем существующие бункеры ИИ рядом с каждой точкой.
-        // ВАЖНО: считаем и недостроенные (hp<=0) — иначе ИИ ставил бы бункер
-        // на одно и то же место каждые 2 секунды, спамя постройку.
         const counts = new Map();
         for (const cp of aiPoints) {
             const n = this.G.buildings.filter(b =>
@@ -1243,7 +1110,6 @@ export class AI {
             counts.set(cp.id || cp.name, n);
         }
 
-        // Выбираем точку, где нехватка обороны максимальна (приоритет — близость к базе)
         let best = null, bestScore = -Infinity;
         for (const cp of aiPoints) {
             const have = counts.get(cp.id || cp.name) || 0;
@@ -1251,17 +1117,15 @@ export class AI {
             const deficit = need - have;
             if (deficit <= 0) continue;
             const dBase = aiMainBase ? dist(aiMainBase.x, aiMainBase.y, cp.x, cp.y) : 0;
-            const score = deficit * 100 - dBase * 0.1; // ближе к базе = выше приоритет
+            const score = deficit * 100 - dBase * 0.1;
             if (score > bestScore) { bestScore = score; best = cp; }
         }
         if (!best) return;
 
         const have = counts.get(best.id || best.name) || 0;
         const type = this.pickBunkerType(best, have);
-        if (!type) return; // не хватает ресурсов — ждём
+        if (!type) return;
 
-        // Позиция: по кругу вокруг точки, на границе зоны (чтобы вражеская техника
-        // упиралась в оборону раньше), без наложения на уже стоящие бункеры
         let placed = false, bx = 0, by = 0;
         for (let attempt = 0; attempt < 10; attempt++) {
             const angle = ((have + attempt) / Math.max(6, this.getDesiredBunkerCount(best))) * Math.PI * 2 + Math.random() * 0.4;
@@ -1273,26 +1137,16 @@ export class AI {
         }
         if (!placed) return;
 
-        // ВАЖНО: ИИ платит из своего пула ресурсов (5-й аргумент) — иначе он тратил
-        // ресурсы игрока и не мог построить ничего дороже лёгкого бункера
         const fortification = this.G.buildFortification(type, bx, by, this.G.ai, this.aiResources);
-        if (fortification) {
-            fortification.buildTime *= 1.3; // ИИ строит чуть медленнее игрока
-            aiLog(`[AI][FORT] т.${this.timer}: линия обороны — ${type} у "${best.name}" (${have + 1}/${this.getDesiredBunkerCount(best)})`);
-        }
+        if (fortification) fortification.buildTime *= 1.3;
     }
 
     updateAIResources() {
-        // ИИ получает ресурсы медленнее чем игрок
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai).length;
         const modeMultiplier = this.G.gameMode === 'realism' ? 0.3 : this.G.gameMode === 'fast' ? 2.5 : 1.0;
-
-        // ЭКОНОМИКА «Вымирание»: фарм обеих сторон стремится к 0 со временем —
-        // применяем тот же множитель, что игра использует для дохода игрока.
         const flags = getModeFlags(this.G);
         const farmMult = flags.farmMultiplier ? flags.farmMultiplier(this.G.time) : 1;
 
-        // Шахты, захваченные ИИ (как у игрока): прибавка за тик по типу шахты
         let mineS = 0, mineC = 0, mineM = 0;
         for (const mine of (this.G.mines || [])) {
             if (mine.owner !== this.G.ai) continue;
@@ -1305,23 +1159,20 @@ export class AI {
         this.aiResources.c += (aiPoints * 0.015 + mineC) * this.aiResourceRate * modeMultiplier * farmMult;
         this.aiResources.m += (aiPoints * 0.01 + mineM) * this.aiResourceRate * modeMultiplier * farmMult;
     }
-    
+
     canAffordInfantry() {
         const cost = VEHICLE_COSTS.infantry;
-        return this.aiResources.s >= cost.s && 
-               this.aiResources.c >= cost.c && 
+        return this.aiResources.s >= cost.s &&
+               this.aiResources.c >= cost.c &&
                this.aiResources.m >= cost.m;
     }
-    
-    // ===== ПОМОЩНИКИ ВЫБОРА ТЕХНИКИ С УЧЁТОМ РЕЖИМА =====
-    // Список боевых типов техники фракции ИИ (без артиллерии).
+
     vehicleRoster() {
         return this.G.ai === 'wardens'
             ? ['devitt', 'niska', 'king_spire', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw']
             : ['hatchet', 'javelin', 'scorpion', 'nemesis', 'falchion', 'spatha'];
     }
 
-    // Стоимость самого дешёвого РАЗРЕШЁННОГО режимом типа техники.
     getCheapestAllowedVehicleCost() {
         let best = null;
         for (const t of this.vehicleRoster()) {
@@ -1332,8 +1183,6 @@ export class AI {
         return best;
     }
 
-    // Случайный тип техники из РАЗРЕШЁННЫХ режимом и доступных по ресурсам.
-    // Если хватает на несколько позиций — выбор случайный из них.
     pickAffordableVehicleType() {
         const affordable = this.vehicleRoster().filter(t => {
             const c = VEHICLE_COSTS[t];
@@ -1345,17 +1194,14 @@ export class AI {
     }
 
     canAffordVehicle() {
-        // Проверяем можем ли позволить себе хотя бы самый дешёвый танк.
-        // РЕЖИМЫ: если техника запрещена режимом — не позволяем ничего;
-        // иначе считаем доступность по самому дешёвому РАЗРЕШЁННОМУ типу.
         if (!classesCoexist(this.G) && aiRestriction(this.G) === 'infantry_only') return false;
         const cheapestVehicle = this.getCheapestAllowedVehicleCost();
         if (!cheapestVehicle) return false;
-        return this.aiResources.s >= cheapestVehicle.s && 
-               this.aiResources.c >= cheapestVehicle.c && 
+        return this.aiResources.s >= cheapestVehicle.s &&
+               this.aiResources.c >= cheapestVehicle.c &&
                this.aiResources.m >= cheapestVehicle.m;
     }
-    
+
     spendResources(cost) {
         this.aiResources.s -= cost.s;
         this.aiResources.c -= cost.c;
@@ -1366,24 +1212,16 @@ export class AI {
         const barracks = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'barracks');
         if (!barracks) return;
 
-        // Меньше пехоты за раз
         const squadSize = this.squadSizeOf(this.difficulty);
-
-        // Формируем состав отряда: в атаку — разная пехота (стрелки,
-        // гранатомётчики, немного пулемётчиков), в оборону — преимущественно
-        // пулемётчики. Считаем стоимость по фактическому составу и проверяем,
-        // хватает ли ресурсов (если нет — берём более дешёвые варианты).
         let types = [];
         for (let i = 0; i < squadSize; i++) types.push(this.pickInfantryType(role));
         while (types.length > 0 && !this.canAffordSquad(types)) {
-            // Заменяем самый дорогой юнит на стрелка (дешевле всего);
-            // если и так все стрелки — уменьшаем отряд
             const idx = types.reduce((best, t, i) =>
                 (VEHICLE_COSTS[t].s > VEHICLE_COSTS[types[best]].s ? i : best), 0);
             if (types[idx] === 'rifleman') types.pop();
             else types[idx] = 'rifleman';
         }
-        if (types.length === 0) return; // не хватает даже на стрелков
+        if (types.length === 0) return;
 
         const totalCost = this.squadCost(types);
         this.spendResources(totalCost);
@@ -1397,26 +1235,21 @@ export class AI {
             spawned.push(unit);
         }
 
-        // В оборонительном режиме - защищаем свои территории
         if (this.defenseMode) {
             this.assignDefensivePositions(spawned);
         } else {
-            // В режиме атаки - идём к ближайшей точке
             const target = this.findDefensiveTarget(barracks.x, barracks.y);
             if (target) {
-                this.assignSquadToTarget(spawned, target);
+                spawned.forEach(u => {
+                    const tx = target.x + (Math.random() - 0.5) * 40;
+                    const ty = target.y + (Math.random() - 0.5) * 40;
+                    this._issueRoadMarch(u, tx, ty);
+                });
             }
         }
-
-        // ===== ЗАХВАЧЕННЫЕ ТОЧКИ: НОВЫЕ ЮНИТЫ СТАВЯТСЯ НА ГАРНИЗОН =====
-        // Требование: на захваченных точках ИИ держит юнитов, в первую
-        // очередь пехоту (1–5). Гарнизонные слоты (maintainGarrisons)
-        // пересматриваются редко — поэтому свежеспавненные бойцы закрывают
-        // вакансии сразу, пока не разбеглись по приказам.
         this.staffGarrisonFromUnits(spawned);
     }
 
-    // Расставить переданных юнитов по незащищённым своим точкам (по 1–5 пехоты)
     staffGarrisonFromUnits(units) {
         const infOnly = units.filter(u => u.hp > 0 && isInfUnit(u) && !u.garrisonedAt);
         if (infOnly.length === 0) return;
@@ -1443,19 +1276,13 @@ export class AI {
         }
     }
 
-    // ===== СНАЙПЕРЫ: 1 снайпер на каждый город, захваченный противником =====
-    // ФИКС КРАША: метод вызывался в updateInner(), но реализован не был —
-    // это роняло весь цикл ИИ (TypeError), из-за чего юниты бота «внезапно
-    // пропадали» (переставали двигаться/стрелять и гибли поодиночке).
+    // ===== СНАЙПЕРЫ =====
     manageSnipers() {
-        // Ревизия назначений раз в ~2 секунды
         if (this.timer - this.lastSniperScanAt < 120) return;
         this.lastSniperScanAt = this.timer;
 
         const enemyCities = this.G.cps.filter(c => c.owner === this.G.faction);
 
-        // 1) Удаляем назначения за городами, которые перестали быть вражескими,
-        //    и за мёртвыми/удалёнными снайперами.
         for (const [key, id] of [...this.sniperAssignments.entries()]) {
             const cp = this.G.cps.find(c => (c.id || c.name) === key);
             const stillEnemy = cp && cp.owner === this.G.faction;
@@ -1463,14 +1290,28 @@ export class AI {
             if (!stillEnemy || !sniperAlive) this.sniperAssignments.delete(key);
         }
 
-        // 2) Новый снайпер — только если нет незакрытых вакансий и есть запас
-        //    ресурсов (снайпер не должен съедать бюджет производства отрядов).
         const unstaffed = enemyCities.filter(
             c => !this.sniperAssignments.has(c.id || c.name));
         if (unstaffed.length === 0) return;
 
+        const snipers = this.G.units.filter(u =>
+            u.faction === this.G.ai && u.hp > 0 &&
+            (u.type === 'sniper' || u.type === 'poacher_colonist') &&
+            u.isSniperPost
+        );
+        if (snipers.length >= unstaffed.length) {
+            for (const cp of unstaffed) {
+                const best = snipers.find(u =>
+                    !u._assignedCp && !this.sniperAssignments.has(cp.id || cp.name));
+                if (!best) break;
+                this._assignSniperToPost(best, cp);
+                this.sniperAssignments.set(cp.id || cp.name, best.id);
+            }
+            return;
+        }
+
         const cost = VEHICLE_COSTS.sniper || VEHICLE_COSTS.infantry;
-        const RESERVE = 60; // не тратим последние ресурсы на снайпера
+        const RESERVE = 60;
         if (this.aiResources.s < cost.s + RESERVE ||
             this.aiResources.c < cost.c + RESERVE ||
             this.aiResources.m < cost.m + RESERVE) return;
@@ -1479,19 +1320,47 @@ export class AI {
         const unit = this.spawnSniper();
         if (!unit) return;
 
+        this._assignSniperToPost(unit, target);
         this.sniperAssignments.set(target.id || target.name, unit.id);
-        aiLog(`[AI][SNIPER] т.${this.timer}: снайпер отправлен к городу "${target.name || ''}" (${Math.round(unit.x)}, ${Math.round(unit.y)})`);
+        aiLog(`[AI][SNIPER] т.${this.timer}: ${unit.label} → "${target.name}"`);
     }
 
-    // Выпустить одного снайпера с казармы и поставить его на огневую позицию
-    // у границы целевого города (сам город может быть под обороной — поэтому
-    // цель — край зоны, а не центр).
+    _assignSniperToPost(unit, city) {
+        if (!unit || !city) return;
+        const r = unit.range || 200;
+        const distRatio = 0.5 + Math.random() * 0.3;
+        const radius = r * distRatio;
+
+        let bestAngle = 0, bestScore = -Infinity;
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 12) {
+            const px = city.x + Math.cos(a) * radius;
+            const py = city.y + Math.sin(a) * radius;
+            let roadPenalty = 0;
+            const near = this._nearestRoadPoint(px, py);
+            if (near) roadPenalty = Math.max(0, 80 - near.d) * 0.5;
+            let coverBonus = 0;
+            if (isInBush(px, py)) coverBonus = 60;
+            const distToUnit = dist(unit.x, unit.y, px, py);
+            const approachBonus = Math.max(0, 400 - distToUnit) * 0.2;
+            const score = coverBonus + approachBonus - roadPenalty;
+            if (score > bestScore) { bestScore = score; bestAngle = a; }
+        }
+
+        const tx = city.x + Math.cos(bestAngle) * radius;
+        const ty = city.y + Math.sin(bestAngle) * radius;
+
+        this._queueWaypoints(unit, this._stealthApproach(unit.x, unit.y, tx, ty));
+        unit.isSniperPost = true;
+        unit._assignedCp = city.id || city.name;
+        unit.holdPosition = true;
+    }
+
     spawnSniper() {
         const barracks = this.G.buildings.find(b =>
             b.faction === this.G.ai && b.type === 'barracks' && b.hp > 0);
         if (!barracks) return null;
         if (!this.G.canProduceUnit('infantry', this.G.ai)) return null;
-        if (!aiAllow(this.G, 'sniper')) return null; // режим без пехоты
+        if (!aiAllow(this.G, 'sniper')) return null;
 
         const cost = VEHICLE_COSTS.sniper || VEHICLE_COSTS.infantry;
         if (this.aiResources.s < cost.s || this.aiResources.c < cost.c ||
@@ -1502,19 +1371,9 @@ export class AI {
             barracks.x + 40, barracks.y + 40);
         this.G.units.push(unit);
         this.infantryCount++;
-
-        // Позиция: снаружи зоны цели, со стороны своих войск
-        const target = this.pickBestTarget(unit.x, unit.y);
-        if (target) {
-            const a = Math.atan2(unit.y - target.y, unit.x - target.x) || 0;
-            unit.tx = target.x + Math.cos(a) * (target.radius + 60);
-            unit.ty = target.y + Math.sin(a) * (target.radius + 60);
-            unit.isSniperPost = true;
-        }
         return unit;
     }
 
-    // Стоимость отряда пехоты по фактическому составу
     squadCost(types) {
         const total = { s: 0, c: 0, m: 0 };
         for (const t of types) {
@@ -1529,14 +1388,11 @@ export class AI {
         return this.aiResources.s >= t.s && this.aiResources.c >= t.c && this.aiResources.m >= t.m;
     }
 
-    // ===== GOD LOADER: ДОЛГАЯ ВОЙНА ПРОТИВ МАССЫ ИГРОКА =====
-    // Для ИИ-колонистов: если бой длится дольше 10 минут (G.time — тики,
-    // ~60/сек), а у игрока >=10 танков ИЛИ суммарно >30 юнитов — бот
-    // начинает копить ресурсы и строить God Loader (тяжёлую САУ 200 мм).
+    // ===== GOD LOADER =====
     shouldSeekGodLoader() {
-        if (this.G.ai !== 'colonials') return false;          // только колонисты
-        if (!aiAllow(this.G, 'god_loader')) return false;     // режим может запрещать
-        const TEN_MIN = 60 * 60 * 10;                         // 10 минут игрового времени
+        if (this.G.ai !== 'colonials') return false;
+        if (!aiAllow(this.G, 'god_loader')) return false;
+        const TEN_MIN = 60 * 60 * 10;
         if ((this.G.time || 0) < TEN_MIN) return false;
 
         const playerUnits = this.G.units.filter(u => u.faction === this.G.faction && u.hp > 0);
@@ -1545,13 +1401,11 @@ export class AI {
         const massThreshold = playerTanks >= 10 || playerUnits.length > 30;
         if (!massThreshold) return false;
 
-        // Потолок: не больше 2 САУ на поле — иначе бюджет уедает одна доктрина
         const glLive = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 && u.type === 'god_loader').length;
         return glLive < 2;
     }
 
-    // Построить God Loader с завода (тратит ресурсы ИИ). true — если произведён.
     spawnGodLoader() {
         const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory');
         if (!factory) return false;
@@ -1565,9 +1419,8 @@ export class AI {
         this.spendResources(cost);
         const unit = createVehicle('god_loader', this.G.ai, factory.x + 60, factory.y + 60);
         this.G.units.push(unit);
-        unit.isArtillery = true; // образуется как арта: позиция, AoE-огонь, flatbed-снабжение
+        unit.isArtillery = true;
         this.accumulatedForces += 4;
-        aiLog(`[AI][GODLOADER] т.${this.timer}: тяжёлая САУ God Loader произведена — ответ на массированную армию игрока в затяжном бою`);
         return true;
     }
 
@@ -1575,40 +1428,21 @@ export class AI {
         const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory');
         if (!factory) return;
 
-        // Используем технику своей фракции (включая новые танки)
         let types = [];
-        
         if (this.G.ai === 'wardens') {
-            // Базовая техника (Niska — БТР wardens)
             types = ['devitt', 'niska'];
-            
-            // Добавляем новые танки в зависимости от сложности
-            if (this.difficulty >= 1) {
-                types.push('king_spire'); // Разведывательный танк
-            }
+            if (this.difficulty >= 1) types.push('king_spire');
             if (this.difficulty >= 2) {
-                types.push('silverhand'); // Штурмовой танк
-                types.push('gallagher_highwayman'); // Крейсерский танк
-                types.push('gallagher_outlaw'); // Тяжёлый крейсер (новая модель)
+                types.push('silverhand', 'gallagher_highwayman', 'gallagher_outlaw');
             }
         } else {
-            // Colonial. Javelin — обычный БТР (вместо Hoplite, который
-            // теперь миномётная поддержка во вкладке «Поддержка»)
             types = ['hatchet', 'javelin'];
-            
-            // Добавляем новые танки в зависимости от сложности
-            if (this.difficulty >= 1) {
-                types.push('scorpion'); // Пехотный танк
-            }
+            if (this.difficulty >= 1) types.push('scorpion');
             if (this.difficulty >= 2) {
-                types.push('nemesis'); // Штурмовой танк
-                types.push('falchion'); // Средний танк
-                types.push('spatha'); // Тяжёлый танк (новая модель)
+                types.push('nemesis', 'falchion', 'spatha');
             }
         }
-        
-        // Артиллерия/миномёты по доктрине (useArtilleryBias — игрок держит
-        // >50% точек: тогда арта строится заметно чаще обычного)
+
         if (this.difficulty >= 1) {
             const artChance = useArtilleryBias ? 0.6 : 0.15;
             if (Math.random() < artChance) {
@@ -1618,15 +1452,7 @@ export class AI {
             }
         }
 
-        // РЕЖИМЫ: отбрасываем типы, запрещённые настройками игры
-        // («только пехота» сюда вообще не доходит, «без артиллерии» убирает
-        // ствольную арту, «только техника» снимает только пехотные лимиты).
         types = types.filter(t => aiAllow(this.G, t));
-
-        // Выбираем случайный тип техники среди РАЗРЕШЁННЫХ режимом.
-        // В режиме «только техника»: если ресурсов хватает на несколько
-        // позиций — берём случайную из доступных (спец-запрос), иначе —
-        // обычный случайный выбор с проверкой цены ниже.
         let type = null;
         if (!classesCoexist(this.G) && aiRestriction(this.G) === 'vehicles_only') {
             type = this.pickAffordableVehicleType();
@@ -1634,42 +1460,33 @@ export class AI {
         } else {
             type = types[Math.floor(Math.random() * types.length)];
         }
-        if (!type) return; // режим не оставляет доступной техники
+        if (!type) return;
         const cost = VEHICLE_COSTS[type];
-        
-        // Проверяем хватает ли ресурсов
         if (this.aiResources.s < cost.s || this.aiResources.c < cost.c || this.aiResources.m < cost.m) {
-            return; // Не хватает ресурсов
+            return;
         }
-        
-        // Тратим ресурсы
         this.spendResources(cost);
-        
+
         const unit = createVehicle(type, this.G.ai, factory.x + 60, factory.y + 60);
         this.G.units.push(unit);
-        
-        // Специальное поведение для разведывательных танков
+
         if (unit.revealRadius) {
             this.assignScoutPatrol(unit);
             return;
         }
 
-        // В оборонительном режиме - патрулируем свои территории
         if (this.defenseMode) {
             this.assignPatrolRoute(unit);
         } else {
             const target = this.findDefensiveTarget(factory.x, factory.y);
             if (target) {
-                this.assignSquadToTarget([unit], target);
+                const tx = target.x + (Math.random() - 0.5) * 40;
+                const ty = target.y + (Math.random() - 0.5) * 40;
+                this._issueRoadMarch(unit, tx, ty);
             }
         }
     }
-    
-    // ===== АРТИЛЛЕРИЯ ПО ДОКТРИНЕ =====
-    // Выпускает ствольную артиллерию (120/150 мм) или миномётную поддержку
-    // (hoplite/devitt_mmr) своей фракции, если хватает ресурсов.
-    // currentArt — сколько артиллерии уже на поле; artCap — потолок доли
-    // артиллерии в боевом составе. Возвращает true, если юнит произведён.
+
     spawnDoctrineArtillery(currentArt = 0, artCap = 99) {
         const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory');
         if (!factory) return false;
@@ -1677,17 +1494,13 @@ export class AI {
         if (currentArt >= artCap) return false;
 
         const w = this.G.ai === 'wardens';
-        // Ствольная артиллерия: тяжёлая 150 мм или мобильная 120 мм.
-        // РЕЖИМ «без артиллерии»: ствольные типы запрещены — остаётся
-        // только миномётная поддержка (она не считается артиллерией).
         const barrelType = Math.random() < 0.5
             ? (w ? 'warden_artillery150' : 'colonial_artillery150')
             : (w ? 'warden_artillery120' : 'colonial_artillery120');
-        // Миномётная поддержка как запасной вариант
         const mortarType = w ? 'devitt_mmr' : 'hoplite';
 
         for (const t of [barrelType, mortarType]) {
-            if (!aiAllow(this.G, t)) continue; // режим запретил этот тип
+            if (!aiAllow(this.G, t)) continue;
             const cost = VEHICLE_COSTS[t];
             if (!cost) continue;
             if (this.aiResources.s < cost.s || this.aiResources.c < cost.c ||
@@ -1696,79 +1509,57 @@ export class AI {
             this.spendResources(cost);
             const unit = createVehicle(t, this.G.ai, factory.x + 60, factory.y + 60);
             this.G.units.push(unit);
-            // Все эти машины обрабатываются как артиллерия: стоят на позиции,
-            // стреляют через manageArtillery (AoE), получают снабжение flatbed.
             unit.isArtillery = true;
             if (t === 'hoplite' || t === 'devitt_mmr') unit.isMortar = true;
             this.accumulatedForces += 3;
-
-            aiLog(`[AI][ARTILLERY] т.${this.timer}: произведена ${unit.label} (${Math.round(unit.x)}, ${Math.round(unit.y)}), range=${unit.range}`);
             return true;
         }
         return false;
     }
 
     assignScoutPatrol(unit) {
-        // Разведывательные танки патрулируют периметр своих территорий
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
         if (aiPoints.length === 0) return;
-        
-        // Выбираем случайную точку для патрулирования
         const point = aiPoints[Math.floor(Math.random() * aiPoints.length)];
-        
-        // Патрулируем на расстоянии от точки
         const angle = Math.random() * Math.PI * 2;
-        const radius = point.radius * 1.5; // Дальше чем обычные патрульные
-        
+        const radius = point.radius * 1.5;
         unit.tx = point.x + Math.cos(angle) * radius;
         unit.ty = point.y + Math.sin(angle) * radius;
-        
-        // Сохраняем точку для дальнейшего патрулирования
         unit.patrolCenter = point;
         unit.patrolAngle = angle;
         unit.isScout = true;
     }
-    
+
     assignArtilleryPosition(unit) {
-        // Находим позицию для артиллерии (далеко от фронта, но в радиусе атаки)
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
         const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction);
-        
         if (aiPoints.length === 0 || playerPoints.length === 0) return;
-        
-        // Находим центральную точку своих территорий
+
         const centerX = aiPoints.reduce((sum, cp) => sum + cp.x, 0) / aiPoints.length;
         const centerY = aiPoints.reduce((sum, cp) => sum + cp.y, 0) / aiPoints.length;
-        
-        // Находим ближайшую вражескую точку
+
         const nearestEnemy = playerPoints.reduce((closest, cp) => {
             const d = dist(centerX, centerY, cp.x, cp.y);
             return d < closest.dist ? { cp, dist: d } : closest;
         }, { cp: null, dist: Infinity });
-        
+
         if (!nearestEnemy.cp) return;
-        
-        // Позиционируем артиллерию на расстоянии 70-80% от максимальной дальности
+
         const angle = Math.atan2(nearestEnemy.cp.y - centerY, nearestEnemy.cp.x - centerX);
         const optimalDist = unit.range * 0.75;
-        
         unit.tx = centerX + Math.cos(angle) * optimalDist;
         unit.ty = centerY + Math.sin(angle) * optimalDist;
     }
 
-    // Свободные боевые юниты ИИ (без приказа, не логистика, не арта) —
-    // кандидаты в штурмовые отряды 3-5 бойцов
     getIdleAttackers() {
         return this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 && !u.aoe && u.tx === undefined &&
             !u.retreatToBase && !u.garrisonedAt &&
             !this.isSupportUnit(u) &&
-            !u.baseDefender
+            !u.baseDefender && !u.isSniperPost && !u.raiderSquad
         );
     }
 
-    // Лучшая цель для отряда: сначала нейтральные точки (легко захватить),
-    // затем вражеские с пробитой обороной, затем любые вражеские.
     pickBestTarget(fromX, fromY) {
         const neutral = this.G.cps.filter(c => c.owner === 'neutral');
         const enemy = this.G.cps.filter(c => c.owner === this.G.faction);
@@ -1776,16 +1567,12 @@ export class AI {
             dist(fromX, fromY, cp.x, cp.y) < dist(fromX, fromY, best.x, best.y) ? cp : best) : null;
 
         if (neutral.length) return nearestOf(neutral);
-        // вражеские точки с разрушенной обороной — приоритет
         const broken = enemy.filter(cp => this.G.isCityDefenseBroken(cp));
         if (broken.length) return nearestOf(broken);
         if (enemy.length) return nearestOf(enemy);
         return null;
     }
 
-    // Формирование штурмового отряда из 3-5 свободных бойцов (с техникой,
-    // если есть; иначе только пехота) и отправка его на цель. Вызывается
-    // постоянно, поэтому ИИ атакует и занимает точки и после первой волны.
     sendIdleSquadToTarget() {
         const idle = this.getIdleAttackers();
         if (idle.length < 3) return;
@@ -1795,7 +1582,6 @@ export class AI {
             dist(a.x, a.y, base?.x ?? a.x, base?.y ?? a.y) -
             dist(b.x, b.y, base?.x ?? b.x, base?.y ?? b.y));
 
-        // Отряд 3-5 человек: техника идёт впереди, пехота под её прикрытием
         const squadSize = Math.min(3 + Math.floor(this.difficulty), sorted.length);
         const vehicles = sorted.filter(u => !isInfUnit(u));
         const infantry = sorted.filter(u => isInfUnit(u));
@@ -1807,124 +1593,91 @@ export class AI {
 
         squad.forEach((u, i) => {
             const angle = (i / squad.length) * Math.PI * 2;
-            // Нейтральная точка или пробитая оборона — заходим внутрь зоны;
-            // иначе становимся у границы вражеской зоны (оборона цела —
-            // въезд заблокирован, приказ не должен тянуть юнит «в стену»).
             const canEnter = target.owner === 'neutral' ||
                 this.G.isCityDefenseBroken(target);
             const spread = canEnter ? target.radius * 0.5 : target.radius + 40;
-            u.tx = target.x + Math.cos(angle) * spread;
-            u.ty = target.y + Math.sin(angle) * spread;
+            const tx = target.x + Math.cos(angle) * spread;
+            const ty = target.y + Math.sin(angle) * spread;
+            this._issueRoadMarch(u, tx, ty);
             u.captureTarget = target;
             u.squadAttack = true;
         });
-        aiLog(`[AI][SQUAD] т.${this.timer}: отряд ${squad.length} (техника=${vehicles.slice(0, squadSize).length}) идёт на "${target.name || ''}" (${target.owner})`);
     }
 
     strategicBehavior() {
-        // Переключение между режимами каждые 1500 тиков (~25 сек; было 3000 — ИИ засиживался в обороне)
         if (this.timer % 1500 === 0) {
             this.defenseMode = !this.defenseMode;
-            aiLog(`[AI][MODE] т.${this.timer}: переключение режима -> ${this.defenseMode ? 'ОБОРОНА' : 'АТАКА'} (по таймеру)`);
         }
 
-        // Проверяем, нужно ли перейти в оборону
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai).length;
         const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction).length;
-        
-        // Если у игрока ЗНАЧИТЕЛЬНО больше точек - переходим в оборону
-        // (раньше порог был +2 — ИИ уходил в оборону слишком рано и «не захватывал точки»)
+
         if (playerPoints > aiPoints + 4 && !this.defenseMode) {
             this.defenseMode = true;
-            aiLog(`[AI][MODE] т.${this.timer}: принудительная ОБОРОНА (точки ИИ=${aiPoints}, игрока=${playerPoints})`);
         }
 
-        // ===== ПОСТОЯННАЯ АКТИВНОСТЬ (фикс «после первой атаки ИИ засиживается
-        // у базы толпами пехоты»): как только накапливается отряд из 3-5 бойцов
-        // без приказа — он тут же отправляется на ближайшую доступную цель
-        // (нейтральная или вражеская точка), с техникой или без неё.
-        // Атака больше НЕ зависит от режима и от большого кулдауна.
         const idleSquadCount = this.getIdleAttackers().length;
-        if (idleSquadCount >= 3 && this.timer - this.lastAttackTime > 600) { // ~10 сек
+        if (idleSquadCount >= 3 && this.timer - this.lastAttackTime > 600) {
             this.lastAttackTime = this.timer;
             this.sendIdleSquadToTarget();
         }
 
-        // Активность: если есть численное превосходство свободных боёв над гарнизонами —
-        // сами ищем цель и атакуем, не дожидаясь накопления по таймеру
         if (!this.defenseMode && idleSquadCount >= 4 && this.timer - this.lastAttackTime > 900) {
             this.lastAttackTime = this.timer;
             this.launchAttack();
         }
 
-        // Стратегия накопления сил и атаки (перезарядка после атаки укорочена
-        // с 3600 до 1200 тиков (~20 сек) — иначе после одной волны бот
-        // «переставал атаковать и занимать точки»)
         if (this.accumulatedForces >= this.attackThreshold && this.timer - this.lastAttackTime > 1200) {
             this.defenseMode = false;
             this.lastAttackTime = this.timer;
-            this.accumulatedForces = 0; // Сбрасываем счётчик после атаки
+            this.accumulatedForces = 0;
             this.launchAttack();
-        } else if (this.accumulatedForces >= this.attackThreshold) {
-            aiLog(`[AI][ATTACK] т.${this.timer}: силы накоплены (${this.accumulatedForces}), перезарядка после прошлой атаки ${this.timer - this.lastAttackTime}/1200 тиков`);
         }
-        
-        // Если у нас больше точек и прошло достаточно времени - атакуем
+
         if (aiPoints > playerPoints + 1 && this.timer - this.lastAttackTime > 3000) {
             this.defenseMode = false;
             this.lastAttackTime = this.timer;
             this.launchAttack();
         }
     }
-    
+
     launchAttack() {
-        // Находим лучшую цель для атаки
         const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction);
         if (playerPoints.length === 0) return;
-        
-        // Выбираем самую ценную цель (базу или большую точку)
+
         const target = playerPoints.reduce((best, cp) => {
             const value = cp.radius + (cp.type === 'town_hall' ? 100 : 0);
             return value > best.value ? { cp, value } : best;
         }, { cp: null, value: 0 }).cp;
-        
+
         if (!target) return;
-        
-        // ===== ФИКС: в атаку идут ТОЛЬКО боевые юниты =====
-        // Поддержка (грузовик, инженер, medic, строймашина, пожарная) НЕ идёт.
-        // Артиллерия остаётся на позициях (manageArtillery).
-        // Защитники базы и гарнизон остаются на своих местах.
+
         const aiUnits = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 &&
             !u.aoe &&
             !u.baseDefender &&
             !this.isSupportUnit(u) &&
-            !u.garrisonedAt
+            !u.garrisonedAt &&
+            !u.isSniperPost
         );
         aiUnits.forEach(unit => {
-            unit.tx = target.x + (Math.random() - 0.5) * 50;
-            unit.ty = target.y + (Math.random() - 0.5) * 50;
+            const tx = target.x + (Math.random() - 0.5) * 50;
+            const ty = target.y + (Math.random() - 0.5) * 50;
+            this._issueRoadMarch(unit, tx, ty);
         });
-        aiLog(`[AI][ATTACK] т.${this.timer}: АТАКА! ${aiUnits.length} боевых юнитов идут на "${target.name || ''}". Поддержка остаётся в городах.`);
     }
-    
+
     manageArtillery() {
-        // Находим всю живую артиллерию ИИ
-        // Ствольная артиллерия + миномётная поддержка (Hoplite у колонистов,
-        // Devitt MMR у wardens): обе обрабатываются как артиллерия с AoE-уронами.
         const artillery = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 &&
             (u.isArtillery === true || u.isMortar === true || u.aoe === true)
         );
-
         if (artillery.length === 0) return;
 
-        // Находим позиции для обстрела (далеко от вражеских территорий)
         const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction);
         if (playerPoints.length === 0) return;
 
         artillery.forEach(art => {
-            // Находим ближайшую вражескую точку
             const target = playerPoints.reduce((closest, cp) => {
                 const d = dist(art.x, art.y, cp.x, cp.y);
                 return d < closest.dist ? { cp, dist: d } : closest;
@@ -1935,31 +1688,14 @@ export class AI {
             const targetDist = dist(art.x, art.y, target.cp.x, target.cp.y);
             const minRange = art.minRange || 100;
 
-            // Если цель в радиусе атаки - стреляем и СТОИМ на месте
             if (targetDist <= art.range && targetDist >= minRange) {
-                // ===== ФИКС «ДВОЙНОЙ ВЫСТРЕЛ / СЕРИЯ ЗАЛПОВ» (God Loader) =====
-                // game.js после каждого залпа God Loader сбрасывает aoeTarget.
-                // Если ИИ тут же переставит его обратно на ту же точку, машина
-                // бесконечно «долбит» одну цель сразу после перезарядки. Для
-                // god_loader ставим цель только когда полный цикл CD истёк —
-                // залп получается ровно один раз за cd тиков.
                 const isGodLoader = art.type === 'god_loader' || /god\s*loader/i.test(art.label || '');
                 const cdElapsed = this.G.time - (art.lastAtk || 0);
                 if (!isGodLoader || cdElapsed >= (art.cd || 0)) {
                     art.aoeTarget = { x: target.cp.x, y: target.cp.y };
                 }
-                if (!art._fireLogged) {
-                    art._fireLogged = true;
-                    aiLog(`[AI][ARTILLERY] т.${this.timer}: ${art.label} ведёт огонь по "${target.cp.name || ''}" с позиции (${Math.round(art.x)}, ${Math.round(art.y)}), дистанция=${Math.round(targetDist)}`);
-                }
                 this.sendEscortToArtillery(art);
-            }
-            // Цель слишком близко — один раз отъезжаем назад и встаём на новую
-            // огневую позицию. ВАЖНО: приказ движения сохраняется до прибытия
-            // (флаг isArtillery в game.js не даёт updateUnits() сбросить tx/ty
-            // раньше времени — именно из-за этого сброса арта "вечно ехала"
-            // и пропадала на подступах к фронту).
-            else if (targetDist < minRange) {
+            } else if (targetDist < minRange) {
                 if (!art.retreatOrder) {
                     const retreatAngle = Math.atan2(art.y - target.cp.y, art.x - target.cp.x);
                     art.retreatOrder = {
@@ -1968,14 +1704,8 @@ export class AI {
                     };
                     art.tx = art.retreatOrder.x;
                     art.ty = art.retreatOrder.y;
-                    aiLog(`[AI][ARTILLERY] т.${this.timer}: ${art.label} — цель слишком близко (${Math.round(targetDist)} < ${minRange}), отъезжает на (${Math.round(art.tx)}, ${Math.round(art.ty)})`);
                 }
-            }
-            // Цель вне дальности — один раз даём приказ выдвинуться на огневую
-            // позицию ЗА ПРЕДЕЛАМИ вражеского города и ждём прибытия. После
-            // прибытия (retreatOrder/moveOrder очищены в game.js) снова
-            // проверяем дистанцию — без бесконечного переставления приказов.
-            else if (targetDist > art.range) {
+            } else if (targetDist > art.range) {
                 if (!art.moveOrder && art.tx === undefined) {
                     const moveAngle = Math.atan2(target.cp.y - art.y, target.cp.x - art.x);
                     const parkDist = Math.max(target.cp.radius + 40, art.range - 60);
@@ -1985,21 +1715,16 @@ export class AI {
                     };
                     art.tx = art.moveOrder.x;
                     art.ty = art.moveOrder.y;
-                    aiLog(`[AI][ARTILLERY] т.${this.timer}: ${art.label} — цель далеко (${Math.round(targetDist)} > ${art.range}), выдвигается на огневую позицию (${Math.round(art.tx)}, ${Math.round(art.ty)})`);
                 }
             }
         });
 
-        // Агрессивная артиллерия: если у ИИ нет ни одной точки-цели игрока в зоне
-        // досягаемости (например, игрок ещё не захватил нейтральные точки), арта
-        // сама выдвигается к ближайшей нейтральной/вражеской точке, чтобы начать
-        // обстрел, а не стоит вечно на базе.
         const anyTargetable = playerPoints.length > 0;
         if (!anyTargetable) {
             const pushTargets = this.G.cps.filter(c => c.owner !== this.G.ai);
             if (pushTargets.length > 0) {
                 artillery.forEach(art => {
-                    if (art.tx !== undefined || art.moveOrder) return; // уже едет
+                    if (art.tx !== undefined || art.moveOrder) return;
                     const near = pushTargets.reduce((best, cp) =>
                         dist(art.x, art.y, cp.x, cp.y) < dist(art.x, art.y, best.x, best.y) ? cp : best);
                     const a = Math.atan2(near.y - art.y, near.x - art.x);
@@ -2013,28 +1738,23 @@ export class AI {
     }
 
     sendEscortToArtillery(artillery) {
-        // Не спамим приказами сопровождения каждый кадр — достаточно раз в ~3 секунды,
-        // иначе эскорт постоянно «переклеивается» и стоит на месте.
         if (artillery.lastEscortAt !== undefined && this.timer - artillery.lastEscortAt < 180) return;
         artillery.lastEscortAt = this.timer;
-        
-        // Находим свободные юниты для сопровождения
-        const availableUnits = this.G.units.filter(u => 
-            u.faction === this.G.ai && 
-            u.hp > 0 && 
-            u.tx === undefined && // Не имеет цели
+
+        const availableUnits = this.G.units.filter(u =>
+            u.faction === this.G.ai &&
+            u.hp > 0 &&
+            u.tx === undefined &&
             u !== artillery &&
             !this.isSupportUnit(u) &&
-            (isInfUnit(u) || u.type === 'devitt' || u.type === 'hatchet' || 
-             u.type === 'gallagher_highwayman' || u.type === 'falchion' || 
+            (isInfUnit(u) || u.type === 'devitt' || u.type === 'hatchet' ||
+             u.type === 'gallagher_highwayman' || u.type === 'falchion' ||
              u.type === 'niska' || u.type === 'javelin')
         );
-        
-        // Отправляем 2-3 юнита в сопровождение
+
         const escortCount = Math.min(3, availableUnits.length);
         for (let i = 0; i < escortCount; i++) {
             const escort = availableUnits[i];
-            // Позиция рядом с артиллерией
             const angle = (i / escortCount) * Math.PI * 2;
             const escortDist = 50;
             escort.tx = artillery.x + Math.cos(angle) * escortDist;
@@ -2043,83 +1763,169 @@ export class AI {
     }
 
     findDefensiveTarget(fromX, fromY) {
-        // Ищем ближайшую точку, которую нужно защитить или захватить
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
         const neutralPoints = this.G.cps.filter(c => c.owner === 'neutral');
-        
-        // Приоритет 1: защитить свои точки от захвата
+
         const threatenedPoints = aiPoints.filter(cp => {
-            const playerUnits = this.G.units.filter(u => 
-                u.faction === this.G.faction && 
+            const playerUnits = this.G.units.filter(u =>
+                u.faction === this.G.faction &&
                 dist(u.x, u.y, cp.x, cp.y) < cp.radius * 2
             );
             return playerUnits.length > 0;
         });
-        
+
         if (threatenedPoints.length > 0) {
-            // Идём к самой угрожаемой точке
             return threatenedPoints.reduce((closest, cp) => {
                 const d = dist(fromX, fromY, cp.x, cp.y);
                 return d < dist(fromX, fromY, closest.x, closest.y) ? cp : closest;
             });
         }
-        
-        // Приоритет 2: захватить нейтральные точки
         if (neutralPoints.length > 0) {
             return neutralPoints.reduce((closest, cp) => {
                 const d = dist(fromX, fromY, cp.x, cp.y);
                 return d < dist(fromX, fromY, closest.x, closest.y) ? cp : closest;
             });
         }
-        
         return null;
     }
 
     assignDefensivePositions(units) {
-        // Назначаем юнитов на оборонительные позиции вокруг своих точек
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
-        
         units.forEach((unit, index) => {
             if (aiPoints.length === 0) return;
-            
-            // Выбираем точку для защиты
             const point = aiPoints[index % aiPoints.length];
-            
-            // Позиция на расстоянии от центра точки
             const angle = (index / units.length) * Math.PI * 2;
             const radius = point.radius * 0.7;
-            
             unit.tx = point.x + Math.cos(angle) * radius;
             unit.ty = point.y + Math.sin(angle) * radius;
         });
     }
 
     assignPatrolRoute(unit) {
-        // Создаём патрульный маршрут вокруг своих точек
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
         if (aiPoints.length === 0) return;
-        
-        // Выбираем случайную точку для патрулирования
         const point = aiPoints[Math.floor(Math.random() * aiPoints.length)];
-        
-        // Патрулируем по кругу
         const angle = Math.random() * Math.PI * 2;
         const radius = point.radius * 0.8;
-        
         unit.tx = point.x + Math.cos(angle) * radius;
         unit.ty = point.y + Math.sin(angle) * radius;
-        
-        // Сохраняем точку для дальнейшего патрулирования
         unit.patrolCenter = point;
         unit.patrolAngle = angle;
     }
 
     assignSquadToTarget(units, target) {
-        const targetPos = { x: target.x, y: target.y };
         units.forEach(unit => {
-            // Прямое движение к цели с небольшим разбросом
-            unit.tx = targetPos.x + (Math.random() - 0.5) * 40;
-            unit.ty = targetPos.y + (Math.random() - 0.5) * 40;
+            const tx = target.x + (Math.random() - 0.5) * 40;
+            const ty = target.y + (Math.random() - 0.5) * 40;
+            this._issueRoadMarch(unit, tx, ty);
         });
+    }
+
+    // ===== ДИВЕРСИОННЫЕ ОТРЯДЫ =====
+    manageRaiders() {
+        if (this.timer % 1800 !== 0) return;
+        if (!getModeFlags(this.G).fogEnabled) return;
+
+        const pool = this.G.units.filter(u =>
+            u.faction === this.G.ai && u.hp > 0 &&
+            isInfUnit(u) && u.tx === undefined &&
+            !u.isSniperPost && !u.isMedic &&
+            u.type !== 'sniper' && u.type !== 'poacher_colonist' &&
+            u.garrisonedAt === undefined && !u.baseDefender &&
+            !u.raiderSquad
+        );
+        if (pool.length < 3) return;
+
+        const squads = this._splitIntoMixedSquads(pool, 3, 5);
+        if (squads.length === 0) return;
+
+        const enemyCities = this.G.cps.filter(c => c.owner === this.G.faction);
+        if (enemyCities.length === 0) return;
+
+        for (const squad of squads) {
+            const leader = squad[0];
+            const target = enemyCities.reduce((best, cp) =>
+                dist(leader.x, leader.y, cp.x, cp.y) < dist(leader.x, leader.y, best.x, best.y) ? cp : best);
+
+            const flank = this._pickFlankAroundCity(target, leader);
+            squad.forEach((u, i) => {
+                const angle = flank + (i - squad.length / 2) * 0.25;
+                const radius = target.radius + 80 + Math.random() * 60;
+                const tx = target.x + Math.cos(angle) * radius;
+                const ty = target.y + Math.sin(angle) * radius;
+
+                const perp = angle + Math.PI / 2;
+                const mid = {
+                    x: (u.x + tx) / 2 + Math.cos(perp) * 180,
+                    y: (u.y + ty) / 2 + Math.sin(perp) * 180,
+                };
+                this._queueWaypoints(u, [mid, { x: tx, y: ty }]);
+
+                u.raiderSquad = true;
+                u.captureTarget = target;
+            });
+            aiLog(`[AI][RAID] т.${this.timer}: отряд ${squad.length} (${squad.map(u=>u.type).join(',')}) выдвинулся в обход к "${target.name}"`);
+        }
+    }
+
+    _splitIntoMixedSquads(pool, minSize, maxSize) {
+        const byType = new Map();
+        for (const u of pool) {
+            if (!byType.has(u.type)) byType.set(u.type, []);
+            byType.get(u.type).push(u);
+        }
+        const types = [...byType.keys()];
+        if (types.length < 2) return [];
+        const squads = [];
+        const used = new Set();
+        let idx = 0;
+        while (true) {
+            const squad = [];
+            const size = minSize + Math.floor(Math.random() * (maxSize - minSize + 1));
+            for (let k = 0; k < size; k++) {
+                let taken = false;
+                for (let t = 0; t < types.length; t++) {
+                    const type = types[(idx + t) % types.length];
+                    const arr = byType.get(type);
+                    const cand = arr.find(u => !used.has(u.id));
+                    if (cand) {
+                        squad.push(cand);
+                        used.add(cand.id);
+                        taken = true;
+                        break;
+                    }
+                }
+                if (!taken) break;
+            }
+            idx++;
+            if (squad.length < minSize) break;
+            squads.push(squad);
+        }
+        return squads;
+    }
+
+    _pickFlankAroundCity(city, fromUnit) {
+        const angles = [];
+        const samples = this._getRoadSamples();
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 6) {
+            let onRoad = false;
+            for (let r = 100; r <= 300; r += 40) {
+                const px = city.x + Math.cos(a) * r;
+                const py = city.y + Math.sin(a) * r;
+                for (const s of samples) {
+                    if (dist(px, py, s.x, s.y) < 40) { onRoad = true; break; }
+                }
+                if (onRoad) break;
+            }
+            if (!onRoad) angles.push(a);
+        }
+        if (angles.length === 0) {
+            return Math.atan2(fromUnit.y - city.y, fromUnit.x - city.x) + Math.PI;
+        }
+        const angleToUnit = Math.atan2(fromUnit.y - city.y, fromUnit.x - city.x);
+        return angles.reduce((best, a) =>
+            Math.abs(((a - angleToUnit + Math.PI * 3) % (Math.PI * 2)) - Math.PI) <
+            Math.abs(((best - angleToUnit + Math.PI * 3) % (Math.PI * 2)) - Math.PI) ? a : best
+        );
     }
 }

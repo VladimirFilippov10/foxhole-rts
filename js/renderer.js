@@ -1,5 +1,5 @@
 // ===== RENDERER =====
-import { COLORS, dist } from './constants.js';
+import { COLORS, dist, getModeFlags } from './constants.js';
 import { ROADS, CITY_ZONES, TREES, BUSHES, ROCKS, GRASS_PATCHES, LAKES } from './map.js';
 import { isInfUnit } from './vehicles.js';
 
@@ -53,8 +53,13 @@ G.buildings.forEach(b => drawBuilding(ctx, b, cam));
     if (G.corpses) G.corpses.forEach(c => drawCorpse(ctx, c, cam));
 
     const hoveredUnit = getHoveredUnit(G, cam);
+    const fogEnabled = G.fogEnabled === true;
+    const visibleSet = G.visibleEnemyIds; 
     G.units.forEach(u => {
-        drawUnit(ctx, u, cam, G.selected, hoveredUnit === u, G);
+          if (fogEnabled && u.faction !== G.faction) {
+        if (!visibleSet || !visibleSet.has(u.id)) return;
+    }
+    drawUnit(ctx, u, cam, G.selected, hoveredUnit === u, G);
 
         // Draw AoE target if set
         if (u.aoe && u.aoeTarget) {
@@ -260,6 +265,8 @@ G.buildings.forEach(b => drawBuilding(ctx, b, cam));
 
     // Minimap
     drawMinimap(ctx, G, canvas);
+    // Туман войны рисуется ПОВЕРХ мира, но ПОД миникартой
+drawFogOverlay(ctx, G, cam, canvas);
 
     // Подсветка радиусов обороны при наведении на укрепление/город
     drawDefenseHoverHighlight(ctx, G, cam);
@@ -5531,4 +5538,50 @@ function drawMinimap(ctx, G, canvas) {
     ctx.strokeStyle = '#4b5563';
     ctx.lineWidth = 2;
     ctx.strokeRect(mx - 2, my - 2, mw + 4, mh + 4);
+}
+// ===== ТУМАН ВОЙНЫ: затемнение невидимых зон =====
+// Рисуем чёрный слой поверх карты и «вырезаем» круги видимости
+// через destination-out с радиальным градиентом.
+function drawFogOverlay(ctx, G, cam, canvas) {
+    if (!G.fogEnabled) return;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Вырезаем круги вокруг всех юнитов игрока
+    ctx.globalCompositeOperation = 'destination-out';
+    for (const u of G.units) {
+        if (u.faction !== G.faction || u.hp <= 0) continue;
+        const range = G.getUnitVisibilityRange(u);
+        if (range <= 0) continue;
+        const x = u.x - cam.x, y = u.y - cam.y;
+        if (x < -range || x > canvas.width + range ||
+            y < -range || y > canvas.height + range) continue;
+
+        const g = ctx.createRadialGradient(x, y, 0, x, y, range);
+        g.addColorStop(0,   'rgba(0,0,0,1)');
+        g.addColorStop(0.8, 'rgba(0,0,0,0.9)');
+        g.addColorStop(1,   'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, range, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    // Свои города тоже дают обзор
+    for (const cp of G.cps) {
+        if (cp.owner !== G.faction) continue;
+        const range = cp.radius + 100;
+        const x = cp.x - cam.x, y = cp.y - cam.y;
+        const g = ctx.createRadialGradient(x, y, 0, x, y, range);
+        g.addColorStop(0,   'rgba(0,0,0,1)');
+        g.addColorStop(0.8, 'rgba(0,0,0,0.9)');
+        g.addColorStop(1,   'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, range, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    ctx.restore();
 }
