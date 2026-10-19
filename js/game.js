@@ -38,6 +38,7 @@ export class Game {
         this.units = [];
         this.corpses = [];
         this.buildings = [];
+        this.debris = [];
         this.cps = [];
         this.mines = [];
         this.selected = [];
@@ -113,7 +114,7 @@ export class Game {
                     x: cp.x + Math.cos(a) * r,
                     y: cp.y + Math.sin(a) * r,
                     size: 10 + Math.random() * 8,
-                    angle: Math.random() * Math.PI * 2,
+                    angle: 0,
                     hp: 100, maxHp: 100,
                     burning: false,
                     burnStart: 0,
@@ -164,11 +165,15 @@ export class Game {
         for (const cp of this.cps) {
             if (!cp.houses) continue;
             const burnDur = cp.burnDuration || 7200;
-            cp.houses = cp.houses.filter(h => {
-                if (!h.burning) return true;
-                const elapsed = this.time - h.burnStart;
-                return elapsed < burnDur;
-            });
+            for (const h of cp.houses) {
+                if (h.burning && !h.ruin) {
+                    const elapsed = this.time - h.burnStart;
+                    if (elapsed >= burnDur) {
+                        h.burning = false; // Огонь потух
+                        h.ruin = true;     // Теперь это просто руины
+                    }
+                }
+            }
         }
     }
 
@@ -185,29 +190,58 @@ export class Game {
     // Пока cp.repairDefense === true, раз в REPAIR_INTERVAL тиков:
     //  - списывается стоимость 1% (по уровню);
     //  - defenseHp += 1% от максимума.
-    updateDefenseRepair() {
+      updateDefenseRepair() {
         for (const cp of this.cps) {
             if (!cp.repairDefense) continue;
             if (cp.owner !== this.faction) { cp.repairDefense = false; continue; }
+            
             this.refreshCityDefenseHp(cp);
             const maxHp = cp._defMaxHp || 0;
-            if (maxHp <= 0) { cp.repairDefense = false; continue; }
-            if (cp.defenseHp >= maxHp) { cp.repairDefense = false; continue; }
+            
+            // Проверяем, есть ли что чинить (оборона или дома)
+            const hasBrokenHouses = cp.houses && cp.houses.some(h => h.ruin || h.destroyed || h.hp < h.maxHp);
+            if (cp.defenseHp >= maxHp && !hasBrokenHouses) {
+                cp.repairDefense = false;
+                this.notify?.(`${cp.name}: оборона и город полностью восстановлены!`);
+                continue;
+            }
+
             if (this.time - (cp._lastRepairAt || 0) < this.REPAIR_INTERVAL) continue;
             cp._lastRepairAt = this.time;
 
+            // Стоимость 1% ремонта по уровню (3, 5, 10 S)
             const cost = this.getRepairCostPer1Pct(cp.defenseLevel || 0);
             if (this.res.s < cost) {
-                this.notify?.(`Не хватает материалов для ремонта обороны (${cp.name})`);
+                this.notify?.(`Не хватает материалов для ремонта (${cp.name})`);
                 continue;
             }
             this.res.s -= cost;
-            const onePct = Math.max(1, Math.floor(maxHp * 0.01));
-            cp.defenseHp = Math.min(maxHp, cp.defenseHp + onePct);
 
-            if (cp.defenseHp >= maxHp) {
-                cp.repairDefense = false;
-                this.notify?.(`${cp.name}: оборона полностью восстановлена!`);
+            // 1. Чиним прочность обороны (если не на максимуме)
+            if (cp.defenseHp < maxHp && maxHp > 0) {
+                const onePct = Math.max(1, Math.floor(maxHp * 0.01));
+                cp.defenseHp = Math.min(maxHp, cp.defenseHp + onePct);
+            }
+            
+            // 2. Чиним дома (1 дом за тик ремонта)
+            if (hasBrokenHouses) {
+                // Сначала чиним руины, потом поврежденные
+                const houseToFix = cp.houses.find(h => h.ruin) 
+                                || cp.houses.find(h => h.destroyed) 
+                                || cp.houses.find(h => h.hp < h.maxHp);
+                
+                if (houseToFix) {
+                    if (houseToFix.ruin || houseToFix.destroyed) {
+                        // Полностью восстанавливаем разрушенный дом
+                        houseToFix.hp = houseToFix.maxHp;
+                        houseToFix.ruin = false;
+                        houseToFix.destroyed = false;
+                        houseToFix.burning = false; // На всякий случай тушим
+                    } else {
+                        // Ремонтируем поврежденный (по 50% от максимума за тик)
+                        houseToFix.hp = Math.min(houseToFix.maxHp, houseToFix.hp + houseToFix.maxHp * 0.5);
+                    }
+                }
             }
         }
     }
@@ -252,20 +286,8 @@ spawnCorpse(u) {
     }
 
     updateInner() {
-        // ===== ФИКС NaN-КООРДИНАТ =====
-        // Централизованная санация ВСЕХ юнитов и зданий в начале каждого тика,
-        // ДО любых расчётов движения/ИИ/сепарации. Раньше sanitizeUnitPosition
-        // вызывался только в конце updateUnit(), и NaN, появившийся вне этого
-        // метода (приказы ИИ, сепарация, трассеры), успевал «заразить» соседей
-        // и весь цикл движения до следующей санации.
-        this.sanitizeAllPositions();
 
-        // ===== ФИКС «ДВОЙНОЙ ВЫСТРЕЛ / УСКОРЕННАЯ ПЕРЕЗАРЯДКА» =====
-        // Раньше счётчик игрового времени инкрементировался ДВАЖДЫ за тик.
-        // Из-за этого все кулдауны (u.lastAtk/u.cd), таймеры ИИ, логистика и
-        // производство шли вдвое быстрее: God Loader с cd=2500 реально
-        // стрелял каждые ~1250 тиков — эффект «двойного залпа». Теперь один
-        // инкремент на тик (централизованное исправление для всех юнитов).
+        this.sanitizeAllPositions();
         this.time++;
         
         // Camera movement
@@ -306,15 +328,80 @@ spawnCorpse(u) {
         
         // Remove dead
 // Remove dead + spawn corpses (труп создаётся ровно один раз — при hp <= 0)
+          // Remove dead + spawn corpses + взрывы
         this.units = this.units.filter(u => {
             if (u.hp > 0) return true;
-    // юнит умер в этом тике — оставляем труп
-                if (!u._corpseSpawned) {
-                        this.spawnCorpse(u);
-                        u._corpseSpawned = true;
-                                        }
-                    return false;
+
+            // ===== ОПРЕДЕЛЕНИЕ БАШНИ =====
+            // Машины без башен (вдова, низки, джавелин, хоплайт и вся артиллерия)
+            const turretlessTypes = [
+                'noble_widow', 'niska', 'niska_blinder', 'javelin', 'hoplite',
+                'warden_artillery120', 'warden_artillery150',
+                'colonial_artillery120', 'colonial_artillery150', 'god_loader'
+            ];
+            // У Девита MMR есть башня, поэтому его в списке нет
+            const hasTurret = !turretlessTypes.includes(u.type);
+
+            // ===== 1. ОТРЫВ БАШНИ (если урон от 40% макс. HP) =====
+            if (hasTurret && u.lastHitDmg >= u.maxHp * 0.4) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 15 + Math.random() * 25; // От 15 до 40
+                this.debris.push({
+                    type: 'turret',
+                    x: u.x,
+                    y: u.y,
+                    vx: Math.cos(angle) * (dist / 30), 
+                    vy: Math.sin(angle) * (dist / 30),
+                    angle: u.turretDirection || u.direction || 0,
+                    rot: 0, // БЕЗ ВРАЩЕНИЯ
+                    life: 999999, // Живёт вечно
+                    maxLife: 999999,
+                    faction: u.faction,
+                    size: u.size
                 });
+                // Добавляем дым от взрыва БК
+                this.addParticles(u.x, u.y, '#ff8800', 15);
+                this.addParticles(u.x, u.y, '#ffcc00', 10);
+            }
+
+            // ===== 2. ВЗРЫВ АРТИЛЛЕРИИ =====
+            if (u.type.includes('artillery') && u.type !== 'hoplite' && u.type !== 'devitt_mmr') {
+                // Красивый взрыв
+                this.debris.push({
+                    type: 'explosion',
+                    x: u.x, y: u.y,
+                    life: 60, maxLife: 60
+                });
+                // Разлет горящих обломков
+                const numDebris = 5 + Math.floor(Math.random() * 8); // 5-12
+                for (let i = 0; i < numDebris; i++) {
+                    const a = Math.random() * Math.PI * 2;
+                    const r = Math.random() * 25; // радиус 25
+                    this.debris.push({
+                        type: 'fire_debris',
+                        x: u.x + Math.cos(a) * r,
+                        y: u.y + Math.sin(a) * r,
+                        vx: Math.cos(a) * (Math.random() * 0.8),
+                        vy: Math.sin(a) * (Math.random() * 0.8),
+                        angle: Math.random() * Math.PI * 2,
+                        rot: (Math.random() - 0.5) * 0.3,
+                        life: 600, // Горит 10 секунд
+                        maxLife: 600,
+                        size: 2 + Math.random() * 3
+                    });
+                }
+                // Огонь и искры
+                this.addParticles(u.x, u.y, '#ff0000', 20);
+                this.addParticles(u.x, u.y, '#f97316', 20);
+            }
+
+            // Стандартный труп
+            if (!u._corpseSpawned) {
+                this.spawnCorpse(u);
+                u._corpseSpawned = true;
+            }
+            return false;
+        });
         this.buildings = this.buildings.filter(b => b.hp > 0);
 
         // Capture points
@@ -345,9 +432,32 @@ spawnCorpse(u) {
             p.life--;
             return p.life > 0;
         });
-        this.corpses = this.corpses.filter(c =>
-    this.time - c.bornAt < c.lifetime
-);
+        // Обновление отлетающих башен и горящих обломков
+        this.debris = this.debris.filter(d => {
+            // Если обломок ещё движется (есть скорость) — двигаем
+            if (Math.abs(d.vx) > 0.01 || Math.abs(d.vy) > 0.01) {
+                d.x += d.vx;
+                d.y += d.vy;
+                d.vx *= 0.96; // Замедление
+                d.vy *= 0.96;
+            }
+
+            // Убираем вращение для отлетевших частей
+            d.rot = 0;
+
+            // Если это башня — она лежит вечно (не уменьшаем life)
+            if (d.type === 'turret') {
+                return true;
+            }
+            
+            // Остальные обломки (огонь, взрыв) живут по таймеру
+            d.life--;
+            return d.life > 0;
+        });
+        this.corpses = this.corpses.filter(c =>this.time - c.bornAt < c.lifetime);
+        this.updateCityFires();
+        // Ремонт обороны (кнопка в панели точки)
+        this.updateDefenseRepair();
         
         // Tracers
         this.updateTracers();
@@ -429,6 +539,7 @@ spawnCorpse(u) {
             this.refreshCityDefenseHp(cp);
         }
         cp.defenseHp = Math.max(0, (cp.defenseHp || 0) - d);
+        this.damageCityHouses(cp, Math.max(1, Math.floor(d * 0.3)), fromX, fromY);
         // Визуальная обратная связь: трассер к центру обороны и обломки
         if (Number.isFinite(fromX) && Number.isFinite(fromY)) {
             this.addTracer(fromX, fromY, cp.x, cp.y, 'artillery');
@@ -730,6 +841,35 @@ spawnCorpse(u) {
                 this.handleLogistics(u);
             }
             
+                        // ===== НОВОЕ: ЛЕЧЕНИЕ ПЕХОТНЫМ МЕДИКОМ =====
+            if (u.isMedic && u.hp > 0) {
+                if (this.time - u.lastHealTime >= u.healInterval) {
+                    let target = null;
+                    let minDist = u.healRange;
+                    
+                    // Ищем раненого союзного пехотинца рядом
+                    for (const ally of this.units) {
+                        if (ally.faction === u.faction && ally.hp > 0 && isInfUnit(ally) && ally.hp < ally.maxHp) {
+                            const d = dist(u.x, u.y, ally.x, ally.y);
+                            if (d < minDist) {
+                                minDist = d;
+                                target = ally;
+                            }
+                        }
+                    }
+                    
+                    // Если нашли — лечим
+                    if (target) {
+                        const healAmount = Math.min(u.healRate * u.healInterval, target.maxHp - target.hp);
+                        target.hp += healAmount;
+                        u.lastHealTime = this.time;
+                        
+                        // Визуальный эффект (зелёные частицы)
+                        this.addParticles(target.x, target.y, '#22c55e', 2);
+                    }
+                }
+            }
+
             // Find nearest enemy (units or buildings)
             let nearest = null, nearDist = Infinity;
             
@@ -1019,44 +1159,26 @@ spawnCorpse(u) {
                     }
                 }
             }
-            
-            // Move to target - can move even if enemy is nearby but out of range
-            // Only stop moving if actively attacking
-            // Фикс «пехота толпится и топчется у базы»: юнит, который стоит на
-            // месте и стреляет в ближайшего врага (вне приказа), НЕ должен
-            // считать себя «застрявшим» — раньше stuckCounter рос просто от
-            // простоя, каждые ~30 тиков выдавался рандомный детour-приказ и
-            // юнит начинал крутиться/уезжать по кругу вместо боя.
+                        // ===== НОВОЕ: бой в зоне города — дома получают урон =====
+            if (isAttacking && attackTarget && Number.isFinite(attackTarget.x)) {
+                for (const hcp of this.cps) {
+                    if (hcp.owner === 'neutral') continue;
+                    if (dist(hcp.x, hcp.y, attackTarget.x, attackTarget.y) <= hcp.radius + 40) {
+                        this.damageCityHouses(hcp, 4, u.x, u.y);
+                    }
+                }
+            }
             if (isAttacking && u.tx === undefined) {
                 u.stuckCounter = 0;
-                // ЯКОРЬ САНации (lastX/lastY) обновляем ТОЛЬКО когда он
-                // повреждён или ещё не задан. Раньше здесь была безусловная
-                // запись — при бое с NaN-целью (битый приказ/AoE-точка)
-                // lastX/lastY портились в тот же тик, и санация на следующем
-                // тике телепортировала юнита к базе/первой точке захвата
-                // («Повреждены координаты ... позиция восстановлена»).
                 if (!Number.isFinite(u.lastX) || !Number.isFinite(u.lastY)) {
                     u.lastX = Number.isFinite(u.x) ? u.x : undefined;
                     u.lastY = Number.isFinite(u.y) ? u.y : undefined;
                 }
             }
 
-            // ===== ФИКС «вражеская артиллерия не ездит и не обстреливает точки» =====
-            // Раньше арта ИИ, выдвигаясь к огневой позиции, упиралась в зону
-            // обороны города (isCityZoneBlockedFor) и застревала: stuckCounter-обход
-            // давал рандомные развороты, приказ терялся. Теперь у артиллерии —
-            // приоритетный прямой проход к цели приказа (она всё равно не может
-            // стрелять ближе minRange — стрельба сама отодвинет её назад).
             if (!isAttacking && u.aoe && u.tx !== undefined) {
                 // ===== ФИКС NaN-КООРДИНАТ: валидация цели перед движением =====
                 if (!Number.isFinite(u.tx) || !Number.isFinite(u.ty)) {
-                    // Битый приказ сам по себе не портит координаты (dist()
-                    // возвращает Infinity для NaN), но юнит с таким приказом
-                    // больше никогда не заведёт валидный якорь lastX/lastY —
-                    // и при первом же повреждении x/y санация телепортирует его
-                    // к базе/первой точке захвата («телепорт с восстановлением
-                    // координат» на ходу, devitt/va0l9tx5ge). Сносим битый
-                    // приказ и заводим якорь от текущей валидной позиции.
                     console.warn('[GAME][FIX] Битый приказ движения (tx/ty) у ' + (u.type || '?') + '/' + (u.id || '?') + ' — приказ снят');
                     u.tx = undefined; u.ty = undefined;
                     u.detourSide = undefined; u.detourTicks = undefined;
@@ -1883,7 +2005,32 @@ const needsResource = (u) => {
         ];
         return stats[defenseLevel] || stats[0];
     }
-    
+        // ===== БОНУС ЗАЩИТЫ В ГОРОДЕ =====
+    // Возвращает долю снижения урона (0.05 = 5%).
+    getCityDefenseBonus(unit) {
+        if (!unit || unit.hp <= 0) return 0;
+        
+        let maxBonus = 0;
+        for (const cp of this.cps) {
+            if (cp.owner !== unit.faction) continue; // Только свои города
+            if (dist(unit.x, unit.y, cp.x, cp.y) <= cp.radius) {
+                const lvl = cp.defenseLevel || 0;
+                let bonus = 0;
+                
+                if (isInfUnit(unit)) {
+                    // Пехота: базовая 10% + 15% за уровень
+                    bonus = 0.10 + (lvl * 0.15);
+                } else {
+                    // Техника: базовая 5% + 10% за уровень
+                    bonus = 0.05 + (lvl * 0.10);
+                }
+                
+                if (bonus > maxBonus) maxBonus = bonus;
+            }
+        }
+        // Ограничим максимальную защиту 75%, чтобы не было бессмертных юнитов
+        return Math.min(0.75, maxBonus);
+    }
     // Прочность обороны города для отображения (очки прочности)
     getCityDefenseDisplayInfo(cp) {
         if (!cp || cp.owner === 'neutral') return null;
@@ -1987,21 +2134,6 @@ const needsResource = (u) => {
 
             // Бункеры атакуют врагов в радиусе действия (только если достроены)
             if (b.type && b.type.startsWith('bunker_') && !b.isBuilding && b.range > 0) {
-                // ===== ФИКС «ОБОРОНА (ИГРОКА И ИИ) НЕ СТРЕЛЯЕТ ПО ЮНИТАМ» =====
-                // Раньше бункер стрелял ТОЛЬКО по юнитам-врагам. Как только
-                // у юнита срабатывало «ответное решение» — он получал флаг
-                // holdPosition (держать позицию до конца, см. ai.js /
-                // updateUnit) или приказ отхода retreatToBase — оборона его
-                // игнорировала. В реальном бою почти вся техника очень быстро
-                // переходила в holdPosition, поэтому оборона фактически
-                // «молчала» и работала только контрбатарейный огонь по
-                // артиллерии. Теперь укрепления ведут огонь по ЛЮБЫМ
-                // вражеским юнитам в радиусе (включая стоящих на месте),
-                // исключение — лишь техника, полностью уехавшая на базу
-                // (hp <= 0 мёртвые фильтруются списком livingUnits).
-                // Плюс защита от «залипшего кулдауна»: если lastAtk оказался
-                // в будущем (битые данные после санации/сохранения), бункер
-                // больше не ждёт перезапуска игры — таймер сбрасывается.
                 if (!Number.isFinite(b.lastAtk) || b.lastAtk > this.time) b.lastAtk = 0;
 
                 // Кулдаун (2 секунды между выстрелами). return здесь теперь
@@ -2094,7 +2226,12 @@ const needsResource = (u) => {
                     let defDamage = stats.damage;
                     defDamage = getDefenseDamageVsTech(defDamage, nearestEnemy);
                     nearestEnemy.takeDamage(defDamage);
-                    
+                    for (const hcp of this.cps) {
+                        if (hcp.owner === 'neutral') continue;
+                        if (dist(hcp.x, hcp.y, nearestEnemy.x, nearestEnemy.y) <= hcp.radius + 60) {
+                            this.damageCityHouses(hcp, 6, hcp.x, hcp.y);
+                        }
+                    }
                     // Визуальный эффект выстрела
                     this.addParticles(nearestEnemy.x, nearestEnemy.y, '#ffcc00', 3);
                 }

@@ -520,7 +520,12 @@ function updateSelInfo() {
             // Display cargo for logistics vehicles
             if (u.currentCargo !== undefined && u.cargoCapacity > 0) {
                 const cargoPct = (u.currentCargo / u.cargoCapacity) * 100;
-                const cargoType = u.cargoType === 'ammo' ? '📦 БК' : u.cargoType === 'fuel' ? '⛽ Топливо' : u.cargoType === 'repair' ? '🔧 Материалы' : '🎯 Снаряды';
+                const cargoType = 
+                    u.cargoType === 'ammo' ? '📦 БК' : 
+                    u.cargoType === 'fuel' ? '⛽ Топливо' : 
+                    u.cargoType === 'repair' ? '🔧 Материалы' : 
+                    u.cargoType === 'med' ? '💊 Медикаменты' : 
+                    '🎯 Снаряды';
                 html += `<p style="font-size:0.7rem;color:#a855f7;">${cargoType}: ${Math.floor(u.currentCargo)}/${u.cargoCapacity} (${Math.floor(cargoPct)}%)</p>`;
             }
             
@@ -998,6 +1003,68 @@ window.toggleAoEMode = function() {
     }
 };
 
+// ===== КНОПКА РЕМОНТА ОБОРОНЫ =====
+// Включает/выключает флаг cp.repairDefense. Пока включён, game.js
+// восстанавливает по 1% прочности раз в 3 секунды, списывая материалы.
+window.toggleDefenseRepair = function() {
+    if (!selectedCapturePoint) return;
+    const cp = selectedCapturePoint;
+    if (cp.owner !== game.faction) {
+        notify('Ремонт доступен только на своей точке');
+        return;
+    }
+    if (cp.defenseHp === undefined || cp._defMaxHp === undefined) {
+        game.refreshCityDefenseHp(cp);
+    }
+    const maxHp = cp._defMaxHp || 0;
+    if (maxHp <= 0) {
+        notify('У точки нет обороны для ремонта (уровень 0)');
+        return;
+    }
+    if (cp.defenseHp >= maxHp) {
+        notify('Оборона уже цела');
+        return;
+    }
+    cp.repairDefense = !cp.repairDefense;
+    notify(cp.repairDefense ? 'Ремонт обороны ВКЛЮЧЁН' : 'Ремонт обороны ВЫКЛЮЧЕН');
+    openDefensePanel(cp,
+        parseInt(document.getElementById('defensePanel').style.left) || 0,
+        parseInt(document.getElementById('defensePanel').style.top) || 0);
+};
+
+// Обновить внешний вид кнопки ремонта в зависимости от состояния точки
+function updateRepairButton(cp) {
+    const btn = document.getElementById('repairDefenseBtn');
+    if (!btn || !cp) return;
+    const maxHp = cp._defMaxHp || 0;
+    const curHp = cp.defenseHp || 0;
+    if (maxHp <= 0) {
+        btn.textContent = '🔧 Оборона не построена';
+        btn.style.opacity = 0.5;
+        btn.disabled = true;
+        return;
+    }
+    btn.disabled = false;
+    btn.style.opacity = 1;
+    if (curHp >= maxHp) {
+        btn.textContent = '✅ Оборона цела';
+        btn.style.background = 'rgba(107,114,128,0.15)';
+        btn.style.borderColor = '#6b7280';
+        btn.style.color = '#9ca3af';
+    } else if (cp.repairDefense) {
+        btn.textContent = '⏸ Остановить ремонт';
+        btn.style.background = 'rgba(251,191,36,0.15)';
+        btn.style.borderColor = '#fbbf24';
+        btn.style.color = '#fbbf24';
+    } else {
+        const cost = game.getRepairCostPer1Pct(cp.defenseLevel || 0);
+        btn.textContent = `🔧 Ремонт обороны (${cost} S за 1%/3с)`;
+        btn.style.background = 'rgba(34,197,94,0.15)';
+        btn.style.borderColor = '#22c55e';
+        btn.style.color = '#22c55e';
+    }
+}
+
 function openDefensePanel(cp, mx, my) {
     // Инициализируем defenseLevel если его нет
     if (cp.defenseLevel === undefined) {
@@ -1083,6 +1150,7 @@ function openDefensePanel(cp, mx, my) {
             </div>
         `;
     }).join('');
+    updateRepairButton(cp);
 }
 
 // Периодическое обновление панели обороны (прогресс улучшения занимает время)

@@ -17,6 +17,7 @@ export class Vehicle {
         this.lastAtk = 0;
         this.gameTime = 0; // Для расчёта перезарядки
         this.direction = 0; // Направление в радианах (0 = вправо)
+        this.lastHitDmg = 0;
         
         this.hp = 100;
         this.maxHp = 100;
@@ -38,13 +39,8 @@ export class Vehicle {
     
 
 
-    takeDamage(dmg, src = null) {
-        // ===== ФИКС ПРИЧИН ПОВРЕЖДЕНИЯ КООРДИНАТ (источник №2) =====
-        // Если урон/броня пришли повреждёнными (NaN/undefined), HP юнита
-        // превращался в NaN — дальше по цепочке (сепарация расталкивала
-        // «мёртвых» с NaN-координатами, ИИ выдавал приказы к ним) x/y тоже
-        // становились NaN и юнит «исчезал» (в консоли: [GAME][FIX]
-        // Повреждены координаты). Теперь HP не может стать NaN.
+   takeDamage(dmg, src = null, game = null) {
+
         const d = Number(dmg);
         if (!Number.isFinite(d)) return;
         let effective = d;
@@ -68,6 +64,17 @@ export class Vehicle {
         }
         const a2 = Number(this.armor);
         this.hp -= Math.max(1, effective - (Number.isFinite(a2) ? a2 : 0));
+         let finalDamage = Math.max(1, effective - (Number.isFinite(a2) ? a2 : 0));
+        
+        if (game && game.getCityDefenseBonus) {
+            const bonus = game.getCityDefenseBonus(this);
+            if (bonus > 0) {
+                finalDamage = Math.max(1, Math.floor(finalDamage * (1 - bonus)));
+            }
+        }
+        
+        this.hp -= finalDamage;
+        this.lastHitDmg = finalDamage;
     }
     
     canAttack() {
@@ -237,6 +244,14 @@ export class MedicVarden extends InfantryBase {
         this.spd = 0.5; // Очень медленно
         this.cd = 60;
         this.label = 'Медик';
+        this.isMedic = true;
+        this.healRate = 0.15;       // 0.15 HP за тик (~9 HP в секунду)
+        this.healRange = 80;        // Радиус лечения в пикселях
+        this.healInterval = 60;     // Лечит раз в секунду (60 тиков)
+        this.lastHealTime = 0;
+        this.cargoType = 'med';
+        this.cargoCapacity = 100;
+        this.currentCargo = 100;
     }
      healUnit(targetUnit) {
         if (!targetUnit || typeof targetUnit !== 'object') return 0;
@@ -261,6 +276,14 @@ export class MedicColonist extends InfantryBase {
         this.spd = 0.45; // Очень медленно
         this.cd = 50;
         this.label = 'Медик';
+        this.isMedic = true;
+        this.healRate = 0.15;       // 0.15 HP за тик (~9 HP в секунду)
+        this.healRange = 80;        // Радиус лечения в пикселях
+        this.healInterval = 60;     // Лечит раз в секунду (60 тиков)
+        this.lastHealTime = 0;
+        this.cargoType = 'med';
+        this.cargoCapacity = 100;
+        this.currentCargo = 100;
     }
      healUnit(targetUnit) {
         if (!targetUnit || typeof targetUnit !== 'object') return 0;
@@ -474,6 +497,8 @@ export class GallagherHighwayman extends Vehicle {
         this.canBoost = true; // Может использовать буст
         this.boosting = false;
         this.boostFuelCost = 0.5; // Дополнительный расход топлива при бусте
+        this.maxFuel = Math.round(SUPPLY_SYSTEM.maxFuel * 3);
+        this.fuel = this.maxFuel;
     }
     
     
@@ -509,6 +534,8 @@ export class GallagherOutlaw extends Vehicle {
         this.canBoost = true; // Может использовать буст
         this.boosting = false;
         this.boostFuelCost = 0.5;
+        this.maxFuel = Math.round(SUPPLY_SYSTEM.maxFuel * 3);
+        this.fuel = this.maxFuel;
     }
 
     activateBoost() {
