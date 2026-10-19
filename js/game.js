@@ -190,7 +190,7 @@ export class Game {
     // Пока cp.repairDefense === true, раз в REPAIR_INTERVAL тиков:
     //  - списывается стоимость 1% (по уровню);
     //  - defenseHp += 1% от максимума.
-      updateDefenseRepair() {
+     updateDefenseRepair() {
         for (const cp of this.cps) {
             if (!cp.repairDefense) continue;
             if (cp.owner !== this.faction) { cp.repairDefense = false; continue; }
@@ -198,7 +198,6 @@ export class Game {
             this.refreshCityDefenseHp(cp);
             const maxHp = cp._defMaxHp || 0;
             
-            // Проверяем, есть ли что чинить (оборона или дома)
             const hasBrokenHouses = cp.houses && cp.houses.some(h => h.ruin || h.destroyed || h.hp < h.maxHp);
             if (cp.defenseHp >= maxHp && !hasBrokenHouses) {
                 cp.repairDefense = false;
@@ -209,37 +208,71 @@ export class Game {
             if (this.time - (cp._lastRepairAt || 0) < this.REPAIR_INTERVAL) continue;
             cp._lastRepairAt = this.time;
 
+            // ===== ПОИСК СТРОИТЕЛЬНОЙ ТЕХНИКИ В ГОРОДЕ =====
+            const constructionTrucks = this.units.filter(u => 
+                u.faction === cp.owner && 
+                u.type === 'construction_truck' && 
+                u.hp > 0 && 
+                dist(u.x, u.y, cp.x, cp.y) <= cp.radius
+            );
+
+            let speedMultiplier = 1;
+            let requiredMaterials = 0;
+
+            if (constructionTrucks.length >= 2) {
+                speedMultiplier = 3;
+                requiredMaterials = 3; // 3 ед. запаса за 1% (т.к. 10 очков = 1 ресурс, а мы чиним ~3-5 очков за тик)
+            } else if (constructionTrucks.length === 1) {
+                speedMultiplier = 2;
+                requiredMaterials = 1; // 1 ед. запаса за 1%
+            }
+
             // Стоимость 1% ремонта по уровню (3, 5, 10 S)
-            const cost = this.getRepairCostPer1Pct(cp.defenseLevel || 0);
-            if (this.res.s < cost) {
+            const baseCost = this.getRepairCostPer1Pct(cp.defenseLevel || 0);
+            const actualCost = baseCost * speedMultiplier; // Ремонт быстрее = дороже
+            
+            if (this.res.s < actualCost) {
                 this.notify?.(`Не хватает материалов для ремонта (${cp.name})`);
                 continue;
             }
-            this.res.s -= cost;
+            this.res.s -= actualCost;
+
+            // Тратим ресурсы машин
+            if (requiredMaterials > 0) {
+                let materialsNeeded = requiredMaterials;
+                for (const truck of constructionTrucks) {
+                    if (materialsNeeded <= 0) break;
+                    const take = Math.min(truck.currentCargo, materialsNeeded);
+                    truck.currentCargo -= take;
+                    materialsNeeded -= take;
+                }
+                // Если у машин не хватило ресурсов, ремонт не ускоряется
+                if (materialsNeeded > 0) {
+                    speedMultiplier = 1; 
+                    this.notify?.(`Строймашины в ${cp.name} исчерпали запас!`);
+                }
+            }
 
             // 1. Чиним прочность обороны (если не на максимуме)
             if (cp.defenseHp < maxHp && maxHp > 0) {
                 const onePct = Math.max(1, Math.floor(maxHp * 0.01));
-                cp.defenseHp = Math.min(maxHp, cp.defenseHp + onePct);
+                cp.defenseHp = Math.min(maxHp, cp.defenseHp + onePct * speedMultiplier);
             }
             
-            // 2. Чиним дома (1 дом за тик ремонта)
+            // 2. Чиним дома (1 дом за тик ремонта, ускоренно)
             if (hasBrokenHouses) {
-                // Сначала чиним руины, потом поврежденные
                 const houseToFix = cp.houses.find(h => h.ruin) 
                                 || cp.houses.find(h => h.destroyed) 
                                 || cp.houses.find(h => h.hp < h.maxHp);
                 
                 if (houseToFix) {
                     if (houseToFix.ruin || houseToFix.destroyed) {
-                        // Полностью восстанавливаем разрушенный дом
                         houseToFix.hp = houseToFix.maxHp;
                         houseToFix.ruin = false;
                         houseToFix.destroyed = false;
-                        houseToFix.burning = false; // На всякий случай тушим
+                        houseToFix.burning = false;
                     } else {
-                        // Ремонтируем поврежденный (по 50% от максимума за тик)
-                        houseToFix.hp = Math.min(houseToFix.maxHp, houseToFix.hp + houseToFix.maxHp * 0.5);
+                        houseToFix.hp = Math.min(houseToFix.maxHp, houseToFix.hp + houseToFix.maxHp * (0.5 * speedMultiplier));
                     }
                 }
             }
@@ -343,7 +376,7 @@ spawnCorpse(u) {
             const hasTurret = !turretlessTypes.includes(u.type);
 
             // ===== 1. ОТРЫВ БАШНИ (если урон от 40% макс. HP) =====
-            if (hasTurret && u.lastHitDmg >= u.maxHp * 0.4) {
+           if (!isInfUnit(u) && hasTurret && u.lastHitDmg >= u.maxHp * 0.4) {
                 const angle = Math.random() * Math.PI * 2;
                 const dist = 15 + Math.random() * 25; // От 15 до 40
                 this.debris.push({
@@ -456,9 +489,10 @@ spawnCorpse(u) {
         });
         this.corpses = this.corpses.filter(c =>this.time - c.bornAt < c.lifetime);
         this.updateCityFires();
+        
         // Ремонт обороны (кнопка в панели точки)
         this.updateDefenseRepair();
-        
+        this.updateCityFiresAndDamage();
         // Tracers
         this.updateTracers();
 
@@ -499,6 +533,57 @@ spawnCorpse(u) {
     // Актуализация хранимого HP обороны при смене уровня / строительстве
     // бункеров / смене владельца. При апгрейде добавляем дельту максимума
     // (новый уровень «достраивается» поверх целой обороны).
+        // ===== ОБНОВЛЕНИЕ ПОЖАРОВ И УРОНА =====
+    updateCityFiresAndDamage() {
+        for (const cp of this.cps) {
+            if (!cp.houses) continue;
+            
+            // 1. Проверяем, есть ли в городе горящие дома
+            const burningHouses = cp.houses.filter(h => h.burning);
+            if (burningHouses.length === 0) continue;
+
+            // 2. Ищем пожарные машины владельца города
+            const fireTrucks = this.units.filter(u => 
+                u.faction === cp.owner && 
+                u.type === 'fire_truck' && 
+                u.hp > 0 && 
+                dist(u.x, u.y, cp.x, cp.y) <= cp.radius
+            );
+
+            // 3. Тушение пожара
+            if (fireTrucks.length > 0) {
+                // Каждая машина тушит 1 дом за тик (тратит 5 воды на дом)
+                let housesExtinguished = 0;
+                for (const truck of fireTrucks) {
+                    if (truck.currentCargo >= 5) {
+                        const houseToExtinguish = cp.houses.find(h => h.burning && !h.ruin);
+                        if (houseToExtinguish) {
+                            houseToExtinguish.burning = false; // Потушили
+                            // Даём дому немного HP, чтобы он не был "сломанным"
+                            if (houseToExtinguish.hp <= 0) houseToExtinguish.hp = 1; 
+                            truck.currentCargo -= 5;
+                            housesExtinguished++;
+                        }
+                    }
+                }
+            }
+
+            // 4. Урон от пожара юнитам (каждые 100 тиков)
+            if (this.time % 100 === 0) {
+                const unitsInCity = this.units.filter(u => 
+                    u.hp > 0 && 
+                    dist(u.x, u.y, cp.x, cp.y) <= cp.radius
+                );
+                
+                for (const u of unitsInCity) {
+                    // Наносим 2 единицы урона (игнорируем броню, чтобы пожар был опасен)
+                    u.hp -= 2; 
+                    // Визуальный эффект
+                    if (Math.random() < 0.5) this.addParticles(u.x, u.y, '#ef4444', 2);
+                }
+            }
+        }
+    }
     refreshCityDefenseHp(cp) {
         if (!cp || cp.owner === 'neutral') return;
         const maxNow = this.getCityDefenseMaxIntegrity(cp);
@@ -1003,7 +1088,7 @@ spawnCorpse(u) {
                                     if (distToTarget <= u.aoeRadius) {
                                         // Damage decreases with distance from center
                                         const damageMultiplier = 1 - (distToTarget / u.aoeRadius) * 0.5;
-                                        enemy.takeDamage(Math.floor(u.dmg * damageMultiplier), u);
+                                        enemy.takeDamage(Math.floor(u.dmg * damageMultiplier), u, this);
                                     }
                                 }
                             });
@@ -1123,18 +1208,12 @@ spawnCorpse(u) {
                             
                             // Silverhand: dual gun attack (two shots)
                             if (u.dualGun) {
-                                attackTarget.takeDamage(damage,u);
-                                // Second shot with slight delay effect
-                                // ===== ФИКС «ЮНИТЫ ПРОПАДАЮТ» №4 =====
-                                // Проверка, что цель ещё жива И всё ещё в списке
-                                // юнитов (не удалена фильтром hp > 0), иначе
-                                // takeDamage применяется к «призраку» — визуально
-                                // юнит исчезает, но продолжает существовать в памяти.
-                                setTimeout(() => {
-                                    if (attackTarget.hp > 0 && this.units.includes(attackTarget)) {
-                                        attackTarget.takeDamage(Math.floor(damage * 0.7)); // Second gun does 70% damage
-                                    }
-                                }, 100);
+                                attackTarget.takeDamage(damage, u, this);
+                                    setTimeout(() => {
+                                          if (attackTarget.hp > 0 && this.units.includes(attackTarget)) {
+                                           attackTarget.takeDamage(Math.floor(damage * 0.7), u, this);
+                                           }
+                                    }, 100);
                             }
                             
                             // Nemesis: grenade launcher AoE
@@ -1144,7 +1223,7 @@ spawnCorpse(u) {
                                     if (enemy.faction !== u.faction && enemy.hp > 0 && isInfUnit(enemy)) {
                                         const distToTarget = dist(attackTarget.x, attackTarget.y, enemy.x, enemy.y);
                                         if (distToTarget <= (u.grenadeRadius || 40)) {
-                                            enemy.takeDamage(Math.floor(damage * 0.6), u);
+                                            enemy.takeDamage(Math.floor(damage * 0.6), u, this);
                                         }
                                     }
                                 });
@@ -1152,7 +1231,7 @@ spawnCorpse(u) {
                                 this.addParticles(attackTarget.x, attackTarget.y, '#9c27b0', 8);
                             }
                             
-                            attackTarget.takeDamage(damage, u);
+                            attackTarget.takeDamage(damage, u, this);
                             this.addParticles(attackTarget.x, attackTarget.y, '#ffcc00', 4);
                             }
                         }
@@ -1728,14 +1807,14 @@ spawnCorpse(u) {
         this.unitLimits.infantry = 20 + playerPoints * 3;
         this.unitLimits.vehicles = 10 + playerPoints * 2;
         this.unitLimits.combatVehicles = this.unitLimits.vehicles;
-        this.unitLimits.logistics = 4;
+        this.unitLimits.logistics = 10;
         
         // Лимиты для ИИ (combatVehicles — только боевая техника, без логистики)
         this.aiUnitLimits = {
             infantry: 20 + aiPoints * 3,
             vehicles: 10 + aiPoints * 2,
             combatVehicles: 10 + aiPoints * 2,
-            logistics: 4,
+            logistics: 7,
         };
     }
     
@@ -1766,7 +1845,7 @@ spawnCorpse(u) {
         if (!flags.allowUnit(type)) return false;
 
         const limits = faction === this.faction ? this.unitLimits : this.aiUnitLimits;
-        const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck'];
+        const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck', 'construction_truck', 'fire_truck'];
         const units = this.units.filter(u => u.faction === faction && u.hp > 0);
 
         if (type === 'infantry' || INFANTRY_TYPES.includes(type)) {
@@ -2169,7 +2248,7 @@ const needsResource = (u) => {
                     // DEFENSE_VS_TECH_MULT в vehicles.js). Действует для всех
                     // достроенных укреплений и целей из вкладки «🚗 Техника».
                     damage = getDefenseDamageVsTech(damage, nearestEnemy);
-                    nearestEnemy.takeDamage(damage);
+                    nearestEnemy.takeDamage(damage, null, this);
 
                     // Визуальный эффект выстрела
                     this.addTracer(b.x, b.y, nearestEnemy.x, nearestEnemy.y, 'defense');
@@ -2225,7 +2304,7 @@ const needsResource = (u) => {
                     // логистике и артиллерии урон без бонуса.
                     let defDamage = stats.damage;
                     defDamage = getDefenseDamageVsTech(defDamage, nearestEnemy);
-                    nearestEnemy.takeDamage(defDamage);
+                    nearestEnemy.takeDamage(defDamage, null, this);
                     for (const hcp of this.cps) {
                         if (hcp.owner === 'neutral') continue;
                         if (dist(hcp.x, hcp.y, nearestEnemy.x, nearestEnemy.y) <= hcp.radius + 60) {
@@ -2267,8 +2346,8 @@ const needsResource = (u) => {
                         // Атакуем вражескую артиллерию
                         if (enemyArtillery) {
                             cp.lastAntiArtillery = this.time;
-                            const antiArtilleryDamage = 50; // Урон по артиллерии
-                            enemyArtillery.takeDamage(antiArtilleryDamage);
+                            const antiArtilleryDamage = 70; // Урон по артиллерии
+                            enemyArtillery.takeDamage(antiArtilleryDamage, null, this);
                             
                             // Визуальный эффект
                             this.addParticles(enemyArtillery.x, enemyArtillery.y, '#ff6600', 5);
@@ -2332,11 +2411,13 @@ const needsResource = (u) => {
         });
     }
     
-    createUnitFromQueue(type, faction, building) {
-        const spawnX = building.x + 50;
-        const spawnY = building.y + 50;
-        return createVehicle(type, faction, spawnX, spawnY);
-    }
+   createUnitFromQueue(type, faction, building) {
+    const spawnX = building.x + 50;
+    const spawnY = building.y + 50;
+    const unit = createVehicle(type, faction, spawnX, spawnY);
+    unit.game = this;
+    return unit;
+}
     
     addToProductionQueue(type, faction, buildingId, buildTime) {
         this.productionQueue.push({

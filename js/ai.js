@@ -110,6 +110,17 @@ export class AI {
         return { inf, veh };
     }
 
+    // ===== ПРОВЕРКА «ПОДДЕРЖКИ» =====
+    // Юнит поддержки (логистика) НИКОГДА не идёт в атаку/штурм/захват точек.
+    // Он работает только в городе (ремонт/пополнение/тушение).
+    isSupportUnit(u) {
+        if (!u || !u.type) return false;
+        return [
+            'truck', 'fuel_truck', 'engineer', 'flatbed',
+            'medic_truck', 'construction_truck', 'fire_truck',
+        ].includes(u.type);
+    }
+
     update() {
         try {
             this.updateInner();
@@ -118,13 +129,39 @@ export class AI {
             // вызов несуществующего метода), она НЕ должна прерывать игровой цикл,
             // иначе юниты перестают обновляться и "исчезают" из игры.
             console.error('[AI] Ошибка в update() бота:', err);
-            // ИИ никогда не должен ронять игровой цикл: логируем ошибку и продолжаем
             console.error('[AI][ERROR] Ошибка в update() бота:', err);
         }
     }
 
     updateInner() {
         this.timer++;
+
+        // ===== СТАРТОВОЕ РАЗВИТИЕ ИИ =====
+        // В самом начале игры (через 3 секунды) бот строит 1 уровень обороны
+        // на главной базе и производит пожарную и строительную машины.
+        if (this.timer === 180) {
+            const base = this.getAIMainBase();
+            if (base) {
+                // 1. Строим 1 уровень обороны на базе, если его нет
+                if (base.defenseLevel === 0 && !base.upgrading) {
+                    const cpIndex = this.G.cps.indexOf(base);
+                    if (cpIndex !== -1) {
+                        this.G.upgradeTerritoryDefense(cpIndex);
+                        aiLog(`[AI][START] т.${this.timer}: Построен 1 уровень обороны на главной базе`);
+                    }
+                }
+            }
+            // 2. Производим строительную и пожарную машины (прямой спавн)
+            this.spawnSpecialSupportVehicles();
+        }
+
+        // ===== ПРОИЗВОДСТВО ИНЖЕНЕРА И ГРУЗОВИКА ЧЕРЕЗ 2 МИНУТЫ =====
+        // Через 2 минуты (7200 тиков) после начала боя бот производит
+        // инженерную машину и грузовик для быстрого ремонта и пополнения
+        // техники в главном городе.
+        if (this.timer === 7200) {
+            this.spawnEngineerAndTruck();
+        }
 
         // Периодический отчёт о состоянии бота (каждые ~10 секунд)
         if (this.timer % 600 === 0) {
@@ -361,11 +398,6 @@ export class AI {
         this.maintainBaseDefense();
 
         // Снайперы: 1 снайпер на каждый захваченный противником город
-        // (при достаточном запасе ресурсов цель расширяется и на главную базу)
-        // ФИКС КРАША: у этого метода не существовало реализации — вызов
-        // ронял весь цикл ИИ (TypeError: this.manageSnipers is not a function),
-        // из-за чего бот «внезапно» терял управление над всеми юнитами.
-        // Теперь метод реализован ниже + защита typeof на всякий случай.
         if (typeof this.manageSnipers === 'function') this.manageSnipers();
 
         // Стратегическое поведение
@@ -384,14 +416,199 @@ export class AI {
 
         // Строительство укреплений (линия обороны: чем ближе к базе — тем плотнее)
         this.buildFortifications();
+        
+        // ===== УПРАВЛЕНИЕ ОБОРОНОЙ ЗАХВАЧЕННЫХ ГОРОДОВ =====
+        this.manageCityDefenses();
+        
         // Оборонительные действия (не зависят от лимитов производства)
         if (!spawnedThisTick) this.defensiveReactions();
     }
-    
+
+    // ===== СПЕЦТЕХНИКА НА СТАРТЕ =====
+    // Спавнит строймашину и пожарную машину, если их нет.
+    spawnSpecialSupportVehicles() {
+        const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory' && b.hp > 0);
+        if (!factory) return;
+        const base = this.getAIMainBase();
+
+        // Строймашина
+        if (!this.G.units.some(u => u.faction === this.G.ai && u.type === 'construction_truck' && u.hp > 0)) {
+            const cost = VEHICLE_COSTS.construction_truck || { s: 60, c: 40, m: 30 };
+            if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
+                this.spendResources(cost);
+                const unit = createVehicle('construction_truck', this.G.ai, factory.x + 60, factory.y + 60);
+                this.G.units.push(unit);
+                // Сразу отправляем в главный город (ближе к центру)
+                if (base) {
+                    unit.tx = base.x + (Math.random() - 0.5) * base.radius * 0.6;
+                    unit.ty = base.y + (Math.random() - 0.5) * base.radius * 0.6;
+                }
+                aiLog(`[AI][START] т.${this.timer}: Произведена строймашина`);
+            }
+        }
+
+        // Пожарная машина
+        if (!this.G.units.some(u => u.faction === this.G.ai && u.type === 'fire_truck' && u.hp > 0)) {
+            const cost = VEHICLE_COSTS.fire_truck || { s: 50, c: 30, m: 20 };
+            if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
+                this.spendResources(cost);
+                const unit = createVehicle('fire_truck', this.G.ai, factory.x + 80, factory.y + 60);
+                this.G.units.push(unit);
+                if (base) {
+                    unit.tx = base.x + (Math.random() - 0.5) * base.radius * 0.6;
+                    unit.ty = base.y + (Math.random() - 0.5) * base.radius * 0.6;
+                }
+                aiLog(`[AI][START] т.${this.timer}: Произведена пожарная машина`);
+            }
+        }
+    }
+
+    // ===== ПРОИЗВОДСТВО ИНЖЕНЕРА И ГРУЗОВИКА (ЧЕРЕЗ 2 МИНУТЫ) =====
+    // Инженерная машина (ремонт) и грузовик (БК) для быстрого восстановления
+    // техники в главном городе. Они сразу едут к центру главного города.
+    spawnEngineerAndTruck() {
+        const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory' && b.hp > 0);
+        if (!factory) return;
+        const base = this.getAIMainBase();
+
+        // Инженерная машина
+        if (!this.G.units.some(u => u.faction === this.G.ai && u.type === 'engineer' && u.hp > 0)) {
+            const cost = VEHICLE_COSTS.engineer || { s: 20, c: 35, m: 10 };
+            if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
+                this.spendResources(cost);
+                const unit = createVehicle('engineer', this.G.ai, factory.x + 60, factory.y + 60);
+                this.G.units.push(unit);
+                if (base) {
+                    unit.tx = base.x + (Math.random() - 0.5) * base.radius * 0.5;
+                    unit.ty = base.y + (Math.random() - 0.5) * base.radius * 0.5;
+                }
+                aiLog(`[AI][ENGINEER] т.${this.timer}: Произведена инженерная машина (ремонт в главном городе)`);
+            }
+        }
+
+        // Грузовик (БК)
+        if (!this.G.units.some(u => u.faction === this.G.ai && u.type === 'truck' && u.hp > 0)) {
+            const cost = VEHICLE_COSTS.truck || { s: 25, c: 15, m: 5 };
+            if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
+                this.spendResources(cost);
+                const unit = createVehicle('truck', this.G.ai, factory.x + 80, factory.y + 60);
+                this.G.units.push(unit);
+                if (base) {
+                    unit.tx = base.x + (Math.random() - 0.5) * base.radius * 0.5;
+                    unit.ty = base.y + (Math.random() - 0.5) * base.radius * 0.5;
+                }
+                aiLog(`[AI][TRUCK] т.${this.timer}: Произведён грузовик (пополнение БК в главном городе)`);
+            }
+        }
+    }
+
+    // ===== УПРАВЛЕНИЕ ОБОРОНОЙ ЗАХВАЧЕННЫХ ГОРОДОВ =====
+    // 1) Если бот владеет городом 3 минуты и рядом есть враг (< 450) — строит 1 уровень обороны и пригоняет машины.
+    // 2) Каждые 3 минуты пытается повысить уровень обороны (сначала главный город).
+    // 3) При получении урона обороны — включает ремонт.
+    manageCityDefenses() {
+        if (this.timer % 60 !== 0) return; // раз в секунду
+
+        const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai);
+        const base = this.getAIMainBase();
+
+        for (const cp of aiPoints) {
+            const ownedTime = this.timer - (cp._capturedAt || 0);
+            
+            // Инициализация времени захвата (если не было)
+            if (cp._capturedAt === undefined) {
+                cp._capturedAt = this.timer;
+            }
+
+            // 1. Реакция на урон обороны (включаем ремонт)
+            if (cp.defenseHp !== undefined && cp._defMaxHp !== undefined) {
+                const integrity = cp.defenseHp / cp._defMaxHp;
+                if (integrity < 0.95 && !cp.repairDefense) {
+                    cp.repairDefense = true;
+                    aiLog(`[AI][REPAIR] т.${this.timer}: Оборона "${cp.name}" повреждена (${Math.floor(integrity*100)}%) — включён ремонт`);
+                }
+            }
+
+            // 2. Улучшение обороны каждые 3 минуты (10800 тиков)
+            if (this.timer - (cp._lastDefUpgradeAt || 0) > 10800) {
+                if (cp.defenseLevel < 3 && !cp.upgrading) {
+                    const costs = [
+                        { s: 50, c: 30, m: 40 },   // Уровень 1
+                        { s: 100, c: 60, m: 80 },  // Уровень 2
+                        { s: 150, c: 90, m: 120 }, // Уровень 3
+                    ];
+                    const cost = costs[cp.defenseLevel];
+                    
+                    if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
+                        // Сначала главный город
+                        if (cp === base || base.defenseLevel >= 1) {
+                            this.aiResources.s -= cost.s;
+                            this.aiResources.c -= cost.c;
+                            this.aiResources.m -= cost.m;
+                            
+                            const cpIndex = this.G.cps.indexOf(cp);
+                            this.G.upgradeTerritoryDefense(cpIndex);
+                            cp._lastDefUpgradeAt = this.timer;
+                            aiLog(`[AI][UPGRADE] т.${this.timer}: Город "${cp.name}" — заложено улучшение обороны до уровня ${cp.defenseLevel + 1}`);
+                        }
+                    }
+                }
+            }
+
+            // 3. Реакция на врага рядом (радиус 450) и владение 3 минуты
+            if (ownedTime > 10800) { // 3 минуты
+                const enemyNear = this.G.units.some(u => 
+                    u.faction === this.G.faction && u.hp > 0 &&
+                    dist(u.x, u.y, cp.x, cp.y) <= 450
+                );
+
+                if (enemyNear) {
+                    // Если оборона 0 уровня — строим 1 уровень
+                    if (cp.defenseLevel === 0 && !cp.upgrading) {
+                        const cost = { s: 50, c: 30, m: 40 };
+                        if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
+                            this.aiResources.s -= cost.s;
+                            this.aiResources.c -= cost.c;
+                            this.aiResources.m -= cost.m;
+                            const cpIndex = this.G.cps.indexOf(cp);
+                            this.G.upgradeTerritoryDefense(cpIndex);
+                            aiLog(`[AI][THREAT] т.${this.timer}: Город "${cp.name}" под угрозой — срочно построен 1 уровень обороны`);
+                        }
+                    }
+
+                    // Пригоняем строительную и пожарную машины
+                    const consTruck = this.G.units.find(u => 
+                        u.faction === this.G.ai && u.type === 'construction_truck' && u.hp > 0
+                    );
+                    if (consTruck) {
+                        // Ставим цель ближе к центру города
+                        const angle = Math.random() * Math.PI * 2;
+                        const r = cp.radius * 0.6;
+                        consTruck.tx = cp.x + Math.cos(angle) * r;
+                        consTruck.ty = cp.y + Math.sin(angle) * r;
+                        consTruck.garrisonedAt = null;
+                        consTruck.baseDefender = false;
+                        aiLog(`[AI][THREAT] т.${this.timer}: Строймашина отправлена в "${cp.name}"`);
+                    }
+
+                    const fireTruck = this.G.units.find(u => 
+                        u.faction === this.G.ai && u.type === 'fire_truck' && u.hp > 0
+                    );
+                    if (fireTruck) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const r = cp.radius * 0.6;
+                        fireTruck.tx = cp.x + Math.cos(angle) * r;
+                        fireTruck.ty = cp.y + Math.sin(angle) * r;
+                        fireTruck.garrisonedAt = null;
+                        fireTruck.baseDefender = false;
+                        aiLog(`[AI][THREAT] т.${this.timer}: Пожарная машина отправлена в "${cp.name}"`);
+                    }
+                }
+            }
+        }
+    }
+
     // ===== Активное расширение: юниты ИИ без приказа сами идут захватывать точки =====
-    // Раньше этих методов НЕ СУЩЕСТВОВАЛО, хотя они вызывались в updateInner().
-    // Это роняло весь цикл ИИ (TypeError: this.expandAndCapture is not a function),
-    // из-за чего бот «строил технику, но не захватывал точки».
     expandAndCapture() {
         // Каждые ~2 секунды отправляем свободных юнитов на ближайшие
         // нейтральные или вражеские точки
@@ -400,12 +617,11 @@ export class AI {
         const targets = this.G.cps.filter(c => c.owner !== this.G.ai);
         if (targets.length === 0) return;
 
+        // ===== ФИКС: машины поддержки НЕ идут захватывать точки =====
         const idle = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 &&
             u.tx === undefined && !u.aoe &&
-            u.type !== 'truck' && u.type !== 'fuel_truck' &&
-            u.type !== 'engineer' && u.type !== 'flatbed' &&
-            u.type !== 'medic_truck' // ===== ФИКС МЕДИКА: медик не идёт захватывать точки =====
+            !this.isSupportUnit(u)
         );
         if (idle.length === 0) return;
 
@@ -446,9 +662,6 @@ export class AI {
     }
 
     // ===== Гарнизон: на каждой захваченной точке — пехота (1–5 юнитов) =====
-    // Требование: на захваченных точках ИИ ставит юнитов, в первую очередь
-    // пехоту, по 1–5 штук. Танки/техника в гарнизон НЕ идут — броня работает
-    // как мобильный резерв и оборона базы (maintainBaseDefense).
     maintainGarrisons() {
         if (this.timer % 300 !== 0) return; // пересмотр раз в 5 секунд
 
@@ -538,10 +751,9 @@ export class AI {
         const base = this.getAIMainBase();
         if (!base) return;
 
-        const LOGISTICS = ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck']; // ===== ФИКС МЕДИКА =====
         const combatVehicles = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 && !isInfUnit(u) &&
-            !LOGISTICS.includes(u.type)
+            !this.isSupportUnit(u)
         );
         // 2 танка всегда + 1 машина за каждые полные 6 единиц техники (>6 -> +1)
         const extra = combatVehicles.length > 6 ? 1 : 0;
@@ -574,7 +786,7 @@ export class AI {
             // ревизии обороны и защитников базы набиралось меньше нормы).
             const candidates = this.G.units.filter(u =>
                 u.faction === this.G.ai && u.hp > 0 && !isInfUnit(u) &&
-                !LOGISTICS.includes(u.type) && !u.baseDefender &&
+                !this.isSupportUnit(u) && !u.baseDefender &&
                 !u.garrisonedAt && u.orderOrigin === undefined &&
                 !u.retreatToBase && u.hp >= (u.maxHp || 100) * 0.5
             ).sort((a, b) => {
@@ -598,9 +810,14 @@ export class AI {
                     if (u.isMortar && !u.aoe) continue;
                 }
                 u.baseDefender = true;
+                u.garrisonedAt = null; // сбрасываем гарнизон, чтобы не возвращался
+                // Заправляем, если топливо на нуле (иначе не доедет)
+                if (u.fuel !== undefined && u.fuel <= 0) {
+                    u.fuel = u.maxFuel * 0.5;
+                }
                 const idx = this.baseDefenders.length;
                 const angle = (idx / Math.max(3, desired)) * Math.PI * 2;
-                const r = base.radius * 0.5;
+                const r = base.radius * 0.8; // цель на краю города
                 u.tx = base.x + Math.cos(angle) * r;
                 u.ty = base.y + Math.sin(angle) * r;
                 this.baseDefenders.push(u);
@@ -636,7 +853,7 @@ export class AI {
             if (!onPost) {
                 const idx = this.baseDefenders.indexOf(u);
                 const angle = ((idx < 0 ? 0 : idx) / Math.max(3, desired)) * Math.PI * 2;
-                const r = base.radius * 0.5;
+                const r = base.radius * 0.8; // цель на краю города
                 u.tx = base.x + Math.cos(angle) * r;
                 u.ty = base.y + Math.sin(angle) * r;
             }
@@ -645,6 +862,44 @@ export class AI {
 
     // ===== Логистика ИИ: ремонтники / БК / топливо к нуждающейся технике =====
     manageLogistics() {
+        // Строймашина для ускорения ремонта
+        const hasConstruction = this.G.units.some(u => u.faction === this.G.ai && u.type === 'construction_truck' && u.hp > 0);
+        if (!hasConstruction) {
+            const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory' && b.hp > 0);
+            if (factory) {
+                const cost = VEHICLE_COSTS.construction_truck || { s: 60, c: 40, m: 30 };
+                if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
+                    this.spendResources(cost);
+                    const unit = createVehicle('construction_truck', this.G.ai, factory.x + 60, factory.y + 60);
+                    this.G.units.push(unit);
+                    const base = this.getAIMainBase();
+                    if (base) {
+                        unit.tx = base.x + (Math.random() - 0.5) * base.radius * 0.6;
+                        unit.ty = base.y + (Math.random() - 0.5) * base.radius * 0.6;
+                    }
+                    aiLog(`[AI][CONSTRUCTION] т.${this.timer}: произведена строймашина для ремонта обороны`);
+                }
+            }
+        }
+        // Пожарная машина
+        const hasFireTruck = this.G.units.some(u => u.faction === this.G.ai && u.type === 'fire_truck' && u.hp > 0);
+        if (!hasFireTruck) {
+            const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory' && b.hp > 0);
+            if (factory) {
+                const cost = VEHICLE_COSTS.fire_truck || { s: 50, c: 30, m: 20 };
+                if (this.aiResources.s >= cost.s && this.aiResources.c >= cost.c && this.aiResources.m >= cost.m) {
+                    this.spendResources(cost);
+                    const unit = createVehicle('fire_truck', this.G.ai, factory.x + 60, factory.y + 60);
+                    this.G.units.push(unit);
+                    const base = this.getAIMainBase();
+                    if (base) {
+                        unit.tx = base.x + (Math.random() - 0.5) * base.radius * 0.6;
+                        unit.ty = base.y + (Math.random() - 0.5) * base.radius * 0.6;
+                    }
+                    aiLog(`[AI][FIRE] т.${this.timer}: произведена пожарная машина для тушения пожаров`);
+                }
+            }
+        }
         // ЭКОНОМИКА «Дефицит»: восстановление только на главной базе —
         // полевую логистику бот не гоняет вовсе.
         if (!getModeFlags(this.G).logisticsAllowed) return;
@@ -668,6 +923,11 @@ export class AI {
                     const unit = createVehicle('medic_truck', this.G.ai,
                         factory.x + 60, factory.y + 60);
                     this.G.units.push(unit);
+                    const base = this.getAIMainBase();
+                    if (base) {
+                        unit.tx = base.x + (Math.random() - 0.5) * base.radius * 0.5;
+                        unit.ty = base.y + (Math.random() - 0.5) * base.radius * 0.5;
+                    }
                     aiLog(`[AI][MEDIC] т.${this.timer}: произведена скорая помощь (лечит пехоту)`);
                 }
             }
@@ -710,10 +970,33 @@ export class AI {
     // ===== ФИКС МЕДИКА: отправка медика к раненой пехоте =====
     // Вынесено отдельным методом, потому что sendToNeedy() намеренно
     // исключает пехоту из целей (инженер/грузовик/бензовоз лечат технику).
+    // ДОПОЛНИТЕЛЬНЫЙ ФИКС: медик едет к раненой пехоте ТОЛЬКО если в атаке
+    // (пехота с приказом движения) больше 5 юнитов. Иначе медик остаётся
+    // в главном городе и лечит раненых там.
     sendMedicToWoundedInfantry() {
         const medics = this.G.units.filter(u =>
             u.faction === this.G.ai && u.type === 'medic_truck' && u.hp > 0);
         if (medics.length === 0) return;
+
+        // Считаем, сколько пехоты идёт в атаку (имеет приказ движения).
+        const infantryInAttack = this.G.units.filter(u =>
+            u.faction === this.G.ai && u.hp > 0 && isInfUnit(u) &&
+            u.tx !== undefined
+        ).length;
+
+        // Если в атаке пехоты <= 5 — медик остаётся в главном городе.
+        if (infantryInAttack <= 5) {
+            const base = this.getAIMainBase();
+            if (base) {
+                for (const m of medics) {
+                    if (m.tx === undefined) {
+                        m.tx = base.x + (Math.random() - 0.5) * base.radius * 0.5;
+                        m.ty = base.y + (Math.random() - 0.5) * base.radius * 0.5;
+                    }
+                }
+            }
+            return;
+        }
 
         // Самая раненая пехота (по проценту HP), которой ещё можно помочь
         const wounded = this.G.units.filter(u =>
@@ -758,11 +1041,10 @@ export class AI {
     makeRetreatDecisions() {
         if (this.timer % 120 !== 0) return;
         const holdChance = this.getHoldGroundChance();
+        // ===== ФИКС: поддержка не отводится (она и так в городе) =====
         const vehicles = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 &&
-            !isInfUnit(u) && u.type !== 'truck' &&
-            u.type !== 'fuel_truck' && u.type !== 'engineer' &&
-            u.type !== 'flatbed' && u.type !== 'medic_truck' // ===== ФИКС МЕДИКА =====
+            !isInfUnit(u) && !this.isSupportUnit(u)
         );
         for (const v of vehicles) {
             // ===== ФИКС «юниты едут хрен пойми куда» =====
@@ -789,11 +1071,10 @@ export class AI {
         const base = this.getAIMainBase();
         if (!base) return;
 
+        // ===== ФИКС: поддержка не отводится (она и так в городе) =====
         const damaged = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 &&
-            !isInfUnit(u) && u.type !== 'truck' &&
-            u.type !== 'fuel_truck' && u.type !== 'engineer' &&
-            u.type !== 'flatbed' && u.type !== 'medic_truck' && // ===== ФИКС МЕДИКА =====
+            !isInfUnit(u) && !this.isSupportUnit(u) &&
             u.hp < (u.maxHp || 100) * 0.5
         );
         if (damaged.length === 0) return;
@@ -809,9 +1090,7 @@ export class AI {
                 dist(e.x, e.y, base.x, base.y) < dist(best.x, best.y, base.x, base.y) ? e : best);
             const attackers = this.G.units.filter(u =>
                 u.faction === this.G.ai && u.hp > 0 && !u.aoe &&
-                u.type !== 'truck' && u.type !== 'fuel_truck' &&
-                u.type !== 'engineer' && u.type !== 'flatbed' &&
-                u.type !== 'medic_truck' && // ===== ФИКС МЕДИКА =====
+                !this.isSupportUnit(u) &&
                 dist(u.x, u.y, base.x, base.y) < 1600
             );
             attackers.forEach(u => {
@@ -856,9 +1135,11 @@ export class AI {
         if (threatened.length === 0) return;
         
         const target = threatened[0];
+        // ===== ФИКС: поддержка не идёт в оборону точек (её место — в городе) =====
         const idle = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 && u.tx === undefined && !u.aoe &&
-            !u.retreatToBase // не дёргаем технику, которую отводим в тыл на ремонт
+            !u.retreatToBase &&
+            !this.isSupportUnit(u)
         );
         idle.slice(0, 4).forEach(u => {
             u.tx = target.x + (Math.random() - 0.5) * 60;
@@ -874,7 +1155,7 @@ export class AI {
         if (t === 'infantry') return 'infantry';
         if (t.includes('artillery')) return 'artillery';
         // ===== ФИКС МЕДИКА: медик — это тоже логистика/снабжение =====
-        if (t === 'truck' || t === 'fuel_truck' || t === 'flatbed' || t === 'medic_truck') return 'supply';
+        if (t === 'truck' || t === 'fuel_truck' || t === 'flatbed' || t === 'medic_truck' || t === 'construction_truck' || t === 'fire_truck') return 'supply';
         if (t === 'engineer') return 'engineer';
         if (t === 'niska' || t === 'javelin') return 'apc';
         // Миномётная поддержка (Hoplite, Devitt MMR) — артиллерия, не бронетехника
@@ -1260,7 +1541,7 @@ export class AI {
 
         const playerUnits = this.G.units.filter(u => u.faction === this.G.faction && u.hp > 0);
         const playerTanks = playerUnits.filter(u => !isInfUnit(u) && !u.aoe &&
-            !['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck'].includes(u.type)).length; // ===== ФИКС МЕДИКА =====
+            !this.isSupportUnit(u)).length;
         const massThreshold = playerTanks >= 10 || playerUnits.length > 30;
         if (!massThreshold) return false;
 
@@ -1481,9 +1762,8 @@ export class AI {
         return this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 && !u.aoe && u.tx === undefined &&
             !u.retreatToBase && !u.garrisonedAt &&
-            u.type !== 'truck' && u.type !== 'fuel_truck' &&
-            u.type !== 'engineer' && u.type !== 'flatbed' &&
-            u.type !== 'medic_truck' // ===== ФИКС МЕДИКА =====
+            !this.isSupportUnit(u) &&
+            !u.baseDefender
         );
     }
 
@@ -1610,19 +1890,22 @@ export class AI {
         
         if (!target) return;
         
-        // Отправляем в атаку пехоту и технику, но НЕ артиллерию:
-        // она остаётся на позиции и работает отдельно через manageArtillery
-        // (в лоб на вражескую базу она едет и гибнет — «внезапно пропадает»).
-        const aiUnits = this.G.units.filter(u => u.faction === this.G.ai && u.hp > 0 && !u.aoe &&
-            !u.baseDefender // пара танков постоянной обороны базы не уходит в наступление
+        // ===== ФИКС: в атаку идут ТОЛЬКО боевые юниты =====
+        // Поддержка (грузовик, инженер, medic, строймашина, пожарная) НЕ идёт.
+        // Артиллерия остаётся на позициях (manageArtillery).
+        // Защитники базы и гарнизон остаются на своих местах.
+        const aiUnits = this.G.units.filter(u =>
+            u.faction === this.G.ai && u.hp > 0 &&
+            !u.aoe &&
+            !u.baseDefender &&
+            !this.isSupportUnit(u) &&
+            !u.garrisonedAt
         );
         aiUnits.forEach(unit => {
             unit.tx = target.x + (Math.random() - 0.5) * 50;
             unit.ty = target.y + (Math.random() - 0.5) * 50;
-            unit.garrisonedAt = null; // атакующие освобождают гарнизонные слоты
         });
-        const arts = this.G.units.filter(u => u.faction === this.G.ai && u.aoe && u.hp > 0).length;
-        aiLog(`[AI][ATTACK] т.${this.timer}: АТАКА! ${aiUnits.length} юнитов идут на цель (${Math.round(target.x)}, ${Math.round(target.y)}) "${target.name || ''}". Артиллерия (${arts} шт.) остаётся на позициях.`);
+        aiLog(`[AI][ATTACK] т.${this.timer}: АТАКА! ${aiUnits.length} боевых юнитов идут на "${target.name || ''}". Поддержка остаётся в городах.`);
     }
     
     manageArtillery() {
@@ -1741,6 +2024,7 @@ export class AI {
             u.hp > 0 && 
             u.tx === undefined && // Не имеет цели
             u !== artillery &&
+            !this.isSupportUnit(u) &&
             (isInfUnit(u) || u.type === 'devitt' || u.type === 'hatchet' || 
              u.type === 'gallagher_highwayman' || u.type === 'falchion' || 
              u.type === 'niska' || u.type === 'javelin')

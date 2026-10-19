@@ -114,6 +114,9 @@ medic_colonist:   { name: 'Медик', icon: '⚕️', stats: 'HP:25 DMG:4 Ле
     engineer: { name: 'Инженер', icon: '🔧', stats: 'HP:120 SPD:1.1 Без оружия Ремонт в радиусе 100 (запас 500)', cost: VEHICLE_COSTS.engineer },
     flatbed: { name: 'Flatbed', icon: '🚛', stats: 'HP:150 SPD:1.0 Без оружия Снаряды для артиллерии (запас 300)', cost: VEHICLE_COSTS.flatbed },
     medic_truck: { name: 'Скорая помощь', icon: '🚛', stats: 'HP:150 SPD:1.0  Машина скорой помощи', cost: VEHICLE_COSTS.medic_truck },
+    construction_truck: { name: 'Строймашина', icon: '🏗️', stats: 'HP:250 Без оружия Ускоряет ремонт обороны в городе x2 (x3 при 2-х). Запас: 400', cost: { s: 60, c: 40, m: 30, buildTime: 20 } },
+    fire_truck: { name: 'Пожарная', icon: '🚒', stats: 'HP:180 Без оружия Тушит пожары в городе. Запас воды: 300', cost: { s: 50, c: 30, m: 20, buildTime: 15 } },
+
 };
 
 // Defense upgrade info
@@ -763,7 +766,7 @@ const TAB_TYPES = {
                'medic_varden', 'medic_colonist', ...FACTION_INFANTRY_TYPES],
     vehicles: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw', 'niska', 'spatha', 'talos', 'noble_widow', 'niska_blinder',
                'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin'],
-    supply:   ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck'],
+    supply: ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck', 'construction_truck', 'fire_truck'],
     // Поддержка: ствольная артиллерия + миномётные машины (Hoplite, Devitt MMR)
     support:  ['warden_artillery120', 'warden_artillery150','colonial_artillery120','colonial_artillery150', 'hoplite', 'devitt_mmr', 'god_loader'],
 };

@@ -18,7 +18,7 @@ export class Vehicle {
         this.gameTime = 0; // Для расчёта перезарядки
         this.direction = 0; // Направление в радианах (0 = вправо)
         this.lastHitDmg = 0;
-        
+        this.game = null;
         this.hp = 100;
         this.maxHp = 100;
         this.dmg = 10;
@@ -39,22 +39,15 @@ export class Vehicle {
     
 
 
-   takeDamage(dmg, src = null, game = null) {
-
+    takeDamage(dmg, src = null, game = null) {
         const d = Number(dmg);
-        if (!Number.isFinite(d)) return;
+        if (!Number.isFinite(d) || d <= 0) return;
+
         let effective = d;
-        // ===== УНИКАЛЬНАЯ МЕХАНИКА «Talos» (armorPierce): бронепробитие =====
-        // Talos наносит урон с учётом брони ЦЕЛИ (своей armorPierce), а не
-        // вычитанием собственной брони: чем НИЖЕ броня цели — тем БОЛЬШЕ
-        // коэффициент урона (прогрессионно). Порог = armorPierce (70):
-        //   броня >= 70          → коэффициент 0.5 (урон вдвое слабее)
-        //   35 <= броня < 70     → коэффициент 1.0
-        //   0 <= броня < 35      → от 1.0 до 3.0 прогрессивно (броня 0 → x3)
+
         if (src && src.armorPierce) {
             const pa = Number(src.armorPierce);
-            const srcArmor = Number(this.armor);
-            const tArmor = Math.max(0, Number.isFinite(srcArmor) ? srcArmor : 0);
+            const tArmor = Math.max(0, Number(this.armor) || 0);
             const half = pa / 2; // 35 при пороге 70
             let mult;
             if (tArmor >= pa) mult = 0.5;
@@ -62,18 +55,21 @@ export class Vehicle {
             else mult = 1 + (half - tArmor) / half; // 1 → 3 прогрессивно
             effective = d * mult;
         }
-        const a2 = Number(this.armor);
-        this.hp -= Math.max(1, effective - (Number.isFinite(a2) ? a2 : 0));
-         let finalDamage = Math.max(1, effective - (Number.isFinite(a2) ? a2 : 0));
-        
-        if (game && game.getCityDefenseBonus) {
-            const bonus = game.getCityDefenseBonus(this);
+
+        // ===== ВЫЧИТАНИЕ БРОНИ =====
+        // Урон после брони (минимум 1, чтобы даже слабый выстрел наносил урон)
+        const armor = Number(this.armor) || 0;
+        let finalDamage = Math.max(1, effective - armor);
+        const G = game || this.game;
+        if (G && typeof G.getCityDefenseBonus === 'function') {
+            const bonus = G.getCityDefenseBonus(this);
             if (bonus > 0) {
                 finalDamage = Math.max(1, Math.floor(finalDamage * (1 - bonus)));
             }
         }
-        
         this.hp -= finalDamage;
+
+        // Запоминаем последний урон (для эффекта отрыва башни)
         this.lastHitDmg = finalDamage;
     }
     
@@ -1039,6 +1035,70 @@ export class Engineer extends Vehicle {
     }
 }
 
+// ===== СТРОИТЕЛЬНАЯ ТЕХНИКА (Универсальная для обеих фракций) =====
+export class ConstructionTruck extends Vehicle {
+    constructor(faction, x, y) {
+        super('construction_truck', faction, x, y);
+        this.hp = this.maxHp = 250;
+        this.dmg = 0;
+        this.range = 0;
+        this.spd = 1.1;
+        this.cd = 0;
+        this.size = 26;
+        this.armor = 10;
+        this.label = 'Строймашина';
+        this.tracked = false;
+        
+        // Логистика: запас материалов для ремонта
+        this.cargoType = 'construction';
+        this.cargoCapacity = 400;
+        this.currentCargo = 400;
+    }
+    
+    // Пополнение запаса на базе
+    replenishAtBase(gameTime) {
+        if (!baseRegenTick(this, gameTime)) return;
+        if (this.currentCargo < this.cargoCapacity) {
+            this.currentCargo = Math.min(
+                this.cargoCapacity,
+                this.currentCargo + this.cargoCapacity * (SUPPLY_SYSTEM.baseRegenPercent ?? 0.01) * 2
+            );
+        }
+    }
+}
+
+// ===== ПОЖАРНАЯ МАШИНА (Универсальная для обеих фракций) =====
+export class FireTruck extends Vehicle {
+    constructor(faction, x, y) {
+        super('fire_truck', faction, x, y);
+        this.hp = this.maxHp = 180;
+        this.dmg = 0;
+        this.range = 0;
+        this.spd = 1.4;
+        this.cd = 0;
+        this.size = 26;
+        this.armor = 5;
+        this.label = 'Пожарная';
+        this.tracked = false;
+        
+        // Запас воды (условный)
+        this.cargoType = 'water';
+        this.cargoCapacity = 300;
+        this.currentCargo = 300;
+        this.healRange = 150; // Радиус действия в городе
+    }
+    
+    replenishAtBase(gameTime) {
+        if (!baseRegenTick(this, gameTime)) return;
+        if (this.currentCargo < this.cargoCapacity) {
+            this.currentCargo = Math.min(
+                this.cargoCapacity,
+                this.currentCargo + this.cargoCapacity * (SUPPLY_SYSTEM.baseRegenPercent ?? 0.01) * 3
+            );
+        }
+    }
+}
+
 // ===== FLATBED TRUCK FOR ARTILLERY (общий для обеих фракций) =====
 export class Flatbed extends Vehicle {
     constructor(faction, x, y) {
@@ -1160,6 +1220,8 @@ export function createVehicle(type, faction, x, y) {
         engineer: Engineer,
         flatbed: Flatbed,
         medic_truck: MedicTruck,
+        construction_truck: ConstructionTruck,
+        fire_truck: FireTruck,
     };
     const creator = map[type];
     if (!creator) return new Vehicle(type, faction, x, y);
@@ -1168,8 +1230,8 @@ export function createVehicle(type, faction, x, y) {
 
 // Доступная техника по фракциям
 export const FACTION_VEHICLES = {
-    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'noble_widow', 'gallagher_highwayman', 'niska', 'warden_artillery150', 'warden_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'gallagher_outlaw','niska_blinder', 'medic_truck'],
-    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin', 'hoplite', 'colonial_artillery150', 'colonial_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha', 'medic_truck'],
+    wardens: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand', 'noble_widow', 'gallagher_highwayman', 'niska', 'warden_artillery150', 'warden_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'gallagher_outlaw','niska_blinder', 'medic_truck', 'construction_truck', 'fire_truck'],
+    colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin', 'hoplite', 'colonial_artillery150', 'colonial_artillery120', 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha', 'medic_truck', 'god_loader', 'construction_truck', 'fire_truck'],
 };
 
 // ===== Помощники по видам пехоты =====
@@ -1200,7 +1262,7 @@ export function isInfUnit(u) {
 }
 
 // Логистика (не считается боевой техникой ни у игрока, ни у ИИ)
-export const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck'];
+export const LOGISTICS_TYPES = ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck', 'construction_truck', 'fire_truck'];
 export function isLogisticsUnit(u) {
     return !!u && LOGISTICS_TYPES.includes(u.type);
 }

@@ -3439,6 +3439,100 @@ if (u.type === 'niska_blinder') {
     ctx.lineWidth = 1;
     ctx.strokeRect(-sz * 0.46, sz * 0.06, sz * 0.12, sz * 0.1);
 }
+        // ===== СТРОИТЕЛЬНАЯ МАШИНА (Кран-манипулятор) =====
+        if (u.type === 'construction_truck') {
+            // Кабина
+            ctx.fillStyle = '#f8fafc'; // Белая кабина
+            ctx.fillRect(-sz * 0.45, -sz * 0.25, sz * 0.35, sz * 0.5);
+            // Лобовое стекло
+            ctx.fillStyle = '#93c5fd';
+            ctx.fillRect(-sz * 0.35, -sz * 0.2, sz * 0.15, sz * 0.4);
+            
+            // Кузов
+            ctx.fillStyle = '#6b7280'; // Серый кузов
+            ctx.fillRect(-sz * 0.1, -sz * 0.3, sz * 0.55, sz * 0.6);
+            ctx.strokeStyle = '#4b5563';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(-sz * 0.1, -sz * 0.3, sz * 0.55, sz * 0.6);
+            
+            // Красный кран
+            ctx.fillStyle = '#dc2626';
+            // Основание крана
+            ctx.fillRect(-sz * 0.15, -sz * 0.1, sz * 0.1, sz * 0.2);
+            // Стрела крана (повернута вперед)
+            ctx.save();
+            ctx.translate(-sz * 0.1, 0);
+            ctx.rotate(Math.PI / 4); // Наклон
+            ctx.fillRect(0, -sz * 0.04, sz * 0.4, sz * 0.08);
+            ctx.restore();
+            // Трос/крюк (просто линия)
+            ctx.strokeStyle = '#111';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(-sz * 0.1 + Math.cos(Math.PI/4)*sz*0.4, -Math.sin(Math.PI/4)*sz*0.4);
+            ctx.lineTo(-sz * 0.1 + Math.cos(Math.PI/4)*sz*0.4, Math.sin(Math.PI/4)*sz*0.4);
+            ctx.stroke();
+
+            // Колёса
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(-sz * 0.3, sz * 0.3, sz * 0.12, 0, Math.PI * 2);
+            ctx.arc(sz * 0.3, sz * 0.3, sz * 0.12, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Полоска запаса
+            const cargoPct = u.currentCargo / u.cargoCapacity;
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(-sz * 0.1, sz * 0.35, sz * 0.55 * cargoPct, 3);
+        }
+
+        // ===== ПОЖАРНАЯ МАШИНА (Красный ретро-грузовик) =====
+        if (u.type === 'fire_truck') {
+            // Кабина (красная, классическая)
+            ctx.fillStyle = '#dc2626';
+            ctx.fillRect(-sz * 0.45, -sz * 0.25, sz * 0.35, sz * 0.5);
+            // Хромированная решетка
+            ctx.fillStyle = '#d1d5db';
+            ctx.fillRect(-sz * 0.48, -sz * 0.15, sz * 0.05, sz * 0.3);
+            // Лобовое стекло
+            ctx.fillStyle = '#93c5fd';
+            ctx.fillRect(-sz * 0.35, -sz * 0.2, sz * 0.1, sz * 0.4);
+            
+            // Кузов (красный)
+            ctx.fillStyle = '#dc2626';
+            ctx.fillRect(-sz * 0.1, -sz * 0.3, sz * 0.55, sz * 0.6);
+            ctx.strokeStyle = '#991b1b';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(-sz * 0.1, -sz * 0.3, sz * 0.55, sz * 0.6);
+            
+            // Скатки рукавов (черные цилиндры) на крыше
+            ctx.fillStyle = '#111';
+            ctx.fillRect(-sz * 0.05, -sz * 0.25, sz * 0.45, sz * 0.06);
+            ctx.fillRect(-sz * 0.05, sz * 0.19, sz * 0.45, sz * 0.06);
+            
+            // Мигалка (синяя/красная)
+            ctx.fillStyle = '#3b82f6';
+            ctx.beginPath();
+            ctx.arc(-sz * 0.2, -sz * 0.3, sz * 0.04, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(-sz * 0.2, sz * 0.3, sz * 0.04, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Колёса
+            ctx.fillStyle = '#1a1a1a';
+            ctx.beginPath();
+            ctx.arc(-sz * 0.3, sz * 0.3, sz * 0.12, 0, Math.PI * 2);
+            ctx.arc(sz * 0.3, sz * 0.3, sz * 0.12, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Полоска воды
+            const waterPct = u.currentCargo / u.cargoCapacity;
+            ctx.fillStyle = '#3b82f6';
+            ctx.fillRect(-sz * 0.1, sz * 0.35, sz * 0.55 * waterPct, 3);
+        }
+
 // ===== JAVELIN (американский M3 Half-track) =====
 if (u.type === 'javelin') {
     // ===== ГУСЕНИЦЫ (полугусеничный — гусеницы сзади) =====
