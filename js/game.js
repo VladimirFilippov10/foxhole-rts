@@ -95,6 +95,121 @@ export class Game {
         }
         
         this.aiController = new AI(this);
+        this.initCityHouses();
+    }
+    // ===== ДОМА В ГОРОДАХ =====
+    // Для каждой точки захвата создаём 8–14 «домов» внутри радиуса.
+    // Не имеют коллизии, горят и сгорают при уроне.
+    initCityHouses() {
+        const HOUSE_BURN_DURATION = 60 * 120; // 2 минуты в тиках
+        for (const cp of this.cps) {
+            if (cp.houses && cp.houses.length > 0) continue; // уже инициализированы
+            const houses = [];
+            const n = 8 + Math.floor(Math.random() * 7); // 8..14 домов
+            for (let i = 0; i < n; i++) {
+                const a = (i / n) * Math.PI * 2 + Math.random() * 0.3;
+                const r = cp.radius * (0.25 + Math.random() * 0.55);
+                houses.push({
+                    x: cp.x + Math.cos(a) * r,
+                    y: cp.y + Math.sin(a) * r,
+                    size: 10 + Math.random() * 8,
+                    angle: Math.random() * Math.PI * 2,
+                    hp: 100, maxHp: 100,
+                    burning: false,
+                    burnStart: 0,
+                    destroyed: false,
+                    seed: Math.random() * Math.PI * 2,
+                });
+            }
+            cp.houses = houses;
+            cp.burnDuration = HOUSE_BURN_DURATION;
+            cp.repairDefense = cp.repairDefense || false;
+            cp._lastRepairAt = 0;
+        }
+    }
+
+        // ===== УРОН ДОМАМ ГОРОДА =====
+    // Наносит урон ближайшим 1–3 домам. Когда hp <= 50% — дом загорается.
+    // Когда hp <= 0 — обуглен, но продолжает гореть до burnDuration, затем исчезает.
+    damageCityHouses(cp, dmg, fromX, fromY) {
+        if (!cp || !cp.houses || cp.houses.length === 0) return;
+        const d = Number(dmg);
+        if (!Number.isFinite(d) || d <= 0) return;
+        const count = 1 + Math.floor(Math.random() * 3);
+        const cx = Number.isFinite(fromX) ? fromX : cp.x;
+        const cy = Number.isFinite(fromY) ? fromY : cp.y;
+        const sorted = cp.houses
+            .filter(h => !h.destroyed)
+            .sort((a, b) => dist(a.x, a.y, cx, cy) - dist(b.x, b.y, cx, cy));
+        for (let i = 0; i < count && i < sorted.length; i++) {
+            const h = sorted[i];
+            h.hp = Math.max(0, h.hp - d);
+            if (!h.burning && h.hp <= h.maxHp * 0.5) {
+                h.burning = true;
+                h.burnStart = this.time;
+            }
+            if (h.hp <= 0) {
+                h.destroyed = true;
+                if (!h.burning) {
+                    h.burning = true;
+                    h.burnStart = this.time;
+                }
+            }
+        }
+    }
+
+    // ===== ОБНОВЛЕНИЕ ГОРЕНИЯ ДОМОВ =====
+    // Горящий/разрушенный дом исчезает через cp.burnDuration тиков.
+    updateCityFires() {
+        for (const cp of this.cps) {
+            if (!cp.houses) continue;
+            const burnDur = cp.burnDuration || 7200;
+            cp.houses = cp.houses.filter(h => {
+                if (!h.burning) return true;
+                const elapsed = this.time - h.burnStart;
+                return elapsed < burnDur;
+            });
+        }
+    }
+
+        // ===== СТОИМОСТЬ РЕМОНТА 1% ОБОРОНЫ =====
+    // Уровень 1 — 3 supplies, уровень 2 — 5, уровень 3 — 10.
+    getRepairCostPer1Pct(level) {
+        const lvl = Number(level) || 0;
+        if (lvl <= 1) return 3;
+        if (lvl === 2) return 5;
+        return 10;
+    }
+
+        // ===== РЕМОНТ ОБОРОНЫ ГОРОДА =====
+    // Пока cp.repairDefense === true, раз в REPAIR_INTERVAL тиков:
+    //  - списывается стоимость 1% (по уровню);
+    //  - defenseHp += 1% от максимума.
+    updateDefenseRepair() {
+        for (const cp of this.cps) {
+            if (!cp.repairDefense) continue;
+            if (cp.owner !== this.faction) { cp.repairDefense = false; continue; }
+            this.refreshCityDefenseHp(cp);
+            const maxHp = cp._defMaxHp || 0;
+            if (maxHp <= 0) { cp.repairDefense = false; continue; }
+            if (cp.defenseHp >= maxHp) { cp.repairDefense = false; continue; }
+            if (this.time - (cp._lastRepairAt || 0) < this.REPAIR_INTERVAL) continue;
+            cp._lastRepairAt = this.time;
+
+            const cost = this.getRepairCostPer1Pct(cp.defenseLevel || 0);
+            if (this.res.s < cost) {
+                this.notify?.(`Не хватает материалов для ремонта обороны (${cp.name})`);
+                continue;
+            }
+            this.res.s -= cost;
+            const onePct = Math.max(1, Math.floor(maxHp * 0.01));
+            cp.defenseHp = Math.min(maxHp, cp.defenseHp + onePct);
+
+            if (cp.defenseHp >= maxHp) {
+                cp.repairDefense = false;
+                this.notify?.(`${cp.name}: оборона полностью восстановлена!`);
+            }
+        }
     }
 
     // ===== ТРУП: создаётся при смерти юнита =====
@@ -251,6 +366,7 @@ spawnCorpse(u) {
     // damageCityDefense) вычитается из cp.defenseHp, при 0 оборона считается
     // сломленной: укрепления визуально разрушены, стрельба обороны
     // прекращается, въезд техники и захват становятся возможны.
+    REPAIR_INTERVAL = 180;
     DEFENSE_INTEGRITY_MULT = 3;
 
     getCityDefenseMaxIntegrity(cp) {
