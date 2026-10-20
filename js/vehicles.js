@@ -466,6 +466,7 @@ export class Devitt extends Vehicle {
     }
 }
 
+
 // Devitt MMR — миномёт (поддержка)
 export class DevittMMR extends Vehicle {
     constructor(faction, x, y) {
@@ -490,7 +491,33 @@ export class DevittMMR extends Vehicle {
         // Поддержка: видимость 100 (фикс), обнаружение обычное
         this.visionBase = 100;
         this.detectRange = Math.round(this.range * 0.8); // 192
-        this.stealth = 40;
+        this.stealth = 35;
+    }
+}
+
+export class Nona extends Vehicle {
+    constructor(faction, x, y) {
+        super('nona', faction, x, y);
+        this.hp = this.maxHp = 120;
+        this.dmg = 75;
+        this.range = 350;
+        this.minRange = 50;
+        this.spd = 1.2;
+        this.offRoadSpd = 1.0;
+        this.cd = 300;
+        this.size = 22;
+        this.armor = 25;
+        this.label = 'Devitt MMR';
+        this.tracked = true;
+        this.crew = 3;
+        this.isMortar = true;
+        this.aoe = true;
+        this.aoeRadius = 50;
+        this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.8);
+        this.ammo = this.maxAmmo;
+        this.visionBase = 150;
+        this.detectRange = 145;
+        this.stealth = 50;
     }
 }
 
