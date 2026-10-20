@@ -202,7 +202,110 @@ G.buildings.forEach(b => {
         G.debris.forEach(d => {
             const x = d.x - cam.x;
             const y = d.y - cam.y;
-            
+                        // ===== ГОРЯЩИЙ ЯЩИК =====
+            if (d.type === 'crate') {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(d.angle);
+
+                // Тень
+                ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                ctx.fillRect(-8 + 2, -8 + 2, 16, 16);
+
+                // Сам ящик (дерево)
+                ctx.fillStyle = '#8b4513';
+                ctx.fillRect(-8, -8, 16, 16);
+                ctx.strokeStyle = '#3a1a05';
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(-8, -8, 16, 16);
+
+                // Крестовина (X)
+                ctx.strokeStyle = '#5a2a0a';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(-8, -8); ctx.lineTo(8, 8);
+                ctx.moveTo(8, -8);  ctx.lineTo(-8, 8);
+                ctx.stroke();
+
+                // Огонь сверху (мигает)
+                const flicker = 0.6 + 0.4 * Math.abs(Math.sin(performance.now() / 100 + d.x));
+                const fireH = 8 * flicker;
+                ctx.fillStyle = Math.random() > 0.5 ? '#fde047' : '#f97316';
+                ctx.beginPath();
+                ctx.moveTo(0, -8);
+                ctx.quadraticCurveTo(4, -8 - fireH * 0.5, 0, -8 - fireH);
+                ctx.quadraticCurveTo(-4, -8 - fireH * 0.5, 0, -8);
+                ctx.fill();
+
+                // Красная подсветка-«фитиль» когда скоро рванёт
+                if (d.fuse < 30) {
+                    ctx.fillStyle = `rgba(255, 0, 0, ${0.3 + 0.4 * Math.sin(performance.now() / 50)})`;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 14, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+
+            // ===== ВОДЯНАЯ ЛУЖА =====
+            if (d.type === 'water_puddle') {
+                const alpha = Math.min(1, d.life / d.maxLife) * 0.5;
+                const g = ctx.createRadialGradient(x, y, 0, x, y, d.radius);
+                g.addColorStop(0, `rgba(96, 165, 250, ${alpha})`);
+                g.addColorStop(0.6, `rgba(59, 130, 246, ${alpha * 0.7})`);
+                g.addColorStop(1, 'rgba(59, 130, 246, 0)');
+                ctx.fillStyle = g;
+                ctx.beginPath();
+                ctx.ellipse(x, y, d.radius, d.radius * 0.65, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Блики на воде
+                ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.4})`;
+                ctx.lineWidth = 1;
+                for (let i = 0; i < 2; i++) {
+                    const phase = performance.now() / 400 + i;
+                    const rr = d.radius * 0.4;
+                    ctx.beginPath();
+                    ctx.arc(x + Math.cos(phase) * rr, y + Math.sin(phase * 0.7) * rr * 0.5, 2, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+
+            // ===== ПОЛОВИНКА ФЛЭТБЕДА =====
+            if (d.type === 'flatbed_half') {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(d.angle);
+
+                const sz = d.size;
+                // Тень
+                ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                ctx.fillRect(-sz * 0.3 + 2, -sz * 0.25 + 2, sz * 0.55, sz * 0.5);
+
+                // Половина кузова (тёмный металл)
+                ctx.fillStyle = '#2a2a2a';
+                ctx.fillRect(-sz * 0.3, -sz * 0.25, sz * 0.55, sz * 0.5);
+                ctx.strokeStyle = '#111';
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(-sz * 0.3, -sz * 0.25, sz * 0.55, sz * 0.5);
+
+                // Снаряды торчат из обломков
+                ctx.fillStyle = '#fbbf24';
+                for (let i = 0; i < 2; i++) {
+                    ctx.fillRect(-sz * 0.15 + i * sz * 0.15, -sz * 0.1, sz * 0.06, sz * 0.25);
+                }
+
+                // Огонь на обломке
+                if (d.life > 200) {
+                    ctx.fillStyle = Math.random() > 0.5 ? '#f97316' : '#fde047';
+                    ctx.beginPath();
+                    ctx.arc(0, -sz * 0.15, sz * 0.15, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
             // 1. Взрыв (расширяющийся круг)
             if (d.type === 'explosion') {
                 const p = d.life / d.maxLife; // 1 -> 0

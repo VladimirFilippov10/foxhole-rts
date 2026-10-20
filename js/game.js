@@ -255,6 +255,132 @@ export class Game {
             lifetime,
         });
     }
+        // ===== СПЕЦ-ЭФФЕКТЫ СМЕРТИ ТЕХНИКИ СНАБЖЕНИЯ =====
+    _spawnTruckExplosion(u) {
+        // Обычный грузовик: взрывается и разбрасывает 4-6 горящих ящиков.
+        // Каждый ящик через 1.5-3 секунды взрывается (AoE урон).
+        this.debris.push({ type: 'explosion', x: u.x, y: u.y, life: 40, maxLife: 40 });
+        this.addParticles(u.x, u.y, '#ff8800', 12);
+        this.addParticles(u.x, u.y, '#333333', 8);
+
+        const count = 4 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < count; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const speed = 1.5 + Math.random() * 2;
+            this.debris.push({
+                type: 'crate',
+                x: u.x + (Math.random() - 0.5) * 20,
+                y: u.y + (Math.random() - 0.5) * 20,
+                vx: Math.cos(a) * speed,
+                vy: Math.sin(a) * speed,
+                angle: Math.random() * Math.PI * 2,
+                rot: (Math.random() - 0.5) * 0.3,
+                // Ящик взрывается через 1.5-3 сек (90-180 тиков)
+                fuse: 90 + Math.floor(Math.random() * 90),
+                life: 999999,
+                maxLife: 999999,
+                exploded: false,
+            });
+        }
+    }
+
+    _spawnFuelExplosion(u) {
+        // Бензовоз: ОГРОМНЫЙ взрыв + разлёт горящих обломков + вторичные взрывы.
+        this.debris.push({ type: 'explosion', x: u.x, y: u.y, life: 90, maxLife: 90 });
+        this.addParticles(u.x, u.y, '#ff4500', 30);
+        this.addParticles(u.x, u.y, '#ffcc00', 25);
+        this.addParticles(u.x, u.y, '#222222', 20);
+
+        // Урон по площади всем вокруг (включая союзников — это же бензовоз)
+        const blastRadius = 120;
+        for (const other of this.units) {
+            if (other.hp <= 0) continue;
+            const d = dist(u.x, u.y, other.x, other.y);
+            if (d <= blastRadius) {
+                const mult = 1 - (d / blastRadius);
+                other.takeDamage(Math.floor(80 * mult), null, this);
+            }
+        }
+
+        // Разлёт горящих обломков
+        const count = 12 + Math.floor(Math.random() * 6);
+        for (let i = 0; i < count; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const speed = 2 + Math.random() * 4;
+            this.debris.push({
+                type: 'fire_debris',
+                x: u.x, y: u.y,
+                vx: Math.cos(a) * speed,
+                vy: Math.sin(a) * speed,
+                angle: Math.random() * Math.PI * 2,
+                rot: (Math.random() - 0.5) * 0.3,
+                life: 300 + Math.floor(Math.random() * 300),
+                maxLife: 600,
+                size: 2 + Math.random() * 4,
+            });
+        }
+
+        // 2–3 вторичных взрыва с задержкой (эхо пламени)
+        for (let i = 0; i < 2 + Math.floor(Math.random() * 2); i++) {
+            const a = Math.random() * Math.PI * 2;
+            const r = 20 + Math.random() * 40;
+            const delay = 15 + Math.floor(Math.random() * 30);
+            setTimeout(() => {
+                this.debris.push({
+                    type: 'explosion',
+                    x: u.x + Math.cos(a) * r,
+                    y: u.y + Math.sin(a) * r,
+                    life: 30, maxLife: 30,
+                });
+                this.addParticles(u.x + Math.cos(a) * r, u.y + Math.sin(a) * r, '#ff6600', 15);
+            }, delay * 16);
+        }
+    }
+
+    _spawnFireTruckPuddle(u) {
+        // Пожарная: взрыв + разлив воды под ней.
+        this.debris.push({ type: 'explosion', x: u.x, y: u.y, life: 30, maxLife: 30 });
+        this.addParticles(u.x, u.y, '#ff8800', 10);
+        this.addParticles(u.x, u.y, '#3b82f6', 10);
+
+        // Лужа воды (несколько кругов с рандомным разбросом)
+        for (let i = 0; i < 5; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const r = Math.random() * 40;
+            this.debris.push({
+                type: 'water_puddle',
+                x: u.x + Math.cos(a) * r,
+                y: u.y + Math.sin(a) * r,
+                radius: 25 + Math.random() * 20,
+                life: 1800, maxLife: 1800,  // 30 сек
+            });
+        }
+    }
+
+    _spawnFlatbedBreakup(u) {
+        // Флэтбед: мощный взрыв + разрыв на две части.
+        this.debris.push({ type: 'explosion', x: u.x, y: u.y, life: 60, maxLife: 60 });
+        this.addParticles(u.x, u.y, '#ff4400', 25);
+        this.addParticles(u.x, u.y, '#ffcc00', 15);
+        this.addParticles(u.x, u.y, '#333333', 12);
+
+        // Две "половинки" кузова, разлетающиеся в стороны
+        const baseAng = u.direction || 0;
+        for (const side of [-1, 1]) {
+            this.debris.push({
+                type: 'flatbed_half',
+                x: u.x,
+                y: u.y,
+                vx: Math.cos(baseAng + side * Math.PI / 2) * 3,
+                vy: Math.sin(baseAng + side * Math.PI / 2) * 3,
+                angle: baseAng,
+                rot: side * 0.08,
+                life: 999999, maxLife: 999999,
+                faction: u.faction,
+                size: u.size,
+            });
+        }
+    }
 
     update() {
         if (this.over) return;
@@ -343,7 +469,17 @@ export class Game {
                 this.addParticles(u.x, u.y, '#ff0000', 20);
                 this.addParticles(u.x, u.y, '#f97316', 20);
             }
-
+            if (!isInfUnit(u)) {
+                if (u.type === 'truck') {
+                    this._spawnTruckExplosion(u);
+                } else if (u.type === 'fuel_truck') {
+                    this._spawnFuelExplosion(u);
+                } else if (u.type === 'fire_truck') {
+                    this._spawnFireTruckPuddle(u);
+                } else if (u.type === 'flatbed') {
+                    this._spawnFlatbedBreakup(u);
+                }
+            }
             if (!u._corpseSpawned) {
                 this.spawnCorpse(u);
                 u._corpseSpawned = true;
@@ -369,6 +505,37 @@ export class Game {
         });
 
         this.debris = this.debris.filter(d => {
+                        // ===== ГОРЯЩИЙ ЯЩИК (грузовик) =====
+            if (d.type === 'crate') {
+                d.x += d.vx;
+                d.y += d.vy;
+                d.vx *= 0.94;
+                d.vy *= 0.94;
+                d.angle += d.rot;
+                d.fuse--;
+                if (d.fuse <= 0 && !d.exploded) {
+                    d.exploded = true;
+                    // Взрыв ящика: AoE урон + визуал
+                    this.debris.push({
+                        type: 'explosion',
+                        x: d.x, y: d.y,
+                        life: 25, maxLife: 25,
+                    });
+                    this.addParticles(d.x, d.y, '#ff4400', 10);
+                    this.addParticles(d.x, d.y, '#ffcc00', 6);
+                    const r = 50;
+                    for (const e of this.units) {
+                        if (e.hp <= 0) continue;
+                        const dd = dist(d.x, d.y, e.x, e.y);
+                        if (dd <= r) {
+                            const m = 1 - (dd / r);
+                            e.takeDamage(Math.floor(30 * m), null, this);
+                        }
+                    }
+                    return false;
+                }
+                return true;
+            }
             if (Math.abs(d.vx) > 0.01 || Math.abs(d.vy) > 0.01) {
                 d.x += d.vx;
                 d.y += d.vy;
@@ -1447,10 +1614,10 @@ export class Game {
         this.unitLimits.logistics = 10;
 
         this.aiUnitLimits = {
-            infantry: 20 + aiPoints * 3,
-            vehicles: 10 + aiPoints * 2,
+            infantry: 30 + aiPoints * 3,
+            vehicles: 15 + aiPoints * 2,
             combatVehicles: 10 + aiPoints * 2,
-            logistics: 7,
+            logistics: 15,
         };
     }
 
