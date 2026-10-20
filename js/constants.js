@@ -233,7 +233,7 @@ export const VEHICLE_COSTS = {
     rifleman: { s: 10, c: 0, m: 0, buildTime: 5 },      // то же, новое имя
     mg_gunner: { s: 25, c: 2, m: 2, buildTime: 10 },     // пулемётчик — оборона
     grenadier: { s: 25, c: 3, m: 2, buildTime: 20 },    // гранатомётчик — наступление
-    sniper: { s: 30, c: 10, m: 5, buildTime: 25 },       // снайпер — дальний бой
+    sniper: { s: 30, c: 5, m: 5, buildTime: 25 },       // снайпер — дальний бой
     
     // Wardens tanks
     king_spire: { s: 40, c: 30, m: 20, buildTime: 25 }, // Разведывательный танк
@@ -244,9 +244,9 @@ export const VEHICLE_COSTS = {
     gallagher_outlaw: {s: 50, c: 80, m: 20, buildTime: 30},
     noble_widow: {s: 60, c: 120, m: 50, buildTime: 55},
     niska: { s: 40, c: 60, m: 10, buildTime: 15 }, // БТР niska_blinder
-    niska_blinder: { s: 50, c: 100, m: 25, buildTime: 25 },
-    warden_artillery150: { s: 55, c: 40, m: 30, buildTime: 40 }, // Артиллерия
-    warden_artillery120: { s: 55, c: 40, m: 10, buildTime: 35 }, // Артиллерия
+    niska_blinder: { s: 50, c: 100, m: 20, buildTime: 25 },
+    warden_artillery150: { s: 55, c: 40, m: 25, buildTime: 40 }, // Артиллерия
+    warden_artillery120: { s: 55, c: 40, m: 10, buildTime: 30 }, // Артиллерия
     
     // Colonials tanks
     hatchet: { s: 30, c: 60, m: 25, buildTime: 25 }, // Легкий танк (обновлен)
@@ -264,20 +264,20 @@ export const VEHICLE_COSTS = {
 
     // Логистика
     truck: { s: 25, c: 15, m: 5, buildTime: 10 }, // Грузовик - перевозит БК
-    fuel_truck: { s: 30, c: 20, m: 5, buildTime: 12 }, // Бензовоз - перевозит топливо
+    fuel_truck: { s: 35, c: 15, m: 5, buildTime: 10 }, // Бензовоз - перевозит топливо
     engineer: { s: 20, c: 35, m: 10, buildTime: 20 }, // Инженерная машина - ремонтирует
     flatbed: { s: 35, c: 25, m: 10, buildTime: 15 }, // Flatbed truck
     medic_truck: {s: 50, c:20, m: 5, buildTime: 25},
 
     assualt_varden:  { s: 20, c: 5, m: 2, buildTime: 12 },  // Штурмовик
-    assualt_colonist: { s: 20, c: 10, m: 4, buildTime: 12 }, // Штурмовик (тот же тип)
-    smuggler_varden: { s: 35, c: 20, m: 5, buildTime: 18 }, // Контрабандист
-    poacher_colonist:{ s: 40, c: 10, m: 10, buildTime: 18 }, // Браконьер
+    assualt_colonist: { s: 20, c: 10, m: 2, buildTime: 12 }, // Штурмовик (тот же тип)
+    smuggler_varden: { s: 35, c: 20, m: 5, buildTime: 20 }, // Контрабандист
+    poacher_colonist:{ s: 40, c: 10, m: 10, buildTime: 15 }, // Браконьер
     medic_varden:    { s: 30, c: 10, m: 5, buildTime: 15 }, // Медик-пехотинец
     medic_colonist:  { s: 30, c: 10, m: 5, buildTime: 15 }, // Медик-пехотинец
 
-    warden_scout_car: { s: 30, c: 20, m: 10, buildTime: 15 },
-    colonial_scout_car: { s: 30, c: 20, m: 10, buildTime: 15 },
+    warden_scout_car: { s: 30, c: 10, m: 5, buildTime: 15 },
+    colonial_scout_car: { s: 30, c: 10, m: 5, buildTime: 15 },
     scout_infantry: { s: 15, c: 0, m: 0, buildTime: 8 },
 };
 

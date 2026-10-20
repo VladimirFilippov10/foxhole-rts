@@ -218,9 +218,9 @@ export class smuggler extends InfantryBase {
         this.spd = 0.7;
         this.cd = 140;
         this.label = 'Контрабандист';
-        this.stealth = 60;
+        this.stealth = 40;
         this.visionBase = 180;
-        this.detectRange = 180;
+        this.detectRange = 140;
     }
 }
 
@@ -235,7 +235,7 @@ export class poacher extends InfantryBase {
         this.spd = 0.7;
         this.cd = 350;
         this.label = 'Браконьер';
-        this.stealth = 80;
+        this.stealth = 50;
         this.visionBase = 190;
         this.detectRange = Math.round(this.visionBase * 0.9); // −10% = 171
     }
@@ -258,7 +258,7 @@ export class MedicVarden extends InfantryBase {
         this.cargoType = 'med';
         this.cargoCapacity = 100;
         this.currentCargo = 100;
-        this.stealth = 20;
+        this.stealth = 30;
         this.detectRange = 80;
         this.visionBase = 100;
     }
@@ -322,8 +322,8 @@ export class MgGunner extends InfantryBase {
         this.antiInfantry = true;
         this.infantryMultiplier = 1.5;
         this.label = 'Пулемётчик';
-        this.stealth = 25;
-        this.detectRange = 100;
+        this.stealth = 15;
+        this.detectRange = 80;
         this.visionBase = 120;
     }
 }
@@ -439,7 +439,7 @@ export class NobleWidow extends Vehicle {
         // ПТ: обнаружение = range × 0.9 (видимость всё равно 1.2×range)
         this.visionBase = Math.round(this.range * 1.2); // 300
         this.detectRange = Math.round(this.range * 0.9); // 225
-        this.stealth = 80;
+        this.stealth = 60;
     }
 }
 
@@ -462,7 +462,7 @@ export class Devitt extends Vehicle {
         this.ammo = this.maxAmmo;
         this.visionBase = Math.round(this.range * 1.2); // 180
         this.detectRange = Math.round(this.range * 0.8); // 120
-        this.stealth = 40;
+        this.stealth = 15;
     }
 }
 
@@ -514,7 +514,7 @@ export class Silverhand extends Vehicle {
         this.ammo = this.maxAmmo;
         this.visionBase = Math.round(this.range * 1.2); // 204
         this.detectRange = Math.round(this.range * 0.8); // 136
-        this.stealth = 40;
+        this.stealth = 3;
     }
 }
 
@@ -541,7 +541,7 @@ export class GallagherHighwayman extends Vehicle {
         this.fuel = this.maxFuel;
         this.visionBase = Math.round(this.range * 1.2); // 198
         this.detectRange = Math.round(this.range * 0.8); // 132
-        this.stealth = 40;
+        this.stealth = 5;
     }
     activateBoost() {
         if (this.fuel > 20 && !this.boosting) {
@@ -578,7 +578,7 @@ export class GallagherOutlaw extends Vehicle {
         this.fuel = this.maxFuel;
         this.visionBase = Math.round(this.range * 1.2); // 228
         this.detectRange = Math.round(this.range * 0.8); // 152
-        this.stealth = 40;
+        this.stealth = 5;
     }
     activateBoost() {
         if (this.fuel > 20 && !this.boosting) {
@@ -607,7 +607,7 @@ export class Niska extends Vehicle {
         this.tracked = true;
         this.visionBase = Math.round(this.range * 1.2); // 180
         this.detectRange = Math.round(this.range * 0.8); // 120
-        this.stealth = 45;
+        this.stealth = 35;
     }
 }
 
@@ -627,7 +627,7 @@ export class NiskaBlinder extends Vehicle {
         // ПТ: обнаружение −10% от обзора, скрытность как у ПТ
         this.visionBase = Math.round(this.range * 1.2); // 228
         this.detectRange = Math.round(this.range * 0.9); // 171
-        this.stealth = 80;
+        this.stealth = 45;
     }
 }
 
@@ -643,7 +643,7 @@ export class Hatchet extends Vehicle {
         this.offRoadSpd = 1.1;
         this.cd = 350;
         this.size = 22;
-        this.armor = 5;
+        this.armor = 30;
         this.label = 'H-5 Hatchet';
         this.tracked = true;
         this.crew = 3;
@@ -652,7 +652,30 @@ export class Hatchet extends Vehicle {
         this.ammo = this.maxAmmo;
         this.visionBase = Math.round(this.range * 1.2); // 192
         this.detectRange = Math.round(this.range * 0.8); // 128
-        this.stealth = 40;
+        this.stealth = 10;
+    }
+}
+
+export class pelekys extends Vehicle {
+    constructor(faction, x, y) {
+        super('pelekys', faction, x, y);
+        this.hp = this.maxHp = 175;
+        this.dmg = 110;
+        this.range = 190;
+        this.spd = 1.3;
+        this.offRoadSpd = 1.1;
+        this.cd = 500;
+        this.size = 20;
+        this.armor = 15;
+        this.label = 'H-10 Pelekys';
+        this.tracked = true;
+        this.crew = 3;
+        this.extraFuel = 25;
+        this.maxAmmo = Math.round(SUPPLY_SYSTEM.maxAmmo * 0.7);
+        this.ammo = this.maxAmmo;
+        this.visionBase = Math.round(this.range * 1.2); // 192
+        this.detectRange = Math.round(this.range * 0.9); // 128
+        this.stealth = 35;
     }
 }
 
@@ -699,7 +722,7 @@ export class Nemesis extends Vehicle {
         // ПТ: обнаружение −10% от обзора, скрытность как у ПТ
         this.visionBase = Math.round(this.range * 1.2); // 228
         this.detectRange = Math.round(this.range * 0.9); // 171
-        this.stealth = 80;
+        this.stealth = 50;
     }
 }
 
@@ -717,7 +740,7 @@ export class Falchion extends Vehicle {
         this.tracked = true;
         this.visionBase = Math.round(this.range * 1.2); // 180
         this.detectRange = Math.round(this.range * 0.8); // 120
-        this.stealth = 40;
+        this.stealth = 10;
     }
 }
 
@@ -735,7 +758,7 @@ export class Spatha extends Vehicle {
         this.tracked = true;
         this.visionBase = Math.round(this.range * 1.2); // 216
         this.detectRange = Math.round(this.range * 0.8); // 144
-        this.stealth = 40;
+        this.stealth = 5;
     }
 }
 
@@ -757,7 +780,7 @@ export class Talos extends Vehicle {
         this.armorPierce = 70;
         this.visionBase = Math.round(this.range * 1.2); // 180
         this.detectRange = Math.round(this.range * 0.8); // 120
-        this.stealth = 40;
+        this.stealth = 5;
     }
 }
 
@@ -776,7 +799,7 @@ export class Javelin extends Vehicle {
         this.tracked = true;
         this.visionBase = Math.round(this.range * 1.2); // 168
         this.detectRange = Math.round(this.range * 0.8); // 112
-        this.stealth = 45;
+        this.stealth = 20;
     }
 }
 
@@ -1206,7 +1229,7 @@ export class FireTruck extends Vehicle {
         this.cd = 0;
         this.size = 26;
         this.armor = 5;
-        this.label = 'Пожарная';
+        this.label = 'Пожарная машина';
         this.tracked = false;
         this.cargoType = 'water';
         this.cargoCapacity = 300;
@@ -1302,10 +1325,6 @@ function createInfantry(type, faction, x, y) {
     }
 }
 
-// ===== ТЕХНИКА: параметры обзора по умолчанию =====
-// Помощник нужен на случай, если тип создан не через прямой класс
-// (например, через старую фабрику карты или сохранение), и не имеет
-// выставленных вручную stealth/detectRange/visionBase.
 export const AT_VEHICLE_TYPES = ['niska_blinder', 'noble_widow', 'nemesis'];
 
 export function applyVehicleVisibilityStats(u) {
@@ -1393,7 +1412,7 @@ export const FACTION_VEHICLES = {
               'gallagher_highwayman', 'niska', 'warden_artillery150',
               'warden_artillery120', 'truck', 'fuel_truck', 'engineer',
               'flatbed', 'gallagher_outlaw', 'niska_blinder', 'medic_truck',
-              'construction_truck', 'fire_truck', 'warden_scout_car', 'warden_scout_car'],
+              'construction_truck', 'fire_truck', 'warden_scout_car'],
     colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin',
                 'hoplite', 'colonial_artillery150', 'colonial_artillery120',
                 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha',
