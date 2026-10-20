@@ -13,7 +13,6 @@ import { createVehicle, isInfUnit, isTechVehicle, INFANTRY_TYPES,
 
 function isVehicleTarget(u) {
     if (!u) return false;
-    // Пехота — не «техника» для этого правила
     return !isInfUnit(u);
 }
 const DS = () => detailScale();
@@ -40,6 +39,7 @@ export class Game {
         this.buildings = [];
         this.debris = [];
         this.cps = [];
+        this.rockets = [];
         this.mines = [];
         this.selected = [];
         this.cam = { x: 0, y: 0 };
@@ -51,23 +51,11 @@ export class Game {
         this.mousePos = { x: 0, y: 0 };
 
         this.aiController = null;
-
         this.productionQueue = [];
-
-        this.unitLimits = {
-            infantry: 20,
-            vehicles: 10,
-        };
-
+        this.unitLimits = { infantry: 20, vehicles: 10 };
         this.tracers = [];
-
         this.cityEnterGuard = new Map();
-
         this.revealedAreas = [];
-
-        // ===== ТУМАН ВОЙНЫ =====
-        // null = "видно всё" (когда fogEnabled === false)
-        // Set<id> = только эти враги видны игроку (юниты + здания).
         this.visibleEnemyIds = null;
     }
 
@@ -78,8 +66,6 @@ export class Game {
         this.units = units;
 
         const playerBase = this.cps.find(cp => cp.owner === this.faction);
-        const aiBase = this.cps.find(cp => cp.owner === this.ai);
-
         if (playerBase) {
             this.cam.x = Math.max(0, playerBase.x - window.innerWidth / 2);
             this.cam.y = Math.max(0, playerBase.y - window.innerHeight / 2);
@@ -304,10 +290,7 @@ export class Game {
         this.updateConstruction();
         this.updateReveal();
         this.updateBoost();
-
-        // ===== ТУМАН ВОЙНЫ: до обновления юнитов =====
         this.updateVisibility();
-
         this.updateUnits();
 
         this.units = this.units.filter(u => {
@@ -320,20 +303,18 @@ export class Game {
             ];
             const hasTurret = !turretlessTypes.includes(u.type);
 
-             const currentTurrets = this.debris.filter(d => d.type === 'turret').length;
+            const currentTurrets = this.debris.filter(d => d.type === 'turret').length;
             if (!isInfUnit(u) && hasTurret && u.lastHitDmg >= u.maxHp * 0.4 && currentTurrets < 60) {
                 const angle = Math.random() * Math.PI * 2;
                 const distVal = 15 + Math.random() * 25;
                 this.debris.push({
                     type: 'turret',
-                    x: u.x,
-                    y: u.y,
+                    x: u.x, y: u.y,
                     vx: Math.cos(angle) * (distVal / 30),
                     vy: Math.sin(angle) * (distVal / 30),
                     angle: u.turretDirection || u.direction || 0,
                     rot: 0,
-                    life: 999999,
-                    maxLife: 999999,
+                    life: 999999, maxLife: 999999,
                     faction: u.faction,
                     size: u.size
                 });
@@ -342,11 +323,7 @@ export class Game {
             }
 
             if (u.type.includes('artillery') && u.type !== 'hoplite' && u.type !== 'devitt_mmr') {
-                this.debris.push({
-                    type: 'explosion',
-                    x: u.x, y: u.y,
-                    life: 60, maxLife: 60
-                });
+                this.debris.push({ type: 'explosion', x: u.x, y: u.y, life: 60, maxLife: 60 });
                 const numDebris = 5 + Math.floor(Math.random() * 8);
                 for (let i = 0; i < numDebris; i++) {
                     const a = Math.random() * Math.PI * 2;
@@ -359,8 +336,7 @@ export class Game {
                         vy: Math.sin(a) * (Math.random() * 0.8),
                         angle: Math.random() * Math.PI * 2,
                         rot: (Math.random() - 0.5) * 0.3,
-                        life: 600,
-                        maxLife: 600,
+                        life: 600, maxLife: 600,
                         size: 2 + Math.random() * 3
                     });
                 }
@@ -381,9 +357,7 @@ export class Game {
         this.updateMines();
         this.updateUnitLimits();
 
-        if (this.aiController) {
-            this.aiController.update();
-        }
+        if (this.aiController) this.aiController.update();
 
         this.particles = this.particles.filter(p => {
             p.x += p.vx;
@@ -402,8 +376,7 @@ export class Game {
                 d.vy *= 0.96;
             }
             d.rot = 0;
-            
-            // ФИКС УТЕЧКИ ПАМЯТИ: ограничиваем жизнь башен и удаляем их, если они далеко
+
             if (d.type === 'turret') {
                 d.life = (d.life || 0) - 1;
                 if (d.life < 0) return false;
@@ -419,6 +392,7 @@ export class Game {
         this.updateDefenseRepair();
         this.updateCityFiresAndDamage();
         this.updateTracers();
+        this._updateRockets();
         this.checkWinCondition();
     }
 
@@ -443,7 +417,6 @@ export class Game {
     updateCityFiresAndDamage() {
         for (const cp of this.cps) {
             if (!cp.houses) continue;
-
             const burningHouses = cp.houses.filter(h => h.burning);
             if (burningHouses.length === 0) continue;
 
@@ -469,8 +442,7 @@ export class Game {
 
             if (this.time % 100 === 0) {
                 const unitsInCity = this.units.filter(u =>
-                    u.hp > 0 &&
-                    dist(u.x, u.y, cp.x, cp.y) <= cp.radius
+                    u.hp > 0 && dist(u.x, u.y, cp.x, cp.y) <= cp.radius
                 );
                 for (const u of unitsInCity) {
                     u.hp -= 2;
@@ -499,9 +471,7 @@ export class Game {
 
     getCityDefenseIntegrity(cp) {
         if (!cp || cp.owner === 'neutral') return 0;
-        if (cp.defenseHp === undefined || cp.defenseHp === null) {
-            this.refreshCityDefenseHp(cp);
-        }
+        if (cp.defenseHp === undefined || cp.defenseHp === null) this.refreshCityDefenseHp(cp);
         return Math.max(0, cp.defenseHp);
     }
 
@@ -509,9 +479,7 @@ export class Game {
         if (!cp || cp.owner === 'neutral') return 0;
         const d = Number(dmg);
         if (!Number.isFinite(d) || d <= 0) return 0;
-        if (cp.defenseHp === undefined || cp.defenseHp === null) {
-            this.refreshCityDefenseHp(cp);
-        }
+        if (cp.defenseHp === undefined || cp.defenseHp === null) this.refreshCityDefenseHp(cp);
         cp.defenseHp = Math.max(0, (cp.defenseHp || 0) - d);
         this.damageCityHouses(cp, Math.max(1, Math.floor(d * 0.3)), fromX, fromY);
         if (Number.isFinite(fromX) && Number.isFinite(fromY)) {
@@ -534,9 +502,7 @@ export class Game {
         return -1;
     }
 
-    isPointDefenseActive(cp) {
-        return this.getCityDefenseIntegrity(cp) > 0;
-    }
+    isPointDefenseActive(cp) { return this.getCityDefenseIntegrity(cp) > 0; }
 
     registerCityEnterGuard(cpIndex, newOwner) {
         if (!this.cityEnterGuard) this.cityEnterGuard = new Map();
@@ -585,9 +551,7 @@ export class Game {
         return false;
     }
 
-    isCityDefenseBroken(cp) {
-        return this.getCityDefenseIntegrity(cp) <= 0;
-    }
+    isCityDefenseBroken(cp) { return this.getCityDefenseIntegrity(cp) <= 0; }
 
     getCityZoneExitTarget(u, cp) {
         const dx = u.x - cp.x, dy = u.y - cp.y;
@@ -637,7 +601,6 @@ export class Game {
         if (this.aiController && typeof this.aiController.makeRetreatDecisions === 'function') {
             this.aiController.makeRetreatDecisions();
         }
-
         this.units.forEach(u => {
             try {
                 this.updateUnit(u);
@@ -675,7 +638,6 @@ export class Game {
 
         if (u.aoe && u.tx !== undefined) {
             if (!Number.isFinite(u.tx) || !Number.isFinite(u.ty)) {
-                console.warn('[GAME][FIX] Битый приказ (tx/ty) у ' + (u.type || '?') + '/' + (u.id || '?') + ' — приказ снят');
                 u.tx = undefined; u.ty = undefined;
                 u.detourSide = undefined; u.detourTicks = undefined;
                 u.orderOrigin = undefined;
@@ -688,14 +650,8 @@ export class Game {
                     u.detourSide = undefined;
                     u.detourTicks = undefined;
                     u.stuckCounter = 0;
-                    if (u.retreatOrder) {
-                        aiLog(`[GAME][ARTILLERY] ${u.label}: отъехала на позицию (${Math.round(u.x)}, ${Math.round(u.y)})`);
-                        u.retreatOrder = null;
-                    }
-                    if (u.moveOrder) {
-                        aiLog(`[GAME][ARTILLERY] ${u.label}: выдвинулась на огневую позицию (${Math.round(u.x)}, ${Math.round(u.y)}), стоит и ждёт цель в зоне ${u.minRange}-${u.range}`);
-                        u.moveOrder = null;
-                    }
+                    if (u.retreatOrder) u.retreatOrder = null;
+                    if (u.moveOrder) u.moveOrder = null;
                 }
             }
         }
@@ -728,10 +684,7 @@ export class Game {
                 for (const ally of this.units) {
                     if (ally.faction === u.faction && ally.hp > 0 && isInfUnit(ally) && ally.hp < ally.maxHp) {
                         const d = dist(u.x, u.y, ally.x, ally.y);
-                        if (d < minDist) {
-                            minDist = d;
-                            target = ally;
-                        }
+                        if (d < minDist) { minDist = d; target = ally; }
                     }
                 }
                 if (target) {
@@ -763,10 +716,7 @@ export class Game {
                     }
                 }
                 const d = dist(u.x, u.y, e.x, e.y);
-                if (d < nearDist) {
-                    nearDist = d;
-                    nearest = e;
-                }
+                if (d < nearDist) { nearDist = d; nearest = e; }
             }
         });
 
@@ -780,17 +730,33 @@ export class Game {
                     }
                 }
                 const d = dist(u.x, u.y, b.x, b.y);
-                if (d < nearDist) {
-                    nearDist = d;
-                    nearest = b;
-                }
+                if (d < nearDist) { nearDist = d; nearest = b; }
             }
         });
 
         let attackTarget = null;
         let canAttack = false;
 
-        if (u.aoe && u.aoeTarget) {
+        // ===== РСЗО: специальная логика залпа =====
+        if (u.isRSZO) {
+            if (u.aoeTarget && !u._rocketQueue) {
+                if (u.canAttack()) {
+                    const targetDist = dist(u.x, u.y, u.aoeTarget.x, u.aoeTarget.y);
+                    const minR = u.minRange || 100;
+                    if (targetDist >= minR && targetDist <= u.range) {
+                        u._volleyStartAt = this.time;
+                        u.lastAtk = this.time;      // фиксируем момент залпа → работает КД
+                        this._issueRocketVolley(u);
+                    }
+                }
+            }
+            if (u._rocketQueue) {
+                this._updateRocketVolley(u);
+                u.tx = undefined;
+                u.ty = undefined;
+            }
+        }
+        else if (u.aoe && u.aoeTarget) {
             const targetDist = dist(u.x, u.y, u.aoeTarget.x, u.aoeTarget.y);
             const minRange = u.minRange || 100;
             if (targetDist >= minRange && targetDist <= u.range) {
@@ -835,7 +801,7 @@ export class Game {
                     u.lastAtk = this.time;
                     if (u.useAmmo) u.useAmmo();
 
-                    if (u.aoe && u.aoeRadius) {
+                    if (u.aoe && u.aoeRadius && !u.isRSZO) {
                         this.addTracer(u.x, u.y, attackTarget.x, attackTarget.y, 'artillery');
 
                         this.units.forEach(enemy => {
@@ -894,9 +860,7 @@ export class Game {
                                 }
                                 attackTarget.hp = Math.max(0, attackTarget.hp - dmgB);
                                 const ci = this.getOwningCpIndexForBuilding(attackTarget);
-                                if (ci >= 0) {
-                                    this.damageCityDefense(this.cps[ci], dmgB, u.x, u.y);
-                                }
+                                if (ci >= 0) this.damageCityDefense(this.cps[ci], dmgB, u.x, u.y);
                                 this.addParticles(attackTarget.x, attackTarget.y, '#ffcc00', 4);
                             }
                         } else {
@@ -918,9 +882,8 @@ export class Game {
                                 damage *= u.infantryMultiplier || 2.5;
                             }
 
-                   if (u.dualGun) {
+                            if (u.dualGun) {
                                 attackTarget.takeDamage(damage, u, this);
-                                // Второй выстрел делаем мгновенно (или через 2 тика), чтобы не плодить таймеры в памяти
                                 if (attackTarget.hp > 0) {
                                     attackTarget.takeDamage(Math.floor(damage * 0.7), u, this);
                                 }
@@ -964,7 +927,6 @@ export class Game {
 
         if (!isAttacking && u.aoe && u.tx !== undefined) {
             if (!Number.isFinite(u.tx) || !Number.isFinite(u.ty)) {
-                console.warn('[GAME][FIX] Битый приказ движения (tx/ty) у ' + (u.type || '?') + '/' + (u.id || '?') + ' — приказ снят');
                 u.tx = undefined; u.ty = undefined;
                 u.detourSide = undefined; u.detourTicks = undefined;
                 u.orderOrigin = undefined;
@@ -1015,7 +977,6 @@ export class Game {
 
         if (!isAttacking && !u.aoe && u.tx !== undefined) {
             if (!Number.isFinite(u.tx) || !Number.isFinite(u.ty)) {
-                console.warn('[GAME][FIX] Битый приказ движения (tx/ty) у ' + (u.type || '?') + '/' + (u.id || '?') + ' — приказ снят');
                 u.tx = undefined; u.ty = undefined;
                 u.detourSide = undefined; u.detourTicks = undefined;
                 u.orderOrigin = undefined; u.stuckCounter = 0;
@@ -1038,21 +999,14 @@ export class Game {
                             u.lastX = undefined;
                             u.lastY = undefined;
                         }
-                        if (u.stuckCounter === undefined) {
-                            u.stuckCounter = 0;
-                        }
+                        if (u.stuckCounter === undefined) u.stuckCounter = 0;
 
                         const movedDist = dist(prevX, prevY, u.x, u.y);
-                        if (!(movedDist > 0.5)) {
-                            u.stuckCounter++;
-                        } else {
-                            u.stuckCounter = 0;
-                        }
+                        if (!(movedDist > 0.5)) u.stuckCounter++;
+                        else u.stuckCounter = 0;
 
                         if (u.stuckCounter > 30) {
-                            if (u.orderOrigin === undefined) {
-                                u.orderOrigin = { x: u.tx, y: u.ty };
-                            }
+                            if (u.orderOrigin === undefined) u.orderOrigin = { x: u.tx, y: u.ty };
                             if (u.detourSide === undefined) {
                                 u.detourSide = ((u.id || '').toString().charCodeAt(0) % 2) ? 1 : -1;
                             }
@@ -1102,9 +1056,7 @@ export class Game {
                                     nx = ox; ny = oy; found = true; break;
                                 }
                             }
-                            if (!found) {
-                                u.stuckCounter = (u.stuckCounter || 0) + 5;
-                            }
+                            if (!found) u.stuckCounter = (u.stuckCounter || 0) + 5;
                         }
 
                         if (Number.isFinite(nx) && Number.isFinite(ny) &&
@@ -1249,8 +1201,6 @@ export class Game {
         const ok = (v) => Number.isFinite(v);
         for (const b of this.buildings) {
             if (ok(b.x) && ok(b.y)) continue;
-            console.warn('[GAME][FIX] Повреждены координаты у здания ' +
-                (b.type || '?') + '/' + (b.id || '?') + ' — позиция восстановлена');
             const anchor = (this.cps && this.cps[0]) || { x: 1000, y: 1000 };
             b.x = ok(b.x) ? b.x : anchor.x;
             b.y = ok(b.y) ? b.y : anchor.y;
@@ -1258,13 +1208,9 @@ export class Game {
     }
 
     // ===== ТУМАН ВОЙНЫ =====
-
     getUnitVisibilityRange(u) {
         if (!u) return 0;
-        // Артиллерия и миномёты (все юниты со взрывом по площади) видят только на 100
         if (u.aoe || u.isArtillery || u.isMortar) return 100;
-        
-        // Обычные юниты видят на 20% больше радиуса своей стрельбы.
         return Math.round((u.range || 0) * 1.2);
     }
 
@@ -1301,35 +1247,30 @@ export class Game {
     getEffectiveStealth(u) {
         if (!u) return 0;
         let base = this.getUnitStealth(u);
-        
         const inBush = this.isUnitInCover(u);
         const moving = this.isUnitMoving(u);
         const shooting = this.isUnitShooting(u);
 
         if (inBush) {
-            if (shooting) {
-                base *= 1.5;
-            } else if (moving) {
-                base *= 4;
-            } else {
-                base *= 10;
-            }
+            if (shooting) base *= 1.5;
+            else if (moving) base *= 4;
+            else base *= 10;
         } else if (shooting) {
             base *= 0.25;
         }
         return base;
     }
 
-getMinDetectRadius(target) {
-    if (!target) return 0;
-    if (target.isScoutInfantry) {
-        if (this.isUnitInCover(target) && !this.isUnitMoving(target)) return 5;
-        return 50;
+    getMinDetectRadius(target) {
+        if (!target) return 0;
+        if (target.isScoutInfantry) {
+            if (this.isUnitInCover(target) && !this.isUnitMoving(target)) return 5;
+            return 50;
+        }
+        if (this.isUnitShooting(target)) return 40;
+        if (this.isUnitInCover(target) && !this.isUnitMoving(target)) return 18;
+        return 0;
     }
-    if (this.isUnitShooting(target)) return 40;
-    if (this.isUnitInCover(target) && !this.isUnitMoving(target)) return 18;
-    return 0;
-}
 
     unitDetectsEnemy(viewer, target) {
         if (!viewer || !target || viewer.hp <= 0 || target.hp <= 0) return false;
@@ -1339,58 +1280,40 @@ getMinDetectRadius(target) {
         const d = dist(viewer.x, viewer.y, target.x, target.y);
         if (!Number.isFinite(d)) return false;
 
-        // ===== ЖЁСТКИЙ РАДИУС ОБНАРУЖЕНИЯ ТЕХНИКИ =====
-        // В пределах 50 любая техника (танки, БТР, артиллерия, миномёты,
-        // логистика) видна всегда — маскировка и кусты игнорируются.
-        if (d <= VEHICLE_HARD_DETECT_RADIUS && isVehicleTarget(target)) {
-            return true;
-        }
+        if (d <= VEHICLE_HARD_DETECT_RADIUS && isVehicleTarget(target)) return true;
 
         const detectRange = this.getUnitDetectRange(viewer);
-
         if (d > detectRange) return false;
 
         const stealth = this.getEffectiveStealth(target);
         const minDetect = this.getMinDetectRadius(target);
 
-        // ИСПРАВЛЕННАЯ ФОРМУЛА
         let effectiveRange = detectRange - stealth;
-
-        if (effectiveRange < minDetect) {
-            effectiveRange = minDetect;
-        }
+        if (effectiveRange < minDetect) effectiveRange = minDetect;
 
         return d <= effectiveRange;
     }
 
-     factionCanSee(faction, target) {
+    factionCanSee(faction, target) {
         if (!target || target.hp <= 0) return false;
         if (target.faction === faction) return true;
         if (!this.fogEnabled) return true;
 
-        // 1. Проверяем города/базы
         for (const cp of this.cps) {
             if (cp.owner !== faction) continue;
-            
-            // Город имеет радиус обнаружения 70 (базовый)
             let detectRadius = 70;
-            
-            // Каждый уровень обороны: радиус обнаружения = дальность атаки
             if (cp.defenseLevel > 0) {
                 const stats = this.getTerritoryDefenseStats(cp.defenseLevel);
                 detectRadius = Math.max(detectRadius, stats.range);
             }
-
             if (dist(cp.x, cp.y, target.x, target.y) <= detectRadius) return true;
         }
 
-        // 2. Проверяем здания
         for (const b of this.buildings) {
             if (b.faction !== faction || b.hp <= 0) continue;
             if (dist(b.x, b.y, target.x, target.y) <= 400) return true;
         }
 
-        // 3. Проверяем юнитов
         for (const u of this.units) {
             if (u.faction !== faction || u.hp <= 0) continue;
             if (this.unitDetectsEnemy(u, target)) return true;
@@ -1398,7 +1321,7 @@ getMinDetectRadius(target) {
         return false;
     }
 
-      updateVisibility() {
+    updateVisibility() {
         if (!this.fogEnabled) {
             this.visibleEnemyIds = null;
             this.visibleEnemyBuildings = null;
@@ -1409,7 +1332,6 @@ getMinDetectRadius(target) {
         const setBuildings = new Set();
         const allyViewers = this.units.filter(u => u.faction === this.faction && u.hp > 0);
 
-        // --- Вражеские ЮНИТЫ: скрываются, если не обнаружены ---
         for (const enemy of this.units) {
             if (enemy.faction === this.faction || enemy.hp <= 0) continue;
             let visible = false;
@@ -1423,7 +1345,6 @@ getMinDetectRadius(target) {
             }
         }
 
-        // --- Вражеские ЗДАНИЯ: рисуются ВСЕГДА, но отмечаем, какие «под наблюдением» ---
         for (const b of this.buildings) {
             if (b.faction === this.faction || !(b.hp > 0)) continue;
             if (this.factionCanSee(this.faction, b)) setBuildings.add(b.id);
@@ -1568,9 +1489,7 @@ getMinDetectRadius(target) {
         }
     }
 
-    getUnitLimits(faction) {
-        return faction === this.faction ? this.unitLimits : this.aiUnitLimits;
-    }
+    getUnitLimits(faction) { return faction === this.faction ? this.unitLimits : this.aiUnitLimits; }
 
     getUnitCounts(faction) {
         const units = this.units.filter(u => u.faction === faction);
@@ -1602,7 +1521,6 @@ getMinDetectRadius(target) {
             const d = dist(x, y, cx, cy);
             if (d < zone.radius * 0.2) return true;
         }
-
         return false;
     }
 
@@ -1633,13 +1551,11 @@ getMinDetectRadius(target) {
         ];
 
         const roadWidth = 15;
-
         for (const road of ROADS) {
             const fromX = road.from[0] * 250 + 125;
             const fromY = road.from[1] * 150 + 75;
             const toX = road.to[0] * 250 + 125;
             const toY = road.to[1] * 150 + 75;
-
             const midX = (fromX + toX) / 2 + (toY - fromY) * road.curve;
             const midY = (fromY + toY) / 2 - (toX - fromX) * road.curve;
 
@@ -1648,11 +1564,9 @@ getMinDetectRadius(target) {
                 const t = i / steps;
                 const px = (1 - t) * (1 - t) * fromX + 2 * (1 - t) * t * midX + t * t * toX;
                 const py = (1 - t) * (1 - t) * fromY + 2 * (1 - t) * t * midY + t * t * toY;
-                const d = dist(x, y, px, py);
-                if (d < roadWidth) return true;
+                if (dist(x, y, px, py) < roadWidth) return true;
             }
         }
-
         return false;
     }
 
@@ -1689,9 +1603,7 @@ getMinDetectRadius(target) {
         else if (unit.type === 'medic_truck') unit.healUnit(target);
     }
 
-    getDefenseUpgradeTime(targetLevel) {
-        return [0, 15, 25, 40][targetLevel] || 30;
-    }
+    getDefenseUpgradeTime(targetLevel) { return [0, 15, 25, 40][targetLevel] || 30; }
 
     upgradeTerritoryDefense(cpIndex) {
         const cp = this.cps[cpIndex];
@@ -1704,11 +1616,8 @@ getMinDetectRadius(target) {
             { s: 100, c: 60, m: 80 },
             { s: 150, c: 90, m: 120 },
         ];
-
         const cost = upgradeCosts[cp.defenseLevel];
-        if (this.res.s < cost.s || this.res.c < cost.c || this.res.m < cost.m) {
-            return false;
-        }
+        if (this.res.s < cost.s || this.res.c < cost.c || this.res.m < cost.m) return false;
 
         this.res.s -= cost.s;
         this.res.c -= cost.c;
@@ -1720,7 +1629,6 @@ getMinDetectRadius(target) {
             startTime: this.time,
             buildTime: this.getDefenseUpgradeTime(targetLevel) * 60,
         };
-
         return true;
     }
 
@@ -1759,18 +1667,12 @@ getMinDetectRadius(target) {
 
     getCityDefenseBonus(unit) {
         if (!unit || unit.hp <= 0) return 0;
-
         let maxBonus = 0;
         for (const cp of this.cps) {
             if (cp.owner !== unit.faction) continue;
             if (dist(unit.x, unit.y, cp.x, cp.y) <= cp.radius) {
                 const lvl = cp.defenseLevel || 0;
-                let bonus = 0;
-                if (isInfUnit(unit)) {
-                    bonus = 0.10 + (lvl * 0.15);
-                } else {
-                    bonus = 0.05 + (lvl * 0.10);
-                }
+                let bonus = isInfUnit(unit) ? 0.10 + (lvl * 0.15) : 0.05 + (lvl * 0.10);
                 if (bonus > maxBonus) maxBonus = bonus;
             }
         }
@@ -1795,23 +1697,16 @@ getMinDetectRadius(target) {
             bunker_medium: { s: 60, c: 40, m: 50, hp: 600, defense: 20, range: 300, buildTime: 15 },
             bunker_heavy: { s: 100, c: 70, m: 80, hp: 1000, defense: 35, range: 360, buildTime: 20 },
         };
-
         const cost = FORTIFICATION_COSTS[type];
-        if (!cost) {
-            console.error('❌ Неизвестный тип укрепления:', type);
-            return null;
-        }
+        if (!cost) return null;
 
         const payPool = aiResources || this.res;
-        if (payPool.s < cost.s || payPool.c < cost.c || payPool.m < cost.m) {
-            return null;
-        }
+        if (payPool.s < cost.s || payPool.c < cost.c || payPool.m < cost.m) return null;
 
         const inCapturedZone = this.cps.some(cp => {
             const distance = dist(x, y, cp.x, cp.y);
             return cp.owner === faction && distance <= cp.radius + 150;
         });
-
         if (!inCapturedZone) return null;
 
         payPool.s -= cost.s;
@@ -1820,21 +1715,14 @@ getMinDetectRadius(target) {
 
         const construction = {
             id: 'fort_' + Math.random().toString(36).substr(2, 9),
-            type: type,
-            faction: faction,
-            x: x,
-            y: y,
-            hp: cost.hp,
-            maxHp: cost.hp,
-            defense: cost.defense,
-            range: cost.range,
-            level: 1,
-            lastAtk: 0,
+            type, faction, x, y,
+            hp: cost.hp, maxHp: cost.hp,
+            defense: cost.defense, range: cost.range,
+            level: 1, lastAtk: 0,
             buildProgress: 0,
             buildTime: cost.buildTime * 60,
             isBuilding: true,
         };
-
         this.buildings.push(construction);
         return construction;
     }
@@ -1892,7 +1780,6 @@ getMinDetectRadius(target) {
         this.cps.forEach(cp => {
             if (cp.owner !== 'neutral' && cp.defenseLevel > 0 && !cp.upgrading) {
                 const stats = this.getTerritoryDefenseStats(cp.defenseLevel);
-
                 if (cp.lastAtk === undefined) cp.lastAtk = 0;
                 if (this.time - cp.lastAtk < 120) return;
 
@@ -1965,10 +1852,7 @@ getMinDetectRadius(target) {
             c: 15 * fortification.level,
             m: 20 * fortification.level,
         };
-
-        if (this.res.s < upgradeCost.s || this.res.c < upgradeCost.c || this.res.m < upgradeCost.m) {
-            return false;
-        }
+        if (this.res.s < upgradeCost.s || this.res.c < upgradeCost.c || this.res.m < upgradeCost.m) return false;
         if (fortification.level >= 3) return false;
 
         this.res.s -= upgradeCost.s;
@@ -1980,17 +1864,14 @@ getMinDetectRadius(target) {
         fortification.hp = fortification.maxHp;
         fortification.defense += 10;
         fortification.range += 20;
-
         return true;
     }
 
     updateProduction() {
         const completed = [];
-
         this.productionQueue.forEach((item, index) => {
             const elapsed = this.time - item.startTime;
             const buildTimeTicks = item.buildTime * 60;
-
             if (elapsed >= buildTimeTicks) {
                 const building = this.buildings.find(b => b.id === item.buildingId);
                 if (building) {
@@ -2002,25 +1883,18 @@ getMinDetectRadius(target) {
                 }
             }
         });
-
-        completed.reverse().forEach(index => {
-            this.productionQueue.splice(index, 1);
-        });
+        completed.reverse().forEach(index => { this.productionQueue.splice(index, 1); });
     }
 
     createUnitFromQueue(type, faction, building) {
-        const spawnX = building.x + 50;
-        const spawnY = building.y + 50;
-        const unit = createVehicle(type, faction, spawnX, spawnY);
+        const unit = createVehicle(type, faction, building.x + 50, building.y + 50);
         unit.game = this;
         return unit;
     }
 
     addToProductionQueue(type, faction, buildingId, buildTime) {
         this.productionQueue.push({
-            type,
-            faction,
-            buildingId,
+            type, faction, buildingId,
             startTime: this.time,
             buildTime,
         });
@@ -2033,15 +1907,8 @@ getMinDetectRadius(target) {
     checkWinCondition() {
         const playerPoints = this.cps.filter(c => c.owner === this.faction).length;
         const aiPoints = this.cps.filter(c => c.owner === this.ai).length;
-
-        if (playerPoints === 0) {
-            this.over = true;
-            this.winner = this.ai;
-        }
-        if (aiPoints === 0) {
-            this.over = true;
-            this.winner = this.faction;
-        }
+        if (playerPoints === 0) { this.over = true; this.winner = this.ai; }
+        if (aiPoints === 0) { this.over = true; this.winner = this.faction; }
     }
 
     addParticles(x, y, color, count) {
@@ -2060,6 +1927,155 @@ getMinDetectRadius(target) {
         }
     }
 
+    // ===== РСЗО: очередь ракет =====
+    _issueRocketVolley(u) {
+        if (!u.aoeTarget) return;
+        if (u._rocketQueue && u._rocketQueue.length > 0) return;
+
+        const tx = u.aoeTarget.x;
+        const ty = u.aoeTarget.y;
+        const spread = u.rocketSpreadRadius || 90;
+        const count = u.rocketsPerVolley || 8;
+
+        // БК списывается сразу — иначе счётчик не сработает
+        const actualShots = Math.min(count, Math.floor(u.ammo));
+        if (actualShots <= 0) return;
+        u.ammo = Math.max(0, u.ammo - actualShots);
+
+        const queue = [];
+        for (let i = 0; i < actualShots; i++) {
+            const ang = Math.random() * Math.PI * 2;
+            const r = Math.sqrt(Math.random()) * spread;
+            queue.push({
+                targetX: tx + Math.cos(ang) * r,
+                targetY: ty + Math.sin(ang) * r,
+                delay: i * (u.rocketDelay || 6),
+                launched: false,
+                impactDone: false,
+            });
+        }
+        u._rocketQueue = queue;
+        u.volleyShotsFired = 0;
+        u.aoeTarget = null;
+        u.shotsFired = 0;
+    }
+
+    _updateRocketVolley(u) {
+        if (!u._rocketQueue || u._rocketQueue.length === 0) return;
+        if (this.time < (u._volleyStartAt || 0)) return;
+
+        for (const rocket of u._rocketQueue) {
+            if (rocket.launched) continue;
+            if (this.time - u._volleyStartAt < rocket.delay) continue;
+            rocket.launched = true;
+            u.volleyShotsFired++;
+            this._spawnRocket(u, rocket.targetX, rocket.targetY);
+        }
+
+        if (u._rocketQueue.every(r => r.launched)) u._rocketQueue = null;
+    }
+
+    _spawnRocket(owner, targetX, targetY) {
+        const startX = owner.x;
+        const startY = owner.y;
+        const baseAng = Math.atan2(targetY - startY, targetX - startX);
+        const launchAng = baseAng + (Math.random() - 0.5) * 1.1;
+        const speed = 3.5 + Math.random() * 1.5;
+        const distToTarget = Math.hypot(targetX - startX, targetY - startY);
+        const life = Math.max(30, Math.ceil(distToTarget / speed));
+
+        this.rockets.push({
+            x: startX, y: startY,
+            vx: Math.cos(launchAng) * speed,
+            vy: Math.sin(launchAng) * speed,
+            targetX, targetY,
+            owner,
+            faction: owner.faction,
+            dmg: owner.dmg,
+            radius: owner.aoeRadius,
+            life, maxLife: life,
+            smokeSeed: Math.random() * Math.PI * 2,
+            turnRate: 0.08 + Math.random() * 0.06,
+        });
+    }
+
+    _updateRockets() {
+        if (!this.rockets || this.rockets.length === 0) return;
+
+        this.rockets = this.rockets.filter(rk => {
+            const dx = rk.targetX - rk.x;
+            const dy = rk.targetY - rk.y;
+            const d = Math.hypot(dx, dy);
+
+            if (d < 8) { this._rocketImpact(rk); return false; }
+
+            const desiredAng = Math.atan2(dy, dx);
+            const currentAng = Math.atan2(rk.vy, rk.vx);
+            let delta = desiredAng - currentAng;
+            while (delta > Math.PI) delta -= Math.PI * 2;
+            while (delta < -Math.PI) delta += Math.PI * 2;
+
+            const turn = Math.sign(delta) * Math.min(Math.abs(delta), rk.turnRate);
+            const newAng = currentAng + turn;
+            const speed = Math.hypot(rk.vx, rk.vy);
+
+            rk.vx = Math.cos(newAng) * speed;
+            rk.vy = Math.sin(newAng) * speed;
+            rk.x += rk.vx;
+            rk.y += rk.vy;
+            rk.life--;
+
+            if (rk.life <= 0) { this._rocketImpact(rk); return false; }
+            return true;
+        });
+    }
+
+    _rocketImpact(rk) {
+        const radius = rk.radius || 50;
+        const dmg = rk.dmg || 55;
+
+        for (const enemy of this.units) {
+            if (enemy.faction === rk.faction || enemy.hp <= 0) continue;
+            const d = dist(rk.x, rk.y, enemy.x, enemy.y);
+            if (d <= radius) {
+                const mult = 1 - (d / radius) * 0.5;
+                enemy.takeDamage(Math.floor(dmg * mult), rk.owner, this);
+            }
+        }
+
+        for (const b of this.buildings) {
+            if (b.faction === rk.faction || !(b.hp > 0)) continue;
+            const d = dist(rk.x, rk.y, b.x, b.y);
+            if (d <= radius) {
+                const mult = 1 - (d / radius) * 0.5;
+                const dmgB = Math.floor(dmg * mult);
+                b.hp = Math.max(0, b.hp - dmgB);
+                const ci = this.getOwningCpIndexForBuilding(b);
+                if (ci >= 0) this.damageCityDefense(this.cps[ci], dmgB, rk.x, rk.y);
+            }
+        }
+
+        for (const cp of this.cps) {
+            if (cp.owner === 'neutral' || cp.owner === rk.faction) continue;
+            const d = dist(rk.x, rk.y, cp.x, cp.y);
+            if (d <= radius + cp.radius * 0.4) {
+                const falloff = Math.max(0.25, 1 - (d / (cp.radius + radius)) * 0.5);
+                this.damageCityDefense(cp, Math.floor(dmg * falloff), rk.x, rk.y);
+            }
+        }
+
+        this.addParticles(rk.x, rk.y, '#ff6b00', 14);
+        this.addParticles(rk.x, rk.y, '#ffcc00', 10);
+        this.addParticles(rk.x, rk.y, '#ff0000', 6);
+        this.addParticles(rk.x, rk.y, '#888888', 8);
+
+        this.debris.push({
+            type: 'explosion',
+            x: rk.x, y: rk.y,
+            life: 30, maxLife: 30,
+        });
+    }
+
     addTracer(fromX, fromY, toX, toY, type = 'bullet') {
         const tracers = {
             bullet: { color: '#ffeb3b', width: 2, speed: 15, life: 10 },
@@ -2068,14 +2084,10 @@ getMinDetectRadius(target) {
             defense: { color: '#4caf50', width: 2, speed: 14, life: 12 },
             grenade: { color: '#9c27b0', width: 3, speed: 10, life: 18 }
         };
-
         const config = tracers[type] || tracers.bullet;
-
         this.tracers.push({
-            fromX, fromY,
-            toX, toY,
-            currentX: fromX,
-            currentY: fromY,
+            fromX, fromY, toX, toY,
+            currentX: fromX, currentY: fromY,
             color: config.color,
             width: config.width,
             speed: config.speed,
@@ -2099,14 +2111,12 @@ getMinDetectRadius(target) {
                 tracer.currentX += (dx / d) * tracer.speed;
                 tracer.currentY += (dy / d) * tracer.speed;
             }
-
             return tracer.life > 0;
         });
     }
 
     updateReveal() {
         this.revealedAreas = this.revealedAreas.filter(area => this.time - area.time < 180);
-
         this.units.forEach(u => {
             if (u.revealRadius && u.hp > 0) {
                 const existingArea = this.revealedAreas.find(area =>
@@ -2114,8 +2124,7 @@ getMinDetectRadius(target) {
                 );
                 if (!existingArea) {
                     this.revealedAreas.push({
-                        x: u.x,
-                        y: u.y,
+                        x: u.x, y: u.y,
                         radius: u.revealRadius,
                         time: this.time,
                         faction: u.faction
@@ -2134,22 +2143,16 @@ getMinDetectRadius(target) {
                         enemy.hp > 0 &&
                         dist(u.x, u.y, enemy.x, enemy.y) < 150
                     );
-                    if (nearbyEnemy && u.fuel > 30) {
-                        u.activateBoost();
-                    }
+                    if (nearbyEnemy && u.fuel > 30) u.activateBoost();
                 }
-
                 if (u.boosting) {
                     const nearbyEnemy = this.units.find(enemy =>
                         enemy.faction !== u.faction &&
                         enemy.hp > 0 &&
                         dist(u.x, u.y, enemy.x, enemy.y) < 200
                     );
-                    if (!nearbyEnemy || u.fuel < 10) {
-                        u.deactivateBoost();
-                    } else {
-                        u.fuel = Math.max(0, u.fuel - u.boostFuelCost);
-                    }
+                    if (!nearbyEnemy || u.fuel < 10) u.deactivateBoost();
+                    else u.fuel = Math.max(0, u.fuel - u.boostFuelCost);
                 }
             }
         });

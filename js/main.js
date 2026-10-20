@@ -113,6 +113,9 @@ const VEHICLE_INFO = {
     god_loader: { name: 'God Loader 200мм', icon: '🎯', stats: 'САУ 200мм: HP:500 DMG:140 RNG:340-700 AoE:90 SPD:0.15 ARM:40 CD:12с БК:30', cost: VEHICLE_COSTS.god_loader },
     pelekys: { name: 'Pelekys (ПТ-САУ)', icon: '🎯', stats: 'HP:175 DMG:110 RNG:190 SPD:1.3 ARM:15 CD:8.3с ПТ (пробитие 70) БК:70', cost: VEHICLE_COSTS.pelekys },
 
+    bren_squire: { name: 'Bren V.200 Squire', icon: '🚀', stats: 'РСЗО: 5 залпов по 8 ракет. HP:130 DMG:60 AoE:35 RNG:400 SPD:1.8', cost: VEHICLE_COSTS.bren_squire },
+xiphos: { name: 'Xiphos (T3)', icon: '🛡️', stats: 'БТР: HP:140 DMG:9 (x1.2 по пехоте) RNG:130 SPD:1.5', cost: VEHICLE_COSTS.xiphos },
+percutio: { name: 'Percutio (T5)', icon: '🎯', stats: 'БТР: HP:150 DMG:30 (x1.3 по легкой, x0.5 по тяжелой технике) RNG:130', cost: VEHICLE_COSTS.percutio },
     // Logistics
     truck: { name: 'Грузовик', icon: '🚚', stats: 'HP:100 SPD:1.5 Без оружия Пополняет БК (запас 400)', cost: VEHICLE_COSTS.truck },
     fuel_truck: { name: 'Бензовоз', icon: '⛽', stats: 'HP:80 SPD:1.3 Без оружия Пополняет топливо (запас 400)', cost: VEHICLE_COSTS.fuel_truck },
@@ -670,7 +673,7 @@ const TAB_TYPES = {
               'construction_truck', 'fire_truck'],
     support: ['warden_artillery120', 'nona', 'warden_artillery150',
               'colonial_artillery120', 'colonial_artillery150',
-              'hoplite', 'devitt_mmr', 'god_loader'],
+              'hoplite', 'devitt_mmr', 'god_loader', 'bren_squire'],
 };
 
 const PRODUCTION_TABS = [
@@ -706,15 +709,15 @@ const INFANTRY_SUBTABS = [
 // Что лежит в каждой подвкладке техники (по фракциям)
 const VEHICLE_SUBTAB_TYPES = {
     wardens: {
-        tanks: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand',
+        tanks: ['king_spire', 'devitt', 'silverhand',
                 'gallagher_highwayman', 'gallagher_outlaw'],
         at:    ['noble_widow', 'niska_blinder'],
         armor: ['niska', 'warden_scout_car'],
     },
     colonials: {
-        tanks: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'spatha', 'talos'],
-        at:    ['pelekys'],
-        armor: ['javelin', 'colonial_scout_car'],
+        tanks: ['hatchet', 'scorpion', 'falchion', 'spatha', 'talos'],
+        at:    ['pelekys','percutio' ,'nemesis'],
+        armor: ['javelin', 'colonial_scout_car', 'xiphos'],
     },
 };
 

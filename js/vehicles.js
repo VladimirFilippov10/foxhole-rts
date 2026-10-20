@@ -637,7 +637,6 @@ export class Niska extends Vehicle {
         this.stealth = 35;
     }
 }
-
 // Niska Blinder — ПТ/разведка с высокой маскировкой
 export class NiskaBlinder extends Vehicle {
     constructor(faction, x, y) {
@@ -651,7 +650,6 @@ export class NiskaBlinder extends Vehicle {
         this.armor = 25;
         this.label = 'Niska Blinder';
         this.tracked = true;
-        // ПТ: обнаружение −10% от обзора, скрытность как у ПТ
         this.visionBase = Math.round(this.range * 1.2); // 228
         this.detectRange = Math.round(this.range * 0.9); // 171
         this.stealth = 45;
@@ -815,11 +813,11 @@ export class Talos extends Vehicle {
 export class Javelin extends Vehicle {
     constructor(faction, x, y) {
         super('javelin', faction, x, y);
-        this.hp = this.maxHp = 200;
+        this.hp = this.maxHp = 170;
         this.dmg = 7;
         this.range = 140;
         this.spd = 1.65;
-        this.cd = 65;
+        this.cd = 55;
         this.size = 20;
         this.armor = 25;
         this.label = 'Javelin APC';
@@ -830,6 +828,80 @@ export class Javelin extends Vehicle {
     }
 }
 
+// ===== ВСТАВИТЬ ПОСЛЕ КЛАССА Niska (или в конец блока WARDENS) =====
+// Bren Squire — РСЗО поддержки
+// Bren Squire — РСЗО поддержки
+export class BrenSquire extends Vehicle {
+    constructor(faction, x, y) {
+        super('bren_squire', faction, x, y);
+        this.hp = this.maxHp = 130;
+        this.dmg = 55;                 // урон одной ракеты
+        this.range = 400;
+        this.minRange = 100;
+        this.spd = 1.8;
+        this.cd = 2000;                // перезарядка между залпами
+        this.size = 22;
+        this.armor = 15;
+        this.label = 'O Brien V.200 Squire';
+        this.tracked = false;
+        this.isRSZO = true;
+        this.aoe = true;               // остаётся, чтобы ИИ корректно управлял
+        this.aoeRadius = 90;           // радиус области обстрела (для ИИ)
+
+        // БК: 5 залпов по 8 ракет = 40 ракет
+        this.maxAmmo = 40;
+        this.ammo = this.maxAmmo;
+        this.rocketsPerVolley = 8;
+        this.rocketSpreadRadius = 90;  // радиус разброса ракет в области
+        this.rocketDelay = 6;          // тиков между пусками ракет
+        this.volleyShotsFired = 0;     // счётчик ракет в текущем залпе
+
+        this.visionBase = Math.round(this.range * 1.2); // 480
+        this.detectRange = Math.round(this.range * 0.8); // 320
+        this.stealth = 35;
+    }
+}
+
+// ===== ВСТАВИТЬ ПОСЛЕ КЛАССА Javelin (или в конец блока COLONIALS) =====
+// Xiphos (T3) — колесный БТР, специалист по пехоте
+export class Xiphos extends Vehicle {
+    constructor(faction, x, y) {
+        super('xiphos', faction, x, y);
+        this.hp = this.maxHp = 140;
+        this.dmg = 9;
+        this.range = 130;
+        this.spd = 1.5;
+        this.cd = 45;
+        this.size = 20;
+        this.armor = 15;
+        this.label = 'T3 Xiphos';
+        this.tracked = false;
+        this.antiInfantry = true;
+        this.infantryMultiplier = 1.2; // Увеличенный урон по пехоте (в 1.2 раза)
+        this.visionBase = Math.round(this.range * 1.2); // 156
+        this.detectRange = Math.round(this.range * 0.8); // 104
+        this.stealth = 25;
+    }
+}
+
+// Percutio (T5) — колесный БТР, специалист по технике
+export class Percutio extends Vehicle {
+    constructor(faction, x, y) {
+        super('percutio', faction, x, y);
+        this.hp = this.maxHp = 150;
+        this.dmg = 30;
+        this.range = 130;
+        this.spd = 1.5;
+        this.cd = 150;
+        this.size = 20;
+        this.armor = 15;
+        this.label = 'T5 Percutio';
+        this.tracked = false;
+        this.visionBase = Math.round(this.range * 1.2); // 156
+        this.detectRange = Math.round(this.range * 0.8); // 104
+        this.stealth = 25;
+    }
+}
 // Hoplite — миномёт (поддержка)
 export class Hoplite extends Vehicle {
     constructor(faction, x, y) {
@@ -1423,6 +1495,9 @@ export function createVehicle(type, faction, x, y) {
 
          warden_scout_car: WardenScoutCar,
         colonial_scout_car: ColonialScoutCar, 
+        bren_squire: BrenSquire,
+xiphos: Xiphos,
+percutio: Percutio,
     };
     const creator = map[type];
     if (!creator) {
@@ -1441,11 +1516,11 @@ export const FACTION_VEHICLES = {
               'gallagher_highwayman', 'niska', 'warden_artillery150',
               'warden_artillery120', 'truck', 'fuel_truck', 'engineer',
               'flatbed', 'gallagher_outlaw', 'niska_blinder', 'medic_truck',
-              'construction_truck', 'fire_truck', 'warden_scout_car', 'nona'],
+              'construction_truck', 'fire_truck', 'warden_scout_car', 'nona', 'bren_squire'],
     colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin',
                 'hoplite', 'colonial_artillery150', 'colonial_artillery120',
                 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha',
-                'medic_truck', 'god_loader', 'construction_truck', 'fire_truck', 'colonial_scout_car', 'pelekys'],
+                'medic_truck', 'god_loader', 'construction_truck', 'fire_truck', 'colonial_scout_car', 'pelekys', 'xiphos', 'percutio'],
 };
 
 // ===== Помощники по видам пехоты =====

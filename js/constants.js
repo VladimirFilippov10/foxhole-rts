@@ -234,7 +234,9 @@ export const VEHICLE_COSTS = {
     mg_gunner: { s: 25, c: 2, m: 2, buildTime: 10 },     // пулемётчик — оборона
     grenadier: { s: 25, c: 3, m: 2, buildTime: 20 },    // гранатомётчик — наступление
     sniper: { s: 30, c: 5, m: 5, buildTime: 25 },       // снайпер — дальний бой
-    
+    bren_squire: { s: 60, c: 45, m: 30, buildTime: 40 },
+xiphos: { s: 25, c: 40, m: 15, buildTime: 20 },
+percutio: { s: 35, c: 60, m: 25, buildTime: 30 },
     // Wardens tanks
     king_spire: { s: 40, c: 30, m: 20, buildTime: 25 }, // Разведывательный танк
     devitt: { s: 45, c: 35, m: 20, buildTime: 30 }, // Легкий танк (обновлен)

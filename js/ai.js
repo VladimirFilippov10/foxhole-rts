@@ -1316,8 +1316,8 @@ export class AI {
 
     vehicleRoster() {
         return this.G.ai === 'wardens'
-            ? ['devitt', 'niska', 'king_spire', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw', 'nona']
-            : ['hatchet', 'javelin', 'scorpion', 'nemesis', 'falchion', 'spatha', 'pelekys'];
+            ? ['devitt', 'niska', 'king_spire', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw', 'nona', 'bren_squire']
+            : ['hatchet', 'javelin', 'scorpion', 'nemesis', 'falchion', 'spatha', 'pelekys','xiphos', 'percutio']
     }
 
     getCheapestAllowedVehicleCost() {
@@ -1575,10 +1575,6 @@ export class AI {
         const factory = this.G.buildings.find(b => b.faction === this.G.ai && b.type === 'factory');
         if (!factory) return;
 
-                if (unit.revealRadius || this.isScoutUnit(unit)) {
-            this.assignScoutPatrol(unit);
-            return;
-        }
         let types = [];
         if (this.G.ai === 'wardens') {
             types = ['devitt', 'niska'];
