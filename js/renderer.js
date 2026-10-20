@@ -63,13 +63,25 @@ export function render(ctx, G, canvas) {
 
     // ===== ТУМАН ВОЙНЫ: рисуем ПОВЕРХ карты, но ПОД юнитами/зданиями =====
     drawFogOverlay(ctx, G, cam, canvas);
+    const visibleBuildings = G.visibleEnemyBuildings;
 
-    // Здания — свои видны всегда, вражеские только если в зоне видимости
-    G.buildings.forEach(b => {
-        if (fogEnabled && b.faction !== G.faction) {
-            if (!visibleSet || !visibleSet.has(b.id)) return;
-        }
+G.buildings.forEach(b => {
+        const isEnemy = b.faction !== G.faction;
+        const hidden = fogEnabled && isEnemy &&
+            (!visibleBuildings || !visibleBuildings.has(b.id));
         drawBuilding(ctx, b, cam);
+        if (hidden) {
+            const bx = b.x - cam.x;
+            const by = b.y - cam.y;
+            const sz = b.type === 'town_hall' ? 48
+                     : (b.type === 'factory' || b.type === 'barracks' || b.type === 'refinery') ? 38
+                     : (b.type && b.type.startsWith('bunker_light')) ? 30
+                     : (b.type && b.type.startsWith('bunker_medium')) ? 38
+                     : (b.type && b.type.startsWith('bunker_heavy')) ? 46
+                     : 38;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+            ctx.fillRect(bx - sz / 2 - 2, by - sz / 2 - 2, sz + 4, sz + 4);
+        }
     });
 
     // ===== ДОМА ГОРОДОВ (горят, разрушаются) =====
@@ -3325,6 +3337,251 @@ if (u.type === 'niska') {
     ctx.strokeStyle = col.a;
     ctx.lineWidth = 1;
     ctx.strokeRect(-sz * 0.46, sz * 0.06, sz * 0.12, sz * 0.1);
+}
+// ===== NONA (2С9 «Нона-С» — советская 120мм САУ) =====
+if (u.type === 'nona') {
+    // ===== ГУСЕНИЦЫ (широкие, как у БТР-Д) =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-sz * 0.52, -sz * 0.4, sz * 1.04, sz * 0.12);
+    ctx.fillRect(-sz * 0.52,  sz * 0.28, sz * 1.04, sz * 0.12);
+
+    // Траки
+    ctx.strokeStyle = '#0a0a0a';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 11; i++) {
+        const tx = -sz * 0.52 + i * (sz * 1.04 / 11);
+        ctx.beginPath();
+        ctx.moveTo(tx, -sz * 0.4); ctx.lineTo(tx, -sz * 0.28);
+        ctx.moveTo(tx,  sz * 0.28); ctx.lineTo(tx,  sz * 0.4);
+        ctx.stroke();
+    }
+
+    // Катки (6 штук)
+    ctx.fillStyle = '#374151';
+    for (let i = 0; i < 6; i++) {
+        const wx = -sz * 0.44 + i * sz * 0.176;
+        ctx.beginPath();
+        ctx.arc(wx, -sz * 0.34, sz * 0.045, 0, Math.PI * 2);
+        ctx.arc(wx,  sz * 0.34, sz * 0.045, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // ===== КОРПУС (низкий, обтекаемый, «лодочный» нос) =====
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.5, -sz * 0.24);
+    ctx.lineTo( sz * 0.3, -sz * 0.24);
+    ctx.lineTo( sz * 0.5, -sz * 0.1);   // волнообразный нос
+    ctx.lineTo( sz * 0.5,  sz * 0.1);
+    ctx.lineTo( sz * 0.3,  sz * 0.24);
+    ctx.lineTo(-sz * 0.5,  sz * 0.24);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // ===== БАШНЯ-«СТАКАН» (цилиндрическая, высокая — характерна для 2С9) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(0, 0, sz * 0.26, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Внутренний контур (объём башни)
+    ctx.beginPath();
+    ctx.arc(-sz * 0.02, -sz * 0.02, sz * 0.19, 0, Math.PI * 2);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Люк на крыше
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.06, -sz * 0.05, sz * 0.06, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // ===== ОРУДИЕ 120мм =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.2, -sz * 0.08);
+    ctx.lineTo(sz * 0.3, -sz * 0.05);
+    ctx.lineTo(sz * 0.3,  sz * 0.05);
+    ctx.lineTo(sz * 0.2,  sz * 0.08);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Ствол
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.28, 0);
+    ctx.lineTo(sz * 0.9, 0);
+    ctx.stroke();
+
+    // Дульный срез
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.9, 0, sz * 0.02, 0, Math.PI * 2);
+    ctx.fill();
+
+    // «Грибок» датчика на башне
+    ctx.fillStyle = col.a;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.14, -sz * 0.14, sz * 0.035, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Фара
+    ctx.fillStyle = '#ffeb99';
+    ctx.beginPath();
+    ctx.arc(sz * 0.42, -sz * 0.18, sz * 0.025, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Выхлопная труба
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.5, -sz * 0.18);
+    ctx.lineTo(-sz * 0.6, -sz * 0.26);
+    ctx.stroke();
+
+    // Ящик ЗИП
+    ctx.fillStyle = '#4b5563';
+    ctx.fillRect(-sz * 0.46, sz * 0.06, sz * 0.12, sz * 0.1);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sz * 0.46, sz * 0.06, sz * 0.12, sz * 0.1);
+}
+// ===== PELEKYS (СУ-85Б — советская лёгкая ПТ-САУ) =====
+if (u.type === 'pelekys') {
+    // ===== ГУСЕНИЦЫ (узкие, лёгкое шасси Т-70) =====
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-sz * 0.48, -sz * 0.36, sz * 0.96, sz * 0.1);
+    ctx.fillRect(-sz * 0.48,  sz * 0.26, sz * 0.96, sz * 0.1);
+
+    // Траки
+    ctx.strokeStyle = '#0a0a0a';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 10; i++) {
+        const tx = -sz * 0.48 + i * (sz * 0.96 / 10);
+        ctx.beginPath();
+        ctx.moveTo(tx, -sz * 0.36); ctx.lineTo(tx, -sz * 0.26);
+        ctx.moveTo(tx,  sz * 0.26); ctx.lineTo(tx,  sz * 0.36);
+        ctx.stroke();
+    }
+
+    // Катки (5 штук)
+    ctx.fillStyle = '#374151';
+    for (let i = 0; i < 5; i++) {
+        const wx = -sz * 0.4 + i * sz * 0.2;
+        ctx.beginPath();
+        ctx.arc(wx, -sz * 0.31, sz * 0.038, 0, Math.PI * 2);
+        ctx.arc(wx,  sz * 0.31, sz * 0.038, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // ===== КОРПУС (низкий, со скошенным лобовым листом) =====
+    ctx.fillStyle = col.p;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.48, -sz * 0.22);   // корма
+    ctx.lineTo( sz * 0.2, -sz * 0.22);    // верх до скоса
+    ctx.lineTo( sz * 0.44, -sz * 0.04);   // скошенный лоб (верх) — ключевая деталь
+    ctx.lineTo( sz * 0.44,  sz * 0.04);   // скошенный лоб (низ)
+    ctx.lineTo( sz * 0.2,  sz * 0.22);    // низ лба
+    ctx.lineTo(-sz * 0.48,  sz * 0.22);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // ===== ОТКРЫТАЯ СВЕРХУ РУБКА (характерна для СУ-85Б) =====
+    ctx.fillStyle = '#2a2a2a';
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.4, -sz * 0.18);
+    ctx.lineTo(-sz * 0.14, -sz * 0.18);
+    ctx.lineTo(-sz * 0.14,  sz * 0.18);
+    ctx.lineTo(-sz * 0.4,  sz * 0.18);
+    ctx.closePath();
+    ctx.fill();
+
+    // Борта рубки
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.4, -sz * 0.18);
+    ctx.lineTo(-sz * 0.4,  sz * 0.18);
+    ctx.moveTo(-sz * 0.14, -sz * 0.18);
+    ctx.lineTo(-sz * 0.14,  sz * 0.18);
+    ctx.stroke();
+
+    // ===== ОРУДИЕ 85мм (Д-5С) =====
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.18, -sz * 0.06);
+    ctx.lineTo(sz * 0.28, -sz * 0.04);
+    ctx.lineTo(sz * 0.28,  sz * 0.04);
+    ctx.lineTo(sz * 0.18,  sz * 0.06);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Ствол
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.26, 0);
+    ctx.lineTo(sz * 0.86, 0);
+    ctx.stroke();
+
+    // Дульный срез
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(sz * 0.86, 0, sz * 0.018, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Командирская башенка/люк
+    ctx.fillStyle = col.s;
+    ctx.beginPath();
+    ctx.arc(-sz * 0.28, -sz * 0.06, sz * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(-sz * 0.28, -sz * 0.06, sz * 0.035, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Фара
+    ctx.fillStyle = '#ffeb99';
+    ctx.beginPath();
+    ctx.arc(sz * 0.4, -sz * 0.16, sz * 0.022, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Выхлопная труба
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.48, -sz * 0.14);
+    ctx.lineTo(-sz * 0.56, -sz * 0.22);
+    ctx.stroke();
+
+    // Ящик ЗИП
+    ctx.fillStyle = '#4b5563';
+    ctx.fillRect(-sz * 0.44, sz * 0.04, sz * 0.12, sz * 0.1);
+    ctx.strokeStyle = col.a;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-sz * 0.44, sz * 0.04, sz * 0.12, sz * 0.1);
 }
 // ===== NISKA BLINDER (Hanomag с закрытым бронированием сверху) =====
 if (u.type === 'niska_blinder') {

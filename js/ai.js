@@ -34,7 +34,7 @@ export class AI {
         this.accumulatedForces = 0;
         this.attackThreshold = 6;
         this.artilleryPositions = [];
-
+        this._farmCoef = 1.0;
         this.lastEnemySighting = null;
         this.logistics = { sets: [], lastScanAt: -9999 };
         this.garrison = new Map();
@@ -1053,10 +1053,12 @@ export class AI {
     getHoldGroundChance() {
         const aiPts = this.G.cps.filter(c => c.owner === this.G.ai).length;
         const plPts = this.G.cps.filter(c => c.owner === this.G.faction).length;
+        const totalPts = this.G.cps.length || 1;
         const BASE = 0.2;
         const MAXHOLD = 0.95;
         if (plPts <= 0) return Math.min(MAXHOLD, BASE + 0.4);
-        const ratio = aiPts / plPts;
+        // ratio = насколько игрок впереди ИИ. >1 — ИИ отстаёт, <1 — ИИ ведёт.
+        const ratio = (plPts + totalPts * 0.05) / (aiPts + totalPts * 0.05);
         if (ratio >= 1) return BASE;
         const slope = (0.8 - BASE) / (1 - 0.5);
         const chance = BASE + (1 - ratio) * slope;
@@ -1262,8 +1264,29 @@ export class AI {
         if (fortification) fortification.buildTime *= 1.3;
     }
 
-    updateAIResources() {
+      updateAIResources() {
         const aiPoints = this.G.cps.filter(c => c.owner === this.G.ai).length;
+        const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction).length;
+        const totalPoints = this.G.cps.length || 1;
+
+        // ===== Динамический коэффициент фарма =====
+        // Чем сильнее ИИ отстаёт — тем выше его фарм (до 100% от игрока).
+        // Чем сильнее ведёт — тем ниже (до 60%). Игрок «впереди» всегда
+        // получает примерно одинаковый фарм, а ИИ — догоняющий/сдерживающий.
+        // ratio > 1  → ИИ отстаёт
+        // ratio ≈ 1  → равенство
+        // ratio < 1  → ИИ ведёт
+        const ratio = (playerPoints + 0.5) / (aiPoints + 0.5);
+        const clamped = Math.max(0, Math.min(1.5, ratio));
+        // 0.6 — при лидерстве, 1.0 — при сильном отставании
+        const targetCoef = 0.6 + 0.4 * (clamped / 1.5);
+
+        // Плавное сглаживание (~1–3 сек)
+        if (this._farmCoef === undefined) this._farmCoef = targetCoef;
+        this._farmCoef += (targetCoef - this._farmCoef) * 0.005;
+        const coef = Math.max(0.6, Math.min(1.0, this._farmCoef));
+
+        // ===== Базовый фарм (без коэффициента) =====
         const modeMultiplier = this.G.gameMode === 'realism' ? 0.3 : this.G.gameMode === 'fast' ? 2.5 : 1.0;
         const flags = getModeFlags(this.G);
         const farmMult = flags.farmMultiplier ? flags.farmMultiplier(this.G.time) : 1;
@@ -1276,9 +1299,12 @@ export class AI {
             else if (mine.type === 'materials') mineM += 0.03;
         }
 
-        this.aiResources.s += (aiPoints * 0.03 + mineS) * this.aiResourceRate * modeMultiplier * farmMult;
-        this.aiResources.c += (aiPoints * 0.015 + mineC) * this.aiResourceRate * modeMultiplier * farmMult;
-        this.aiResources.m += (aiPoints * 0.01 + mineM) * this.aiResourceRate * modeMultiplier * farmMult;
+        // Итоговый фарм ИИ = (точечный фарм) * coef * множители.
+        // За счёт coef ИИ получает от 60% до 100% от «эталонного» фарма игрока
+        // при равном числе точек.
+        this.aiResources.s += (aiPoints * 0.03 * coef + mineS) * this.aiResourceRate * modeMultiplier * farmMult;
+        this.aiResources.c += (aiPoints * 0.015 * coef + mineC) * this.aiResourceRate * modeMultiplier * farmMult;
+        this.aiResources.m += (aiPoints * 0.01 * coef + mineM) * this.aiResourceRate * modeMultiplier * farmMult;
     }
 
     canAffordInfantry() {
@@ -1290,8 +1316,8 @@ export class AI {
 
     vehicleRoster() {
         return this.G.ai === 'wardens'
-            ? ['devitt', 'niska', 'king_spire', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw']
-            : ['hatchet', 'javelin', 'scorpion', 'nemesis', 'falchion', 'spatha'];
+            ? ['devitt', 'niska', 'king_spire', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw', 'nona']
+            : ['hatchet', 'javelin', 'scorpion', 'nemesis', 'falchion', 'spatha', 'pelekys'];
     }
 
     getCheapestAllowedVehicleCost() {
@@ -1595,11 +1621,6 @@ export class AI {
         const unit = createVehicle(type, this.G.ai, factory.x + 60, factory.y + 60);
         this.G.units.push(unit);
 
-        if (unit.revealRadius || this.isScoutUnit(unit)) {
-            this.assignScoutPatrol(unit);
-            return;
-        }
-
         if (this.defenseMode) {
             this.assignPatrolRoute(unit);
         } else {
@@ -1619,6 +1640,18 @@ export class AI {
         if (currentArt >= artCap) return false;
 
         const w = this.G.ai === 'wardens';
+          if (w && Math.random() < 0.35 && aiAllow(this.G, 'nona')) {
+            const cost = VEHICLE_COSTS.nona;
+            if (cost && this.aiResources.s >= cost.s && this.aiResources.c >= cost.c &&
+                this.aiResources.m >= cost.m) {
+                this.spendResources(cost);
+                const unit = createVehicle('nona', this.G.ai, factory.x + 60, factory.y + 60);
+                this.G.units.push(unit);
+                unit.isArtillery = true;
+                this.accumulatedForces += 3;
+                return true;
+            }
+        }
         const barrelType = Math.random() < 0.5
             ? (w ? 'warden_artillery150' : 'colonial_artillery150')
             : (w ? 'warden_artillery120' : 'colonial_artillery120');

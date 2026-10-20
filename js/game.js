@@ -1398,39 +1398,39 @@ getMinDetectRadius(target) {
         return false;
     }
 
-    updateVisibility() {
-        if (!this.fogEnabled) { this.visibleEnemyIds = null; return; }
-        
-        const set = new Set();
+      updateVisibility() {
+        if (!this.fogEnabled) {
+            this.visibleEnemyIds = null;
+            this.visibleEnemyBuildings = null;
+            return;
+        }
+
+        const setUnits = new Set();
+        const setBuildings = new Set();
         const allyViewers = this.units.filter(u => u.faction === this.faction && u.hp > 0);
 
+        // --- Вражеские ЮНИТЫ: скрываются, если не обнаружены ---
         for (const enemy of this.units) {
             if (enemy.faction === this.faction || enemy.hp <= 0) continue;
-            
             let visible = false;
             for (const viewer of allyViewers) {
-                if (this.unitDetectsEnemy(viewer, enemy)) {
-                    visible = true;
-                    break;
-                }
+                if (this.unitDetectsEnemy(viewer, enemy)) { visible = true; break; }
             }
-            
-            if (!visible && this.factionCanSee(this.faction, enemy)) {
-                visible = true;
-            }
-
+            if (!visible && this.factionCanSee(this.faction, enemy)) visible = true;
             if (visible) {
-                set.add(enemy.id);
+                setUnits.add(enemy.id);
                 enemy._lastKnownPos = { x: enemy.x, y: enemy.y, time: this.time };
             }
         }
 
+        // --- Вражеские ЗДАНИЯ: рисуются ВСЕГДА, но отмечаем, какие «под наблюдением» ---
         for (const b of this.buildings) {
             if (b.faction === this.faction || !(b.hp > 0)) continue;
-            if (this.factionCanSee(this.faction, b)) set.add(b.id);
+            if (this.factionCanSee(this.faction, b)) setBuildings.add(b.id);
         }
 
-        this.visibleEnemyIds = set;
+        this.visibleEnemyIds = setUnits;
+        this.visibleEnemyBuildings = setBuildings;
     }
 
     getConcealDefenseBonus(unit) {

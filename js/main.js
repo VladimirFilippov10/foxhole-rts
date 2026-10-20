@@ -74,18 +74,16 @@ const VEHICLE_INFO = {
     grenadier: { name: 'Гранатомётчик / Гренадер', icon: '💣', stats: 'AoE по пехоте: W: HP:40 DMG:60 RNG:45 r15 · C: HP:40 DMG:25 RNG:70 r25', cost: VEHICLE_COSTS.grenadier },
     sniper: { name: 'Снайпер', icon: '🎯', stats: 'W: HP:20 DMG:45 RNG:260 CD:16с · C: HP:30 DMG:35 RNG:230 CD:13с', cost: VEHICLE_COSTS.sniper },
     // ===== НОВАЯ ПЕХОТА =====
-assualt_varden:   { name: 'Штурмовик', icon: '⚔️', stats: 'W: HP:45 DMG:5 RNG:110 CD:0.8с · C: HP:50 DMG:6 RNG:90 CD:1с', cost: VEHICLE_COSTS.assualt_varden },
-smuggler_varden:  { name: 'Контрабандист', icon: '💰', stats: 'HP:60 DMG:20 RNG:140 CD:2.3с SPD:0.7', cost: VEHICLE_COSTS.smuggler_varden },
-poacher_colonist: { name: 'Браконьер', icon: '🎯', stats: 'HP:40 DMG:35 RNG:190 CD:5.8с SPD:0.7', cost: VEHICLE_COSTS.poacher_colonist },
-medic_varden:     { name: 'Медик', icon: '⚕️', stats: 'HP:30 DMG:2 Лечит пехоту в радиусе 80 (0.08 HP/тик)', cost: VEHICLE_COSTS.medic_varden },
-medic_colonist:   { name: 'Медик', icon: '⚕️', stats: 'HP:25 DMG:4 Лечит пехоту в радиусе 80 (0.08 HP/тик)', cost: VEHICLE_COSTS.medic_colonist },
- scout_infantry: { name: 'Разведчик', icon: '👁️', stats: 'HP:25 SPD:0.8 Обзор: 140. Скрытен в кустах (виден с 5, иначе с 50)', cost: VEHICLE_COSTS.scout_infantry },
+    assualt_varden:   { name: 'Штурмовик', icon: '⚔️', stats: 'W: HP:45 DMG:5 RNG:110 CD:0.8с · C: HP:50 DMG:6 RNG:90 CD:1с', cost: VEHICLE_COSTS.assualt_varden },
+    smuggler_varden:  { name: 'Контрабандист', icon: '💰', stats: 'HP:60 DMG:20 RNG:140 CD:2.3с SPD:0.7', cost: VEHICLE_COSTS.smuggler_varden },
+    poacher_colonist: { name: 'Браконьер', icon: '🎯', stats: 'HP:40 DMG:35 RNG:190 CD:5.8с SPD:0.7', cost: VEHICLE_COSTS.poacher_colonist },
+    medic_varden:     { name: 'Медик', icon: '⚕️', stats: 'HP:30 DMG:2 Лечит пехоту в радиусе 80 (0.08 HP/тик)', cost: VEHICLE_COSTS.medic_varden },
+    medic_colonist:   { name: 'Медик', icon: '⚕️', stats: 'HP:25 DMG:4 Лечит пехоту в радиусе 80 (0.08 HP/тик)', cost: VEHICLE_COSTS.medic_colonist },
+    scout_infantry:   { name: 'Разведчик', icon: '👁️', stats: 'HP:25 SPD:0.8 Обзор: 140. Скрытен в кустах (виден с 5, иначе с 50)', cost: VEHICLE_COSTS.scout_infantry },
 
     // ... (в технику wardens)
-    warden_scout_car: { name: 'Warden Recon Car', icon: '📡', stats: 'HP:120 SPD:2.2 Маскировка: Высокая Обзор: 200 (Не атакует)', cost: VEHICLE_COSTS.warden_scout_car },
-
-    // ... (в технику colonials)
-    colonial_scout_car: { name: 'Colonial Recon Car', icon: '📡', stats: 'HP:110 SPD:2.4 Маскировка: Высокая Обзор: 180 (Не атакует)', cost: VEHICLE_COSTS.colonial_scout_car },
+    warden_scout_car: { name: 'Drummond 100a', icon: '📡', stats: 'HP:120 SPD:2.2 Маскировка: Высокая Обзор: 200 (Не атакует)', cost: VEHICLE_COSTS.warden_scout_car },
+    colonial_scout_car: { name: 'UV-5c "Odyssey"', icon: '📡', stats: 'HP:110 SPD:2.4 Маскировка: Высокая Обзор: 180 (Не атакует)', cost: VEHICLE_COSTS.colonial_scout_car },
 
     // Wardens tanks
     king_spire: { name: 'King Spire Mk.I', icon: '🔍', stats: 'HP:135 DMG:15 RNG:140 SPD:1.3 ARM:25 Разведка 120', cost: VEHICLE_COSTS.king_spire },
@@ -96,9 +94,10 @@ medic_colonist:   { name: 'Медик', icon: '⚕️', stats: 'HP:25 DMG:4 Ле
     gallagher_outlaw: { name: 'Gallagher Outlaw Mk.II', icon: '🌪️', stats: 'HP:370 DMG:45 RNG:190 SPD:1.5→2.8 Буст ARM:30 CD:2.5с', cost: VEHICLE_COSTS.gallagher_outlaw },
     noble_widow: { name: 'Noble Widow MK. XIV', icon: '🌪️', stats: 'HP:370 DMG:45 RNG:190 SPD:1.5→2.8 Буст ARM:30 CD:2.5с', cost: VEHICLE_COSTS.noble_widow },
     niska: { name: 'Niska APC', icon: '🚙', stats: 'HP:260 DMG:10 RNG:150 SPD:1.8 ARM:20 БТР CD:0.75с', cost: VEHICLE_COSTS.niska },
-    niska_blinder: { name: 'Niska Mk.2 Blinder', icon: '🚙', stats: 'HP:260 DMG:10 RNG:150 SPD:1.8 ARM:20 БТР CD:0.75с', cost: VEHICLE_COSTS.niska }, 
+    niska_blinder: { name: 'Niska Mk.2 Blinder', icon: '🚙', stats: 'HP:260 DMG:10 RNG:150 SPD:1.8 ARM:20 БТР CD:0.75с', cost: VEHICLE_COSTS.niska_blinder },
     warden_artillery120: { name: 'Warden Artillery 120мм', icon: '🎯', stats: 'HP:100 DMG:60 RNG:100-600 AoE:65 SPD:0.6 ARM:25 CD:6.7с БК:50', cost: VEHICLE_COSTS.warden_artillery120 },
     warden_artillery150: { name: 'Warden Artillery 150мм', icon: '🎯', stats: 'HP:80 DMG:95 RNG:180-550 AoE:100 SPD:0.3 ARM:30 CD:9.2с', cost: VEHICLE_COSTS.warden_artillery150 },
+    nona: { name: 'Нона-С 120мм', icon: '🎯', stats: 'САУ: HP:120 DMG:75 RNG:50-350 AoE:50 SPD:1.2 ARM:25 CD:5с БК:80 (миномёт-арта)', cost: VEHICLE_COSTS.nona },
 
     // Colonials tanks
     hatchet: { name: 'H-5 Hatchet', icon: '🪓', stats: 'HP:195 DMG:45 RNG:160 SPD:1.3 ARM:5 40мм CD:5.8с БК:50 +бак 25', cost: VEHICLE_COSTS.hatchet },
@@ -112,6 +111,7 @@ medic_colonist:   { name: 'Медик', icon: '⚕️', stats: 'HP:25 DMG:4 Ле
     colonial_artillery120: { name: 'Colonial Artillery 120мм', icon: '🎯', stats: 'HP:60 DMG:55 RNG:60-400 AoE:45 SPD:0.7 ARM:15 Быстрая лёгкая арта CD:6.7с БК:70', cost: VEHICLE_COSTS.colonial_artillery120 },
     colonial_artillery150: { name: 'Colonial Artillery 150мм', icon: '🎯', stats: 'HP:90 DMG:85 RNG:150-550 AoE:80 SPD:0.5 ARM:15 CD:7.5с', cost: VEHICLE_COSTS.colonial_artillery150 },
     god_loader: { name: 'God Loader 200мм', icon: '🎯', stats: 'САУ 200мм: HP:500 DMG:140 RNG:340-700 AoE:90 SPD:0.15 ARM:40 CD:12с БК:30', cost: VEHICLE_COSTS.god_loader },
+    pelekys: { name: 'Pelekys (ПТ-САУ)', icon: '🎯', stats: 'HP:175 DMG:110 RNG:190 SPD:1.3 ARM:15 CD:8.3с ПТ (пробитие 70) БК:70', cost: VEHICLE_COSTS.pelekys },
 
     // Logistics
     truck: { name: 'Грузовик', icon: '🚚', stats: 'HP:100 SPD:1.5 Без оружия Пополняет БК (запас 400)', cost: VEHICLE_COSTS.truck },
@@ -121,12 +121,9 @@ medic_colonist:   { name: 'Медик', icon: '⚕️', stats: 'HP:25 DMG:4 Ле
     medic_truck: { name: 'Скорая помощь', icon: '🚛', stats: 'HP:150 SPD:1.0  Машина скорой помощи', cost: VEHICLE_COSTS.medic_truck },
     construction_truck: { name: 'Строймашина', icon: '🏗️', stats: 'HP:250 Без оружия Ускоряет ремонт обороны в городе x2 (x3 при 2-х). Запас: 400', cost: { s: 60, c: 40, m: 30, buildTime: 20 } },
     fire_truck: { name: 'Пожарная', icon: '🚒', stats: 'HP:180 Без оружия Тушит пожары в городе. Запас воды: 300', cost: { s: 50, c: 30, m: 20, buildTime: 15 } },
-
 };
 
 // Defense upgrade info
-// ===== ФИКС: характеристики приведены в соответствие с getTerritoryDefenseStats()
-// в game.js (радиусы были указаны по старой таблице 120/150/180 до удвоения).
 const DEFENSE_UPGRADE_INFO = [
     { level: 1, name: 'Уровень 1', icon: '🛡️', stats: 'DMG:15 RNG:240 HP:300', cost: { s: 50, c: 30, m: 40 } },
     { level: 2, name: 'Уровень 2', icon: '🛡️🛡️', stats: 'DMG:25 RNG:300 HP:600', cost: { s: 100, c: 60, m: 80 } },
@@ -134,13 +131,6 @@ const DEFENSE_UPGRADE_INFO = [
 ];
 
 // ===== ИСПРАВЛЕНИЕ "showMapSelect is not defined" =====
-// main.js грузится как ES-модуль (<script type="module">). Если ЛЮБОЙ модуль
-// (constants/map/vehicles/game/renderer/ai) падает с синтаксической ошибкой или
-// выбрасывает исключение на верхнем уровне, main.js не выполняется вообще —
-// все onclick-обработчики из index.html падают с "is not defined".
-// Ставим «страховочные заглушки» НА ПЕРВОЙ СТРОКЕ модуля: они гарантируют,
-// что кнопки меню работают даже если основной код позже не смог загрузиться
-// (заглушки будут перезаписаны реальными функциями ниже по ходу выполнения).
 ['showMapSelect', 'showGameInfo', 'hideGameInfo', 'showInfoTab', 'selectMap', 'selectFaction',
  'selectGameMode', 'backToMainMenu', 'backToMapSelect', 'notify',
  'toggleMoveMode', 'toggleAoEMode', 'closeFactoryMenu', 'closeDefensePanel',
@@ -160,11 +150,7 @@ window.addEventListener('load', () => {
         ctx = canvas.getContext('2d');
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
-        
-        // Input handlers
-        // Исправлено: раньше при `game === null` (например, на экране меню) происходило
-        // обращение к game.keys и падало "Uncaught TypeError: Cannot read properties of null".
-        // Теперь ключи хранятся в независимом объекте globalKeys и передаются в игру.
+
         window.addEventListener('keydown', e => {
             globalKeys[e.key.toLowerCase()] = true;
             if (game) game.keys = globalKeys;
@@ -177,9 +163,8 @@ window.addEventListener('load', () => {
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-        // Окно очереди производства юнитов — перемещаемое (drag за заголовок)
         initDraggableWindow(document.getElementById('productionQueue'), '#productionQueueHeader');
-        
+
         console.log('✅ Игра инициализирована успешно');
     } catch (error) {
         console.error('❌ Ошибка инициализации:', error);
@@ -187,7 +172,7 @@ window.addEventListener('load', () => {
 });
 
 function resizeCanvas() {
-     const w = window.innerWidth;
+    const w = window.innerWidth;
     const h = window.innerHeight;
     canvas.width = w;
     canvas.height = h;
@@ -211,7 +196,6 @@ window.hideGameInfo = function() {
     document.getElementById('menuScreen').classList.remove('hidden');
 };
 
-// Переключение вкладок на экране «Информация об игре»
 window.showInfoTab = function(btn) {
     const screen = document.getElementById('gameInfoScreen');
     if (!screen || !btn) return;
@@ -235,16 +219,10 @@ window.selectMap = function(map) {
 window.selectFaction = function(faction) {
     selectedFaction = faction;
     document.getElementById('factionScreen').classList.add('hidden');
-    // Экран настроек: режим + переключатели «Ограничения» и «Экономика».
     renderModeToggles();
     document.getElementById('settingsScreen').classList.remove('hidden');
 };
 
-// ===== ПЕРЕКЛЮЧАТЕЛИ РЕЖИМОВ НА ЭКРАНЕ НАСТРОЕК =====
-// В каждой группе («Ограничения», «Экономика») можно выбрать ровно ОДНО
-// значение — как radio-группа. Списки берутся из constants.js
-// (RESTRICTION_OPTIONS / ECONOMY_OPTIONS), чтобы игра, UI и ИИ использовали
-// одни и те же id.
 function renderToggleRow(containerId, options, current, onSelect) {
     const row = document.getElementById(containerId);
     if (!row) return;
@@ -259,7 +237,6 @@ function renderToggleRow(containerId, options, current, onSelect) {
         `;
         btn.onclick = () => {
             onSelect(opt.id);
-            // Перерисовываем ряд: активным становится ровно один переключатель
             renderToggleRow(containerId, options, opt.id, onSelect);
         };
         row.appendChild(btn);
@@ -271,7 +248,6 @@ function renderModeToggles() {
         id => { selectedRestriction = id; });
     renderToggleRow('economyRow', ECONOMY_OPTIONS, selectedEconomy,
         id => { selectedEconomy = id; });
-    // ===== ТУМАН ВОЙНЫ =====
     const fogRow = document.getElementById('fogRow');
     if (fogRow) {
         renderToggleRow('fogRow', FOG_OPTIONS, selectedFog,
@@ -302,14 +278,13 @@ function startGame() {
         document.getElementById('hudTop').style.display = 'flex';
         document.getElementById('controlsHint').style.display = 'block';
         game = new Game(selectedFaction, selectedGameMode,
-    selectedRestriction, selectedEconomy, selectedFog);
-            window.game = game;
+            selectedRestriction, selectedEconomy, selectedFog);
+        window.game = game;
 
         const badge = document.getElementById('factionBadge');
         badge.className = 'faction-badge ' + selectedFaction;
         badge.innerHTML = selectedFaction === 'wardens' ? '🛡️ WARDENS' : '⚔️ COLONIALS';
-        
-        // Show game mode in HUD (режим + активные переключатели «Ограничения»/«Экономика»)
+
         const modeInfo = document.getElementById('gameModeInfo');
         if (modeInfo) {
             const mode = GAME_MODES[selectedGameMode];
@@ -321,94 +296,73 @@ function startGame() {
             modeInfo.textContent = txt;
             modeInfo.title = `Ограничения: ${rOpt ? rOpt.name : '—'}\nЭкономика: ${eOpt ? eOpt.name : '—'}`;
         }
-        
-        // Create game with selected mode
-        // Передаём текущее состояние клавиш в игру (см. globalKeys выше)
+
         game.keys = globalKeys;
-        
-        // Set starting resources based on game mode
+
         const startRes = GAME_MODES[selectedGameMode].startingResources;
         game.res = { ...startRes };
-        
-        // Setup map
+
         const cps = getCapturePointsInWorld();
         const mines = getResourcePointsInWorld();
-        
-        // Find player and AI bases
-        // Wardens: Callahan Gate (index 0)
-        // Colonials: The Salt March (index 13)
+
         const playerBaseIdx = selectedFaction === 'wardens' ? 0 : 13;
         const aiBaseIdx = selectedFaction === 'wardens' ? 13 : 0;
-        
-        // Set ownership
+
         cps[playerBaseIdx].owner = selectedFaction;
         cps[playerBaseIdx].progress = 100;
         cps[aiBaseIdx].owner = game.ai;
         cps[aiBaseIdx].progress = 100;
-        
+
         const playerBase = cps[playerBaseIdx];
         const aiBase = cps[aiBaseIdx];
-        
-        // Create buildings
+
         const buildings = [];
         let nextId = 1;
         const uid = () => 'b' + (nextId++);
-        
-        // Player buildings
+
         buildings.push({ id: uid(), type: 'town_hall', faction: selectedFaction, x: playerBase.x - 50, y: playerBase.y - 50, hp: 2000, maxHp: 2000 });
         buildings.push({ id: uid(), type: 'barracks', faction: selectedFaction, x: playerBase.x + 80, y: playerBase.y - 30, hp: 800, maxHp: 800 });
         buildings.push({ id: uid(), type: 'factory', faction: selectedFaction, x: playerBase.x - 30, y: playerBase.y + 100, hp: 1000, maxHp: 1000 });
-        
-        // AI buildings
+
         buildings.push({ id: uid(), type: 'town_hall', faction: game.ai, x: aiBase.x + 50, y: aiBase.y - 50, hp: 2000, maxHp: 2000 });
         buildings.push({ id: uid(), type: 'barracks', faction: game.ai, x: aiBase.x - 80, y: aiBase.y - 30, hp: 800, maxHp: 800 });
         buildings.push({ id: uid(), type: 'factory', faction: game.ai, x: aiBase.x + 30, y: aiBase.y + 100, hp: 1000, maxHp: 1000 });
-        
-        // Create starting units
+
         const units = [];
-        
-        // Player units - use faction-specific vehicles
-        // Стартовые юниты создаются только если они разрешены выбранным
-        // режимом ограничений (например, в «Только пехота» стартовый танк не спавнится)
+
         const startFlags = getModeFlags(game);
         if (startFlags.allowUnit('infantry')) {
             units.push(createVehicle('infantry', selectedFaction, playerBase.x + 30, playerBase.y + 50));
             units.push(createVehicle('infantry', selectedFaction, playerBase.x + 50, playerBase.y + 50));
             units.push(createVehicle('infantry', selectedFaction, playerBase.x + 70, playerBase.y + 50));
         }
-        
-        // Wardens start with Devitt, Colonials with Hatchet
+
         const playerLightTank = selectedFaction === 'wardens' ? 'devitt' : 'hatchet';
         if (startFlags.allowUnit(playerLightTank)) {
             units.push(createVehicle(playerLightTank, selectedFaction, playerBase.x, playerBase.y + 120));
         }
-        
-        // AI units
+
         if (startFlags.allowUnit('infantry')) {
             units.push(createVehicle('infantry', game.ai, aiBase.x - 30, aiBase.y + 50));
             units.push(createVehicle('infantry', game.ai, aiBase.x - 50, aiBase.y + 50));
             units.push(createVehicle('infantry', game.ai, aiBase.x - 70, aiBase.y + 50));
         }
-        
-        // Стартовый БТР ИИ: у wardens — Niska, у colonials — Javelin
-        // (Hoplite теперь миномётная поддержка, не БТР)
+
         const aiAPC = game.ai === 'wardens' ? 'niska' : 'javelin';
         if (startFlags.allowUnit(aiAPC)) {
             units.push(createVehicle(aiAPC, game.ai, aiBase.x, aiBase.y + 120));
         }
-        
+
         const aiAssaultTank = game.ai === 'wardens' ? 'gallagher_highwayman' : 'falchion';
         if (startFlags.allowUnit(aiAssaultTank)) {
             units.push(createVehicle(aiAssaultTank, game.ai, aiBase.x + 50, aiBase.y - 30));
         }
-        
-        // Initialize game
+
         game.init(cps, mines, buildings, units);
         game.notify = notify;
-        
+
         console.log('✅ Игра инициализирована, запуск игрового цикла...');
-        
-        // Start game loop
+
         lastFrameTime = 0;
         logicAccumulator = 0;
         gameLoop();
@@ -419,12 +373,6 @@ function startGame() {
 }
 
 // ===== ИГРОВОЙ ЦИКЛ С ФИКСИРОВАННЫМ ШАГОМ (FIXSS) =====
-// Раньше game.update() вызывался ровно один раз на каждый кадр
-// requestAnimationFrame. Вся игровая логика (скорость техники, перезарядка
-// орудий, фарм ресурсов) была привязана к тикам, поэтому на мониторах с
-// высоким FPS (144/240 Гц) танки и артиллерия «летали» по карте в 2-4 раза
-// быстрее задуманного. Теперь логика всегда выполняется 60 раз в секунду
-// (фиксированный шаг FIXED_STEP_MS), сколько бы кадров ни рисовал браузер.
 let lastFrameTime = 0;
 let logicAccumulator = 0;
 
@@ -433,7 +381,6 @@ function gameLoop(now) {
 
     const frameStart = (typeof now === 'number' && now > 0) ? now : performance.now();
 
-    // Первый кадр — просто запоминаем время, без шага логики
     if (lastFrameTime === 0) {
         lastFrameTime = frameStart;
         requestAnimationFrame(gameLoop);
@@ -443,16 +390,13 @@ function gameLoop(now) {
     let elapsed = frameStart - lastFrameTime;
     lastFrameTime = frameStart;
 
-    // Защита от «догонания» после сворачивания вкладки / долгого лага:
-    // не более MAX_STEPS_PER_FRAME шагов логики за один кадр.
     if (elapsed > FIXED_STEP_MS * MAX_STEPS_PER_FRAME) {
         elapsed = FIXED_STEP_MS * MAX_STEPS_PER_FRAME;
     }
 
     try {
-        // Накопленное время прокручиваем фиксированными шагами по ~16.67 мс
         logicAccumulator += elapsed;
-         let steps = 0;
+        let steps = 0;
         const loopStart = performance.now();
         while (logicAccumulator >= FIXED_STEP_MS && steps < MAX_STEPS_PER_FRAME) {
             const stepStart = performance.now();
@@ -460,15 +404,12 @@ function gameLoop(now) {
             logicAccumulator -= FIXED_STEP_MS;
             steps++;
             if (game.over) break;
-            
-            // Если один тик занял больше 16 мс — это уже лаг.
-            // Сбрасываем аккумулятор, чтобы не копить долги.
+
             if (performance.now() - stepStart > 16) {
                 logicAccumulator = 0;
                 break;
             }
-            
-            // Если весь цикл занял больше 50 мс — прерываем, чтобы не повесить вкладку
+
             if (performance.now() - loopStart > 50) {
                 logicAccumulator = 0;
                 break;
@@ -476,12 +417,10 @@ function gameLoop(now) {
         }
 
         render(ctx, game, canvas);
-        
-        // Update HUD
+
         document.getElementById('rSup').textContent = Math.floor(game.res.s);
         document.getElementById('rComp').textContent = Math.floor(game.res.c);
         document.getElementById('rMat').textContent = Math.floor(game.res.m);
-        // Прибавка ресурсов в секунду (учитывает множитель режима и «Вымирание»)
         const income = game.getIncomePerSec();
         const setRate = (id, v) => {
             const el = document.getElementById(id);
@@ -491,8 +430,7 @@ function gameLoop(now) {
         setRate('rCompRate', income.c);
         setRate('rMatRate', income.m);
         document.getElementById('tCount').textContent = game.cps.filter(c => c.owner === game.faction).length;
-        
-        // Update unit limits display
+
         const limits = game.getUnitLimits(game.faction);
         const counts = game.getUnitCounts(game.faction);
         const limitsEl = document.getElementById('unitLimits');
@@ -504,12 +442,10 @@ function gameLoop(now) {
                 </div>
             `;
         }
-        
-        // Обновляем очередь производства (всегда видна слева вверху)
+
         updateProductionQueueUI();
-        
         updateSelInfo();
-        
+
         if (game.over) {
             showEndScreen();
             return;
@@ -517,7 +453,7 @@ function gameLoop(now) {
     } catch (error) {
         console.error('❌ Ошибка в игровом цикле:', error);
     }
-    
+
     requestAnimationFrame(gameLoop);
 }
 
@@ -527,11 +463,10 @@ function updateSelInfo() {
         const units = game.units.filter(u => game.selected.includes(u.id));
         const types = {};
         units.forEach(u => { types[u.label] = (types[u.label] || 0) + 1; });
-        
+
         let html = `<p style="font-weight:bold;margin-bottom:4px;">Выбрано: ${units.length} юнитов</p>`;
         Object.entries(types).forEach(([t, c]) => { html += `<p class="sel-type">${t} ×${c}</p>`; });
-        
-        // Show stats for first selected unit
+
         if (units.length === 1) {
             const u = units[0];
             const reloadProgress = Math.min(100, ((u.gameTime - u.lastAtk) / u.cd) * 100);
@@ -542,8 +477,7 @@ function updateSelInfo() {
             html += `<p style="font-size:0.7rem;color:#9ca3af;">SPD: ${u.spd}</p>`;
             html += `<p style="font-size:0.7rem;color:#9ca3af;">CD: ${(u.cd / 60).toFixed(1)}s</p>`;
             html += `<p style="font-size:0.7rem;color:${reloadProgress >= 100 ? '#22c55e' : '#fbbf24'};">Reload: ${Math.floor(reloadProgress)}%</p>`;
-            
-            // Display ammo and fuel if available
+
             if (u.ammo !== undefined && u.maxAmmo > 0) {
                 const ammoPct = (u.ammo / u.maxAmmo) * 100;
                 html += `<p style="font-size:0.7rem;color:#f97316;">🔫 БК: ${Math.floor(u.ammo)}/${u.maxAmmo} (${Math.floor(ammoPct)}%)</p>`;
@@ -552,25 +486,24 @@ function updateSelInfo() {
                 const fuelPct = (u.fuel / u.maxFuel) * 100;
                 html += `<p style="font-size:0.7rem;color:#3b82f6;">⛽ Топливо: ${Math.floor(u.fuel)}/${u.maxFuel} (${Math.floor(fuelPct)}%)</p>`;
             }
-            
-            // Display cargo for logistics vehicles
+
             if (u.currentCargo !== undefined && u.cargoCapacity > 0) {
                 const cargoPct = (u.currentCargo / u.cargoCapacity) * 100;
-                const cargoType = 
-                    u.cargoType === 'ammo' ? '📦 БК' : 
-                    u.cargoType === 'fuel' ? '⛽ Топливо' : 
-                    u.cargoType === 'repair' ? '🔧 Материалы' : 
-                    u.cargoType === 'med' ? '💊 Медикаменты' : 
+                const cargoType =
+                    u.cargoType === 'ammo' ? '📦 БК' :
+                    u.cargoType === 'fuel' ? '⛽ Топливо' :
+                    u.cargoType === 'repair' ? '🔧 Материалы' :
+                    u.cargoType === 'med' ? '💊 Медикаменты' :
                     '🎯 Снаряды';
                 html += `<p style="font-size:0.7rem;color:#a855f7;">${cargoType}: ${Math.floor(u.currentCargo)}/${u.cargoCapacity} (${Math.floor(cargoPct)}%)</p>`;
             }
-            
+
             if (u.aoe) {
                 html += `<p style="font-size:0.7rem;color:#f97316;">AoE: ${u.aoeRadius}</p>`;
             }
             html += `</div>`;
         }
-        
+
         el.innerHTML = html;
         el.style.display = 'block';
     } else {
@@ -578,38 +511,21 @@ function updateSelInfo() {
     }
 }
 
-// ===== Приказ движения (ПКМ / двойной клик / режим движения) =====
-// ИСПРАВЛЕНИЕ БАГА «артиллерия игрока исчезает после начала движения»:
-// раньше всем юнитам (включая арту) выдавалось построение со смещением
-// (col - cols/2)*25. Для ОДНОГО выбранного юнита смещение = -12.5px — цель
-// оказывалась почти под ногами, и арта с её логикой отъезда (retreatOrder)
-// бесконечно переставляла приказ, «ехала на месте» и в итоге останавливалась
-// у стены обороны, где её расстреливали — визуально она «пропадала».
-// Теперь: одиночные юниты и артиллерия идут ТОЧНО в точку клика (смещение 0),
-// при получении приказа игроком старые AI-приказы отъезда/выдвижения сбрасываются.
 function issueMoveOrder(selUnits, worldX, worldY) {
     const cols = Math.ceil(Math.sqrt(selUnits.length));
     selUnits.forEach((u, i) => {
         const row = Math.floor(i / cols);
         const col = i % cols;
-        // Строй только для группы НЕ-артиллерии; одиночный юнит и арта — точно в клик
         const offset = (selUnits.length > 1 && !u.aoe) ? 25 : 0;
         u.tx = worldX + (col - cols / 2) * offset;
         u.ty = worldY + (row - cols / 2) * offset;
-        // ===== ФИКС «юниты едут в сторону от приказа» =====
-        // 1) Сохраняем ЭТАЛОННУЮ точку приказа: обходные манёвры при застревании
-        //    больше никогда не перезаписывают цель — юнит всегда возвращается к ней.
         u.orderOrigin = { x: u.tx, y: u.ty };
-        // 2) Сбрасываем остатки старых приказов/решений, которые могли тянуть
-        //    юнит в другую сторону (отъезд ИИ, AoE-огонь, удержание позиции).
         u.stuckCounter = 0;
         u.detourSide = undefined;
         u.retreatOrder = null;
         u.moveOrder = null;
         u.retreatToBase = false;
         if (u.aoe) {
-            // Артиллерия идёт ТОЧНО в точку клика, без смещения для атаки,
-            // без авто-отъезда по пути — просто едет.
             u.aoeTarget = null;
             u.holdPosition = undefined;
             u.retreatDecisionAt = undefined;
@@ -617,30 +533,26 @@ function issueMoveOrder(selUnits, worldX, worldY) {
     });
 }
 
-// Input handlers
 function handleMouseDown(e) {
     if (!game) return;
     e.preventDefault();
-    
+
     const now = Date.now();
     const isDouble = (now - lastClickTime) < 350;
     lastClickTime = now;
-    
+
     const worldX = e.clientX + game.cam.x;
     const worldY = e.clientY + game.cam.y;
-    
-    // Right click - move units
+
     if (e.button === 2) {
         if (game.selected.length > 0) {
             const selUnits = game.units.filter(u => game.selected.includes(u.id));
             issueMoveOrder(selUnits, worldX, worldY);
-            // Add move indicator particles
             game.addParticles(worldX, worldY, '#22c55e', 5);
         }
         return;
     }
-    
-    // Check minimap click
+
     const mw = 180, mh = 120;
     const mx = canvas.width - mw - 10, my = canvas.height - mh - 50;
     if (e.clientX >= mx && e.clientX <= mx + mw && e.clientY >= my && e.clientY <= my + mh) {
@@ -651,40 +563,25 @@ function handleMouseDown(e) {
         game.cam.y = Math.max(0, Math.min(mapH - canvas.height, clickY * mapH - canvas.height / 2));
         return;
     }
-    
-    // Check factory click
-    const clickedFactory = game.buildings.find(b => 
-        b.type === 'factory' && b.faction === game.faction && 
+
+    const clickedFactory = game.buildings.find(b =>
+        b.type === 'factory' && b.faction === game.faction &&
         dist(b.x, b.y, worldX, worldY) < 30
     );
-    
-    // ===== ФИКС ВЗАИМОДЕЙСТВИЯ С ЗАВОДАМИ =====
-    // Убрали проверку !game.moveMode из условия открытия меню: раньше, если
-    // игрок случайно включил режим перемещения (M), клики по заводу/флагу
-    // обрабатывались как приказ движения и UI вообще не открывался
-    // («меню завода не открывается», «панель обороны недоступна»).
-    // Теперь клики по объектам обрабатываются независимо от режима
-    // перемещения, а moveMode принудительно выключается при открытии меню.
+
     if (clickedFactory && !isDouble && !aoeMode) {
         exitMoveMode();
         openFactoryMenu(clickedFactory, e.clientX, e.clientY);
         return;
     }
-    
-    // AoE mode - set artillery target
+
     if (aoeMode && game.selected.length > 0) {
         const selUnits = game.units.filter(u => game.selected.includes(u.id));
         const artilleryUnits = selUnits.filter(u => u.aoe);
-        
+
         if (artilleryUnits.length > 0) {
             artilleryUnits.forEach(u => {
                 u.aoeTarget = { x: worldX, y: worldY };
-                // ===== ФИКС «СЛОМАННЫЙ ОБСТРЕЛ ПО ПЛОЩАДИ» =====
-                // Приказ огня должен быть единственным активным приказом:
-                // иначе сохранённый приказ движения (tx/ty) уводит арту с
-                // огневой позиции, game.js снимает aoeTarget вне полосы
-                // дистанций — и обстрел срывается. Также обнуляем счётчик
-                // залпов, чтобы цикл из 5 реальных залпов начался заново.
                 u.tx = undefined;
                 u.ty = undefined;
                 u.orderOrigin = undefined;
@@ -700,25 +597,19 @@ function handleMouseDown(e) {
         }
         return;
     }
-    
-    // Check if clicked on a flag (capture point) - only if clicked very close to flag
+
     const clickedFlag = game.cps.find(cp => {
         const d = dist(cp.x, cp.y, worldX, worldY);
-        // Only trigger defense panel if clicked within 30px of flag center (not entire territory)
         return d <= 30 && cp.owner === game.faction;
     });
-    
-    // ===== ФИКС ВЗАИМОДЕЙСТВИЯ С ОБОРОНОЙ =====
-    // Аналогично заводу: панель обороны точки открывается по клику даже
-    // когда активен режим перемещения (moveMode выключается принудительно).
+
     if (clickedFlag && !isDouble && !aoeMode) {
         exitMoveMode();
         selectedCapturePoint = clickedFlag;
         openDefensePanel(clickedFlag, e.clientX, e.clientY);
         return;
     }
-    
-    // Double click or move mode - move units
+
     if (isDouble || game.moveMode) {
         if (game.selected.length > 0) {
             const selUnits = game.units.filter(u => game.selected.includes(u.id));
@@ -730,26 +621,20 @@ function handleMouseDown(e) {
         }
         return;
     }
-    
-    // Select units
-    const clickedUnit = game.units.find(u => 
+
+    const clickedUnit = game.units.find(u =>
         dist(u.x, u.y, worldX, worldY) < 25 && u.faction === game.faction
     );
-    
+
     if (clickedUnit) {
         game.selected = [clickedUnit.id];
     } else {
-        game.selected = game.units.filter(u => 
+        game.selected = game.units.filter(u =>
             dist(u.x, u.y, worldX, worldY) < 60 && u.faction === game.faction
         ).map(u => u.id);
     }
 }
 
-// ===== ВЗАИМОДЕЙСТВИЕ С UI: принудительный выход из режима перемещения =====
-// Вызывается при открытии любого UI-меню (завод, панель обороны), чтобы
-// активный moveMode не «съедал» клик по объекту и не оставался включённым
-// после открытия окна. Синхронизирует состояние game.moveMode с кнопкой
-// и индикатором режима.
 function exitMoveMode() {
     if (!game || !game.moveMode) return;
     game.moveMode = false;
@@ -764,8 +649,7 @@ function exitMoveMode() {
 function handleMouseMove(e) {
     if (!game) return;
     game.mousePos = { x: e.clientX, y: e.clientY };
-    
-    // Edge scrolling
+
     const edge = 30;
     if (e.clientX < edge) game.cam.x -= 5;
     if (e.clientX > canvas.width - edge) game.cam.x += 5;
@@ -773,41 +657,84 @@ function handleMouseMove(e) {
     if (e.clientY > canvas.height - edge) game.cam.y += 5;
 }
 
-// UI functions
 window.toggleMoveMode = function() {
     if (!game) return;
     game.moveMode = !game.moveMode;
     document.getElementById('modeIndicator').classList.toggle('hidden', !game.moveMode);
 };
 
-// ===== Вкладки производства: Пехота / Техника / Снабжение / Поддержка =====
+// ===== ВКЛАДКИ ПРОИЗВОДСТВА =====
+// Плоские списки для вкладок без подвкладок (Снабжение, Поддержка)
+const TAB_TYPES = {
+    supply:  ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck',
+              'construction_truck', 'fire_truck'],
+    support: ['warden_artillery120', 'nona', 'warden_artillery150',
+              'colonial_artillery120', 'colonial_artillery150',
+              'hoplite', 'devitt_mmr', 'god_loader'],
+};
+
 const PRODUCTION_TABS = [
-    { id: 'infantry',   label: '🔫 Пехота' },
-    { id: 'vehicles',   label: '🚗 Техника' },
-    { id: 'supply',     label: '📦 Снабжение' },
-    { id: 'support',    label: '🎯 Поддержка' },
+    { id: 'infantry', label: '🔫 Пехота' },
+    { id: 'vehicles', label: '🚗 Техника' },
+    { id: 'supply',   label: '📦 Снабжение' },
+    { id: 'support',  label: '🎯 Поддержка' },
 ];
 
 const FACTION_INFANTRY_TYPES = ['rifleman', 'mg_gunner', 'grenadier', 'sniper'];
 
-const TAB_TYPES = {
-    infantry: ['infantry', 'assualt_varden', 'smuggler_varden', 'poacher_colonist',
-               'medic_varden', 'medic_colonist', 'scout_infantry', ...FACTION_INFANTRY_TYPES],
-    vehicles: ['king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw', 'niska', 'spatha', 'talos', 'noble_widow', 'niska_blinder', 
-               'warden_scout_car', // <-- ДОБАВЛЕНО
-               'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin',
-               'colonial_scout_car'],
-    supply: ['truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck', 'construction_truck', 'fire_truck'],
-    // Поддержка: ствольная артиллерия + миномётные машины (Hoplite, Devitt MMR)
-    support:  ['warden_artillery120', 'warden_artillery150','colonial_artillery120','colonial_artillery150', 'hoplite', 'devitt_mmr', 'god_loader'],
+// Подвкладки для техники
+const VEHICLE_SUBTABS = {
+    wardens: [
+        { id: 'tanks',  label: '🛡️ Танки' },
+        { id: 'at',     label: '🎯 ПТ' },
+        { id: 'armor',  label: '🚙 Бронемашины' },
+    ],
+    colonials: [
+        { id: 'tanks',  label: '🛡️ Танки' },
+        { id: 'at',     label: '🎯 ПТ' },
+        { id: 'armor',  label: '🚙 Бронемашины' },
+    ],
+};
+
+// Подвкладки для пехоты
+const INFANTRY_SUBTABS = [
+    { id: 'base',    label: '🔫 Базовые' },
+    { id: 'veteran', label: '⭐ Ветераны' },
+    { id: 'special', label: '🎖️ Специальные' },
+];
+
+// Что лежит в каждой подвкладке техники (по фракциям)
+const VEHICLE_SUBTAB_TYPES = {
+    wardens: {
+        tanks: ['king_spire', 'devitt', 'devitt_mmr', 'silverhand',
+                'gallagher_highwayman', 'gallagher_outlaw'],
+        at:    ['noble_widow', 'niska_blinder'],
+        armor: ['niska', 'warden_scout_car'],
+    },
+    colonials: {
+        tanks: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'spatha', 'talos'],
+        at:    ['pelekys'],
+        armor: ['javelin', 'colonial_scout_car'],
+    },
+};
+
+// Что лежит в каждой подвкладке пехоты (по фракциям)
+const INFANTRY_SUBTAB_TYPES = {
+    wardens: {
+        base:    ['rifleman', 'mg_gunner', 'assualt_varden'],
+        veteran: ['smuggler_varden'],
+        special: ['sniper', 'grenadier', 'medic_varden', 'scout_infantry'],
+    },
+    colonials: {
+        base:    ['rifleman', 'mg_gunner', 'assualt_varden'],
+        veteran: ['poacher_colonist'],
+        special: ['sniper', 'grenadier', 'medic_colonist', 'scout_infantry'],
+    },
 };
 
 let factoryTab = 'infantry';
+let factorySubTab = null;
 
-// Фракционное название вида пехоты: у wardens — «Гранатомётчик»,
-// у colonials — «Гренадер» (это один тип 'grenadier', разные классы).
-// info может быть undefined, если тип не добавлен в VEHICLE_INFO —
-// возвращаем label/тип вместо падения с "Cannot read properties of undefined".
 function factionUnitName(type, info) {
     if (type === 'grenadier') {
         return game && game.faction === 'colonials' ? 'Гренадер' : 'Гранатомётчик';
@@ -822,17 +749,15 @@ function openFactoryMenu(factory, mx, my) {
     menu.style.left = Math.min(mx, window.innerWidth - 340) + 'px';
     menu.style.top = Math.min(my, window.innerHeight - 400) + 'px';
 
-    // Запоминаем текущий завод и делаем заголовок окна перетаскиваемым
     factoryMenuFactory = factory;
     initDraggableWindow(menu);
 
-    // Контейнер вкладок создаём один раз
     const grid = document.getElementById('unitGrid');
     let tabsEl = document.getElementById('factoryTabs');
     if (!tabsEl) {
         tabsEl = document.createElement('div');
         tabsEl.id = 'factoryTabs';
-        tabsEl.style.cssText = 'display:flex;gap:4px;margin-bottom:0.6rem;flex-wrap:wrap;';
+        tabsEl.style.cssText = 'margin-bottom:0.6rem;';
         menu.insertBefore(tabsEl, grid);
     }
     renderFactoryTabs(tabsEl, factory, grid);
@@ -840,62 +765,108 @@ function openFactoryMenu(factory, mx, my) {
 
 function renderFactoryTabs(tabsEl, factory, grid) {
     tabsEl.innerHTML = '';
-    // В режиме экономики «Дефицит» вкладка «Снабжение» (полевая логистика)
-    // недоступна — полностью скрываем её кнопку.
+
     const flags = getModeFlags(game);
     const visibleTabs = PRODUCTION_TABS.filter(tab =>
         !(tab.id === 'supply' && !flags.logisticsAllowed));
-    // Если активная вкладка стала скрытой — переключаемся на первую видимую
+
     if (!visibleTabs.some(t => t.id === factoryTab)) {
         factoryTab = visibleTabs[0]?.id || 'infantry';
+        factorySubTab = null;
     }
+
+    // --- Верхняя строка: вкладки ---
+    const topRow = document.createElement('div');
+    topRow.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;';
     visibleTabs.forEach(tab => {
         const btn = document.createElement('button');
         btn.textContent = tab.label;
         const active = tab.id === factoryTab;
-        btn.style.cssText = `padding:4px 10px;border-radius:6px;font-size:0.72rem;cursor:pointer;` +
+        btn.style.cssText = 'padding:4px 10px;border-radius:6px;font-size:0.72rem;cursor:pointer;' +
             (active ? 'background:#2563eb;color:#fff;border:1px solid #60a5fa;'
                     : 'background:rgba(17,24,39,0.9);color:#d1d5db;border:1px solid #374151;');
         btn.onclick = () => {
             factoryTab = tab.id;
+            factorySubTab = null;
             renderFactoryTabs(tabsEl, factory, grid);
         };
-        tabsEl.appendChild(btn);
+        topRow.appendChild(btn);
     });
+    tabsEl.appendChild(topRow);
+
+    // --- Вторая строка: подвкладки (только для infantry/vehicles) ---
+    let subTabs = null;
+    if (factoryTab === 'infantry') {
+        subTabs = INFANTRY_SUBTABS;
+    } else if (factoryTab === 'vehicles') {
+        subTabs = VEHICLE_SUBTABS[game.faction] || null;
+    }
+
+    if (subTabs && subTabs.length > 0) {
+        if (!factorySubTab || !subTabs.some(s => s.id === factorySubTab)) {
+            factorySubTab = subTabs[0].id;
+        }
+        const subRow = document.createElement('div');
+        subRow.style.cssText =
+            'display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;' +
+            'padding-top:4px;border-top:1px dashed #374151;';
+        subTabs.forEach(sub => {
+            const btn = document.createElement('button');
+            btn.textContent = sub.label;
+            const active = sub.id === factorySubTab;
+            btn.style.cssText = 'padding:3px 8px;border-radius:5px;font-size:0.68rem;cursor:pointer;' +
+                (active ? 'background:#1e40af;color:#fff;border:1px solid #3b82f6;'
+                        : 'background:rgba(17,24,39,0.9);color:#9ca3af;border:1px solid #374151;');
+            btn.onclick = () => {
+                factorySubTab = sub.id;
+                renderFactoryTabs(tabsEl, factory, grid);
+            };
+            subRow.appendChild(btn);
+        });
+        tabsEl.appendChild(subRow);
+    } else {
+        factorySubTab = null;
+    }
+
     renderTabUnits(grid, factory);
 }
 
 function renderTabUnits(grid, factory) {
     grid.innerHTML = '';
-    // Пехота своей фракции (у каждой — свои классы/названия: у wardens
-    // «Гранатомётчик», у colonials «Гренадер»; пулемётчик общий).
     const ownInfantry = FACTION_INFANTRY[game.faction] || [];
     const factionPool = ['infantry', ...ownInfantry, ...FACTION_VEHICLES[game.faction]];
-    let types = (TAB_TYPES[factoryTab] || []).filter(t => factionPool.includes(t));
 
-    // На вкладке пехоты не дублируем: 'infantry' и 'rifleman' — одни и те же
-    // стрелки, оставляем карточку «Стрелок».
+    let types = [];
+
     if (factoryTab === 'infantry') {
-        types = types.filter(t => t !== 'infantry');
+        const subMap = INFANTRY_SUBTAB_TYPES[game.faction] || {};
+        types = (subMap[factorySubTab] || []).filter(t => factionPool.includes(t));
+        types = [...new Set(types)].filter(t => t !== 'infantry');
+    } else if (factoryTab === 'vehicles') {
+        const subMap = VEHICLE_SUBTAB_TYPES[game.faction] || {};
+        types = (subMap[factorySubTab] || []).filter(t => factionPool.includes(t));
+        types = [...new Set(types)];
+    } else {
+        types = (TAB_TYPES[factoryTab] || []).filter(t => factionPool.includes(t));
     }
 
-    // Название гранатомётчика зависит от фракции: wardens — «Гранатомётчик»,
-    // colonials — «Гренадер» (factionUnitName).
-
     if (types.length === 0) {
-        grid.innerHTML = '<div style="color:#9ca3af;font-size:0.75rem;">Нет доступных юнитов в этой вкладке</div>';
+        grid.innerHTML = '<div style="color:#9ca3af;font-size:0.75rem;">Нет доступных юнитов в этой подвкладке</div>';
         return;
     }
 
     types.forEach(type => {
         const info = VEHICLE_INFO[type];
+        if (!info) return;
         const name = factionUnitName(type, info);
-        const canAfford = game.res.s >= info.cost.s && game.res.c >= info.cost.c && game.res.m >= info.cost.m;
-        // Юнит запрещён выбранным режимом ограничений — подсвечиваем его
-        // как недоступный (карточка остаётся видна, но неактивна).
+        const canAfford = game.res.s >= info.cost.s
+                       && game.res.c >= info.cost.c
+                       && game.res.m >= info.cost.m;
         const allowedByMode = getModeFlags(game).allowUnit(type);
         const card = document.createElement('div');
-        card.className = 'unit-card' + ((canAfford && allowedByMode) ? '' : ' disabled') + (allowedByMode ? '' : ' restricted');
+        card.className = 'unit-card'
+            + ((canAfford && allowedByMode) ? '' : ' disabled')
+            + (allowedByMode ? '' : ' restricted');
         card.innerHTML = `
             <div class="unit-name">${info.icon} ${name}${allowedByMode ? '' : ' 🔒'}</div>
             <div class="unit-stats">${info.stats}</div>
@@ -905,9 +876,7 @@ function renderTabUnits(grid, factory) {
         if (!allowedByMode) {
             card.title = 'Этот юнит запрещён выбранным режимом ограничений';
         } else if (canAfford) {
-            card.onclick = () => {
-                trainUnit(type, factory);
-            };
+            card.onclick = () => trainUnit(type, factory);
         }
         grid.appendChild(card);
     });
@@ -916,31 +885,26 @@ function renderTabUnits(grid, factory) {
 function updateProductionQueueUI() {
     const queueContainer = document.getElementById('productionQueue');
     const queueContent = document.getElementById('productionQueueContent');
-    
+
     if (!queueContainer || !queueContent || !game) return;
-    
-    // Получаем все заводы игрока
+
     const playerFactories = game.buildings.filter(b => b.type === 'factory' && b.faction === game.faction);
-    
-    // Собираем все элементы очереди со всех заводов
+
     let allQueueItems = [];
     playerFactories.forEach(factory => {
         const queue = game.getProductionProgress(factory.id);
         allQueueItems = allQueueItems.concat(queue);
     });
-    
-    // Если очередь пустая - скрываем контейнер
+
     if (allQueueItems.length === 0) {
         queueContainer.style.display = 'none';
         return;
     }
-    
-    // Показываем контейнер
+
     queueContainer.style.display = 'block';
-    
-    // Генерируем HTML для очереди
+
     let queueHtml = '';
-    
+
     allQueueItems.forEach((item, index) => {
         const info = VEHICLE_INFO[item.type];
         const displayName = factionUnitName(item.type, info);
@@ -948,7 +912,7 @@ function updateProductionQueueUI() {
         const buildTimeTicks = item.buildTime * 60;
         const progress = Math.min(100, (elapsed / buildTimeTicks) * 100);
         const remainingTime = Math.max(0, Math.ceil((buildTimeTicks - elapsed) / 60));
-        
+
         queueHtml += `
             <div style="margin-bottom:0.5rem;">
                 <div style="font-size:0.7rem;color:#d1d5db;">${info.icon} ${displayName}</div>
@@ -962,21 +926,20 @@ function updateProductionQueueUI() {
             </div>
         `;
     });
-    
+
     queueContent.innerHTML = queueHtml;
 }
 
 function trainUnit(type, factory) {
     if (!game || !factory) return;
-    
+
     const info = VEHICLE_INFO[type];
     const cost = info.cost;
-    
-    // Проверка лимитов юнитов
+
     if (!game.canProduceUnit(type, game.faction)) {
         const limits = game.getUnitLimits(game.faction);
         const counts = game.getUnitCounts(game.faction);
-        
+
         if (type === 'infantry' || type === 'rifleman' || type === 'mg_gunner' ||
             type === 'grenadier' || type === 'sniper') {
             notify(`Достигнут лимит пехоты! (${counts.infantry}/${limits.infantry}) Захватите больше точек для увеличения лимита.`);
@@ -985,18 +948,17 @@ function trainUnit(type, factory) {
         }
         return;
     }
-    
+
     if (game.res.s < cost.s || game.res.c < cost.c || game.res.m < cost.m) {
         notify('Недостаточно ресурсов!');
         return;
     }
-    
+
     game.res.s -= cost.s;
     game.res.c -= cost.c;
     game.res.m -= cost.m;
-    
-    // Добавляем в очередь производства
-    const buildTime = cost.buildTime || 10; // По умолчанию 10 секунд
+
+    const buildTime = cost.buildTime || 10;
     game.addToProductionQueue(type, game.faction, factory.id, buildTime);
     notify(`${factionUnitName(type, info)} поставлен в очередь (${buildTime}с)`);
 }
@@ -1011,7 +973,7 @@ window.toggleMoveMode = function() {
     game.moveMode = !game.moveMode;
     const btn = document.getElementById('moveBtn');
     const indicator = document.getElementById('modeIndicator');
-    
+
     if (game.moveMode) {
         btn.style.borderColor = '#fbbf24';
         btn.style.background = 'rgba(251,191,36,0.15)';
@@ -1027,7 +989,7 @@ window.toggleAoEMode = function() {
     if (!game) return;
     aoeMode = !aoeMode;
     const btn = document.getElementById('aoeBtn');
-    
+
     if (aoeMode) {
         btn.style.borderColor = '#ef4444';
         btn.style.background = 'rgba(239,68,68,0.15)';
@@ -1037,9 +999,6 @@ window.toggleAoEMode = function() {
     }
 };
 
-// ===== КНОПКА РЕМОНТА ОБОРОНЫ =====
-// Включает/выключает флаг cp.repairDefense. Пока включён, game.js
-// восстанавливает по 1% прочности раз в 3 секунды, списывая материалы.
 window.toggleDefenseRepair = function() {
     if (!selectedCapturePoint) return;
     const cp = selectedCapturePoint;
@@ -1066,7 +1025,6 @@ window.toggleDefenseRepair = function() {
         parseInt(document.getElementById('defensePanel').style.top) || 0);
 };
 
-// Обновить внешний вид кнопки ремонта в зависимости от состояния точки
 function updateRepairButton(cp) {
     const btn = document.getElementById('repairDefenseBtn');
     if (!btn || !cp) return;
@@ -1100,29 +1058,25 @@ function updateRepairButton(cp) {
 }
 
 function openDefensePanel(cp, mx, my) {
-    // Инициализируем defenseLevel если его нет
     if (cp.defenseLevel === undefined) {
         cp.defenseLevel = 0;
     }
-    
+
     const panel = document.getElementById('defensePanel');
     panel.classList.remove('hidden');
     panel.style.left = Math.min(mx, window.innerWidth - 380) + 'px';
     panel.style.top = Math.min(my, window.innerHeight - 400) + 'px';
 
-    // Окно улучшения обороны тоже можно перемещать за заголовок
     initDraggableWindow(panel);
 
     const info = document.getElementById('defenseInfo');
     let extra = '';
-    // Прочность обороны города (очки прочности)
     if (typeof game.getCityDefenseDisplayInfo === 'function') {
         const dinfo = game.getCityDefenseDisplayInfo(cp);
         if (dinfo) {
             extra += `<div>Прочность обороны: <strong style="color:${dinfo.broken ? '#ef4444' : '#22c55e'};">${dinfo.integrity}</strong>${dinfo.broken ? ' <span style="color:#ef4444;font-size:0.7rem;">(оборона сломлена — город можно захватить)</span>' : ' <span style="color:#9ca3af;font-size:0.7rem;">(вражеская техника не может въехать в город)</span>'}</div>`;
         }
     }
-    // Время улучшения обороны (прогресс)
     const upg = typeof game.getDefenseUpgradeProgress === 'function' ? game.getDefenseUpgradeProgress(cp) : null;
     if (upg) {
         extra += `
@@ -1142,15 +1096,13 @@ function openDefensePanel(cp, mx, my) {
         <div>Текущий уровень обороны: <strong style="color:#fbbf24;">${cp.defenseLevel}/3</strong></div>
         ${extra}
     `;
-    
+
     const levels = document.getElementById('defenseLevels');
-    // ===== ФИКС: радиусы приведены в соответствие с getTerritoryDefenseStats()
-    // в game.js (240/300/360 после удвоения; в панели были устаревшие 120/150/180)
     const defenseInfo = DEFENSE_UPGRADE_INFO.map(d => ({ ...d }));
-    
+
     levels.innerHTML = defenseInfo.map(d => {
         const currentLevel = cp.defenseLevel || 0;
-        const canUpgrade = currentLevel === d.level - 1; // Можно улучшить только на следующий уровень
+        const canUpgrade = currentLevel === d.level - 1;
         const isCurrent = currentLevel === d.level;
         const isPast = currentLevel > d.level;
         const canAfford = game.res.s >= d.cost.s && game.res.c >= d.cost.c && game.res.m >= d.cost.m;
@@ -1173,7 +1125,7 @@ function openDefensePanel(cp, mx, my) {
             cardClass += ' disabled';
             status = '<div style="color:#ef4444;font-size:0.6rem;margin-top:0.25rem;">Недостаточно ресурсов</div>';
         }
-        
+
         return `
             <div class="${cardClass}" style="margin-bottom:0.5rem;${canUpgrade && canAfford && !cp.upgrading ? 'cursor:pointer;' : ''}" 
                  ${canUpgrade && canAfford && !cp.upgrading ? `onclick="upgradeDefense(${d.level})"` : ''}>
@@ -1187,21 +1139,16 @@ function openDefensePanel(cp, mx, my) {
     updateRepairButton(cp);
 }
 
-// Периодическое обновление панели обороны (прогресс улучшения занимает время)
-// Периодическое обновление панели обороны
 function startDefensePanelUpdater() {
     if (defensePanelInterval) clearInterval(defensePanelInterval);
-    // Обновляем панель реже (раз в 2 секунды), чтобы не грузить браузер
     defensePanelInterval = setInterval(() => {
         if (!game || game.over) return;
         const panel = document.getElementById('defensePanel');
-        // Обновляем только если окно реально открыто
         if (panel && !panel.classList.contains('hidden') && selectedCapturePoint) {
-            // Не вызываем openDefensePanel, если ничего не изменилось (проверяем по времени)
             const now = Date.now();
             if (panel._lastRender && now - panel._lastRender < 2000) return;
             panel._lastRender = now;
-            
+
             openDefensePanel(selectedCapturePoint,
                 parseInt(panel.style.left) || 0,
                 parseInt(panel.style.top) || 0);
@@ -1216,15 +1163,14 @@ window.closeDefensePanel = function() {
 
 window.upgradeDefense = function(level) {
     if (!selectedCapturePoint) return;
-    
+
     const cpIndex = game.cps.indexOf(selectedCapturePoint);
     const result = game.upgradeTerritoryDefense(cpIndex);
-    
+
     if (result) {
         const time = game.getDefenseUpgradeTime ? game.getDefenseUpgradeTime(level) : 0;
         notify(`${selectedCapturePoint.name}: улучшение обороны до уровня ${level} — ${time}с`);
-        // Обновляем панель
-        openDefensePanel(selectedCapturePoint, 
+        openDefensePanel(selectedCapturePoint,
             parseInt(document.getElementById('defensePanel').style.left),
             parseInt(document.getElementById('defensePanel').style.top));
     } else {
@@ -1244,7 +1190,7 @@ function showEndScreen() {
     const won = game.winner === game.faction;
     document.getElementById('hudTop').style.display = 'none';
     document.getElementById('controlsHint').style.display = 'none';
-    
+
     const div = document.createElement('div');
     div.className = 'screen';
     div.innerHTML = `

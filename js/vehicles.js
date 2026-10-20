@@ -507,7 +507,7 @@ export class Nona extends Vehicle {
         this.cd = 300;
         this.size = 22;
         this.armor = 25;
-        this.label = 'Devitt MMR';
+        this.label = 'Nona-C 120mm';
         this.tracked = true;
         this.crew = 3;
         this.isMortar = true;
@@ -1024,8 +1024,8 @@ export class ScoutInfantry extends InfantryBase {
         this.label = 'Разведчик';
         this.size = 5;
         // По ТЗ: обзор на 30% меньше машины (200 * 0.7 = 140)
-        this.visionBase = 180; 
-        this.detectRange = 50; // Пока идет пешком, виден с 50
+        this.visionBase = 230; 
+        this.detectRange = 180; // Пока идет пешком, виден с 50
         
         // Маскировка
         this.stealth = 80;
@@ -1398,11 +1398,13 @@ export function createVehicle(type, faction, x, y) {
         warden_artillery120: WardenArtillery120,
         warden_artillery150: WardenArtillery150mm,
         warden_artillery: WardenArtillery150mm,
+        nona: Nona, 
         // Colonials
         hatchet: Hatchet,
         scorpion: Scorpion,
         nemesis: Nemesis,
         falchion: Falchion,
+        pelekys: pelekys,
         spatha: Spatha,
         talos: Talos,
         javelin: Javelin,
@@ -1439,11 +1441,11 @@ export const FACTION_VEHICLES = {
               'gallagher_highwayman', 'niska', 'warden_artillery150',
               'warden_artillery120', 'truck', 'fuel_truck', 'engineer',
               'flatbed', 'gallagher_outlaw', 'niska_blinder', 'medic_truck',
-              'construction_truck', 'fire_truck', 'warden_scout_car'],
+              'construction_truck', 'fire_truck', 'warden_scout_car', 'nona'],
     colonials: ['hatchet', 'scorpion', 'nemesis', 'falchion', 'talos', 'javelin',
                 'hoplite', 'colonial_artillery150', 'colonial_artillery120',
                 'truck', 'fuel_truck', 'engineer', 'flatbed', 'spatha',
-                'medic_truck', 'god_loader', 'construction_truck', 'fire_truck', 'colonial_scout_car'],
+                'medic_truck', 'god_loader', 'construction_truck', 'fire_truck', 'colonial_scout_car', 'pelekys'],
 };
 
 // ===== Помощники по видам пехоты =====
@@ -1451,7 +1453,7 @@ export const INFANTRY_TYPES = [
     'rifleman', 'mg_gunner', 'grenadier', 'sniper',
     'assualt_varden', 'smuggler_varden', 'poacher_colonist',
     'medic_varden', 'medic_colonist',
-    'scout_infantry' // <-- ДОБАВЛЕНО
+    'scout_infantry' 
 ];
 
 export const FACTION_INFANTRY = {
@@ -1483,7 +1485,7 @@ export function isTechUnit(u) {
 export const TECHNIC_VEHICLE_TYPES = [
     'king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'niska',
     'gallagher_outlaw', 'noble_widow',
-    'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'spatha', 'talos'
+    'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'spatha', 'talos', 'pelekys'
 ];
 
 const DEFENSE_VS_TECH_MULT = 1.3;

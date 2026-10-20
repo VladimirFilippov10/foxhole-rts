@@ -157,7 +157,7 @@ export function attritionMultiplier(time) {
 // Миномётные машины поддержки (devitt_mmr, hoplite) — НЕ артиллерия.
 export const BARREL_ARTILLERY_TYPES = [
     'warden_artillery120', 'warden_artillery150',
-    'colonial_artillery120', 'colonial_artillery150',
+    'colonial_artillery120', 'colonial_artillery150', 'nona',
     'god_loader', // тяжёлая САУ 200 мм (Colonials)
     'warden_artillery', 'colonial_artillery', // старые алиасы из сохранений
 ];
@@ -173,11 +173,11 @@ export const ALL_UNIT_TYPES = [
     ...INFANTRY_UNIT_TYPES,
     // Техника wardens
     'king_spire', 'devitt', 'silverhand', 'gallagher_highwayman', 'gallagher_outlaw',
-    'niska', 'spatha', 'talos', 'noble_widow', 'devitt_mmr', 'niska_blinder',
+    'niska', 'spatha', 'talos', 'noble_widow', 'devitt_mmr', 'niska_blinder', 'nona',
     // Техника colonials
-    'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'hoplite',
+    'hatchet', 'scorpion', 'nemesis', 'falchion', 'javelin', 'hoplite', 'pelekys',  
     // Артиллерия (ствольная)
-    ...BARREL_ARTILLERY_TYPES,
+    ...BARREL_ARTILLERY_TYPES, 
     // Логистика
     ...LOGISTICS_TYPES,
 ];
@@ -247,6 +247,7 @@ export const VEHICLE_COSTS = {
     niska_blinder: { s: 50, c: 100, m: 20, buildTime: 25 },
     warden_artillery150: { s: 55, c: 40, m: 25, buildTime: 40 }, // Артиллерия
     warden_artillery120: { s: 55, c: 40, m: 10, buildTime: 30 }, // Артиллерия
+    nona: { s: 65, c: 45, m: 25, buildTime: 40 },   
     
     // Colonials tanks
     hatchet: { s: 30, c: 60, m: 25, buildTime: 25 }, // Легкий танк (обновлен)
@@ -279,6 +280,7 @@ export const VEHICLE_COSTS = {
     warden_scout_car: { s: 30, c: 10, m: 5, buildTime: 15 },
     colonial_scout_car: { s: 30, c: 10, m: 5, buildTime: 15 },
     scout_infantry: { s: 15, c: 0, m: 0, buildTime: 8 },
+    pelekys: { s: 30, c: 70, m: 50, buildTime: 30 }, 
 };
 
 export const BUILDING_COSTS = {
