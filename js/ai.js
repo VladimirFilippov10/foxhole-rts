@@ -34,7 +34,7 @@ export class AI {
         this.accumulatedForces = 0;
         this.attackThreshold = 6;
         this.artilleryPositions = [];
-        this._farmCoef = 1.0;
+        this._farmCoef = 2.0;
         this.lastEnemySighting = null;
         this.logistics = { sets: [], lastScanAt: -9999 };
         this.garrison = new Map();
@@ -1269,25 +1269,54 @@ export class AI {
         const playerPoints = this.G.cps.filter(c => c.owner === this.G.faction).length;
         const totalPoints = this.G.cps.length || 1;
 
-        // ===== Динамический коэффициент фарма =====
-        // Чем сильнее ИИ отстаёт — тем выше его фарм (до 100% от игрока).
-        // Чем сильнее ведёт — тем ниже (до 60%). Игрок «впереди» всегда
-        // получает примерно одинаковый фарм, а ИИ — догоняющий/сдерживающий.
-        // ratio > 1  → ИИ отстаёт
-        // ratio ≈ 1  → равенство
-        // ratio < 1  → ИИ ведёт
-        const ratio = (playerPoints + 0.5) / (aiPoints + 0.5);
-        const clamped = Math.max(0, Math.min(1.5, ratio));
-        // 0.6 — при лидерстве, 1.0 — при сильном отставании
-        const targetCoef = 0.6 + 0.4 * (clamped / 1.5);
+        // ===== 1) Коэффициент по ТОЧКАМ =====
+        const pointRatio = (playerPoints + 0.5) / (aiPoints + 0.5);
+        const clampedPts = Math.max(0, Math.min(1.5, pointRatio));
+        const targetPointCoef = 0.6 + 0.4 * (clampedPts / 1.5);
 
-        // Плавное сглаживание (~1–3 сек)
+        // ===== 2) Коэффициент по ЮНИТАМ =====
+        let playerUnits = 0, aiUnits = 0;
+        for (const u of this.G.units) {
+            if (u.hp <= 0) continue;
+            if (u.faction === this.G.faction) playerUnits++;
+            else if (u.faction === this.G.ai) aiUnits++;
+        }
+
+        if (this.timer % 600 === 0) {
+            console.log('[AI][BEFORE-FARM] res:', this.aiResources, 'aiPoints:', aiPoints, 'aiUnits:', aiUnits);
+        }
+
+        let unitRatio;
+        if (aiUnits === 0 && playerUnits === 0) {
+            unitRatio = 1;
+        } else if (aiUnits === 0) {
+            unitRatio = 3;
+        } else {
+            unitRatio = playerUnits / aiUnits;
+        }
+        const clampedUnits = Math.max(0, Math.min(3, unitRatio));
+        const targetUnitCoef = 0.6 + 0.4 * (clampedUnits / 3);
+
+        // ===== 3) Итоговый коэффициент =====
+        const targetCoef = Math.max(0.5, Math.min(1.0, targetPointCoef * targetUnitCoef));
+
+        // Плавное сглаживание
         if (this._farmCoef === undefined) this._farmCoef = targetCoef;
         this._farmCoef += (targetCoef - this._farmCoef) * 0.005;
-        const coef = Math.max(0.6, Math.min(1.0, this._farmCoef));
+        let coef = Math.max(0.5, Math.min(1.0, this._farmCoef));
 
-        // ===== Базовый фарм (без коэффициента) =====
-        const modeMultiplier = this.G.gameMode === 'realism' ? 0.3 : this.G.gameMode === 'fast' ? 2.5 : 1.0;
+        // ===== 4) ЭКСТРЕННЫЙ БУСТ =====
+        if (aiUnits < 5) {
+            this._farmCoef = 2.0;
+            coef = 2.0;
+            if (this.timer % 600 === 0) {
+                aiLog(`[AI][BOOST] т.${this.timer}: у ИИ ${aiUnits} юнитов (<5) → фарм ×2 от игрока`);
+            }
+        }
+
+        // ===== 5) Множители и начисление =====
+        const modeMultiplier = this.G.gameMode === 'realism' ? 0.3
+                             : this.G.gameMode === 'fast' ? 2.5 : 1.0;
         const flags = getModeFlags(this.G);
         const farmMult = flags.farmMultiplier ? flags.farmMultiplier(this.G.time) : 1;
 
@@ -1299,12 +1328,15 @@ export class AI {
             else if (mine.type === 'materials') mineM += 0.03;
         }
 
-        // Итоговый фарм ИИ = (точечный фарм) * coef * множители.
-        // За счёт coef ИИ получает от 60% до 100% от «эталонного» фарма игрока
-        // при равном числе точек.
+        // Итоговое начисление
         this.aiResources.s += (aiPoints * 0.03 * coef + mineS) * this.aiResourceRate * modeMultiplier * farmMult;
         this.aiResources.c += (aiPoints * 0.015 * coef + mineC) * this.aiResourceRate * modeMultiplier * farmMult;
         this.aiResources.m += (aiPoints * 0.01 * coef + mineM) * this.aiResourceRate * modeMultiplier * farmMult;
+
+        // ===== 6) Диагностика после начисления =====
+        if (this.timer % 600 === 0) {
+            console.log('[AI][AFTER-FARM] res:', this.aiResources, 'coef:', coef);
+        }
     }
 
     canAffordInfantry() {
@@ -1312,6 +1344,9 @@ export class AI {
         return this.aiResources.s >= cost.s &&
                this.aiResources.c >= cost.c &&
                this.aiResources.m >= cost.m;
+               if (this.timer % 600 === 0) {
+    console.log('[AI][AFTER-FARM] res:', this.aiResources, 'coef:', coef);
+}
     }
 
     vehicleRoster() {
