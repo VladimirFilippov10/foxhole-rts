@@ -1759,7 +1759,28 @@ function drawUnit(ctx, u, cam, selected, hovered, G) {
         ctx.moveTo(r, 0);
         ctx.lineTo(-r * 0.8, -r * 0.9);
         ctx.lineTo(-r * 0.8, r * 0.9);
-    } else if (u.type === 'grenadier') {
+    } 
+    else if (u.type === 'scout_infantry') {
+    // Пехотинец-разведчик (бинокль/радар)
+    // Основа - треугольник, направленный вперед
+    ctx.moveTo(r * 0.8, 0);
+    ctx.lineTo(-r * 0.8, -r * 0.8);
+    ctx.lineTo(-r * 0.8, r * 0.8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    
+    // Характерная деталь: Бинокль или радарная тарелка
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(r * 0.5, 0, r * 0.25, 0, Math.PI * 2); // объектив
+    ctx.fill();
+    ctx.strokeStyle = '#60a5fa'; // Синий блик линзы
+    ctx.lineWidth = 1;
+    ctx.stroke();
+}
+    
+    else if (u.type === 'grenadier') {
         ctx.moveTo(r, 0); ctx.lineTo(0, -r);
         ctx.lineTo(-r, 0); ctx.lineTo(0, r);
     } else if (u.type === 'mg_gunner') {
@@ -4516,6 +4537,151 @@ if (u.type === 'colonial_artillery120') {
     ctx.strokeStyle = col.a;
     ctx.lineWidth = 1;
     ctx.strokeRect(-sz * 0.46, sz * 0.04, sz * 0.14, sz * 0.12);
+}
+// ===== WARDEN SCOUT CAR (O'Brien V.130) =====
+if (u.type === 'warden_scout_car') {
+    // Гусеницы / колёса (скрыты бронекорпусом, видны только снизу)
+    ctx.fillStyle = '#111';
+    ctx.fillRect(-sz * 0.35, -sz * 0.4, sz * 0.2, sz * 0.12); // переднее левое
+    ctx.fillRect( sz * 0.15, -sz * 0.4, sz * 0.2, sz * 0.12); // переднее правое
+    ctx.fillRect(-sz * 0.35,  sz * 0.28, sz * 0.2, sz * 0.12); // заднее левое
+    ctx.fillRect( sz * 0.15,  sz * 0.28, sz * 0.2, sz * 0.12); // заднее правое
+
+    // Основной угловатый корпус (цвет Варденов - сине-серый)
+    ctx.fillStyle = '#4b5563'; // Темно-серый
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.45, -sz * 0.3); // корма
+    ctx.lineTo( sz * 0.4, -sz * 0.3);  // крыша
+    ctx.lineTo( sz * 0.55, -sz * 0.15); // скошенный капот
+    ctx.lineTo( sz * 0.55,  sz * 0.15);
+    ctx.lineTo( sz * 0.4,  sz * 0.3);
+    ctx.lineTo(-sz * 0.45,  sz * 0.3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#1f2937'; // Обводка
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Крыша (светло-коричневая, как брезент на референсе)
+    ctx.fillStyle = '#d4a373'; 
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.35, -sz * 0.22);
+    ctx.lineTo( sz * 0.15, -sz * 0.22);
+    ctx.lineTo( sz * 0.25, -sz * 0.05);
+    ctx.lineTo( sz * 0.25,  sz * 0.05);
+    ctx.lineTo( sz * 0.15,  sz * 0.22);
+    ctx.lineTo(-sz * 0.35,  sz * 0.22);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#a67c52'; // Шов брезента
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Лобовое стекло / бронещиток (спереди)
+    ctx.fillStyle = '#93c5fd'; // Голубое стекло
+    ctx.beginPath();
+    ctx.moveTo(sz * 0.2, -sz * 0.18);
+    ctx.lineTo(sz * 0.35, -sz * 0.1);
+    ctx.lineTo(sz * 0.35,  sz * 0.1);
+    ctx.lineTo(sz * 0.2,  sz * 0.18);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#4b5563';
+    ctx.stroke();
+
+    // Задняя часть: Канистра с красным крестом/огнетушитель (характерная деталь)
+    ctx.fillStyle = '#991b1b'; // Темно-красный
+    ctx.beginPath();
+    ctx.arc(-sz * 0.42, -sz * 0.15, sz * 0.06, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Задний ящик ЗИП / рация
+    ctx.fillStyle = '#374151';
+    ctx.fillRect(-sz * 0.5, sz * 0.05, sz * 0.1, sz * 0.15);
+    ctx.strokeStyle = '#111';
+    ctx.strokeRect(-sz * 0.5, sz * 0.05, sz * 0.1, sz * 0.15);
+
+    // Длинная антенна
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.45, -sz * 0.2);
+    ctx.lineTo(-sz * 0.65, -sz * 0.4); // Антенна торчит назад-влево
+    ctx.stroke();
+}
+
+// ===== COLONIAL SCOUT CAR (UV-05 Foxhole) =====
+if (u.type === 'colonial_scout_car') {
+    // Колёса (открытые, вне корпуса)
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc( sz * 0.3, -sz * 0.38, sz * 0.08, 0, Math.PI * 2); // переднее левое
+    ctx.arc( sz * 0.3,  sz * 0.38, sz * 0.08, 0, Math.PI * 2); // переднее правое
+    ctx.arc(-sz * 0.3, -sz * 0.38, sz * 0.08, 0, Math.PI * 2); // заднее левое
+    ctx.arc(-sz * 0.3,  sz * 0.38, sz * 0.08, 0, Math.PI * 2); // заднее правое
+    ctx.fill();
+
+    // Основной корпус (грязно-желтый, "пустынный")
+    ctx.fillStyle = '#b5a642'; 
+    ctx.beginPath();
+    ctx.moveTo(-sz * 0.45, -sz * 0.25); // корма
+    ctx.lineTo( sz * 0.1, -sz * 0.25);  
+    ctx.lineTo( sz * 0.35, -sz * 0.15); // капот
+    ctx.lineTo( sz * 0.45, 0);          // решетка радиатора
+    ctx.lineTo( sz * 0.35,  sz * 0.15);
+    ctx.lineTo( sz * 0.1,  sz * 0.25);
+    ctx.lineTo(-sz * 0.45,  sz * 0.25);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#5c531e'; // Темная обводка
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Крыша (брезент/тент, более светлый оттенок)
+    ctx.fillStyle = '#d6cfa3';
+    ctx.fillRect(-sz * 0.35, -sz * 0.18, sz * 0.4, sz * 0.36);
+    ctx.strokeStyle = '#a39c75';
+    ctx.strokeRect(-sz * 0.35, -sz * 0.18, sz * 0.4, sz * 0.36);
+
+    // Лобовое стекло (два окошка, как на референсе)
+    ctx.fillStyle = '#4b5563';
+    ctx.fillRect(sz * 0.1, -sz * 0.18, sz * 0.1, sz * 0.36); // Бронированная перегородка
+    ctx.fillStyle = '#93c5fd';
+    ctx.fillRect(sz * 0.08, -sz * 0.14, sz * 0.04, sz * 0.1); // Левое окно
+    ctx.fillRect(sz * 0.08,  sz * 0.04, sz * 0.04, sz * 0.1); // Правое окно
+
+    // Решетка радиатора (спереди)
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(sz * 0.4, -sz * 0.15, sz * 0.05, sz * 0.3);
+    ctx.strokeStyle = '#4b5563';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 4; i++) {
+        ctx.beginPath();
+        ctx.moveTo(sz * 0.4, -sz * 0.15 + i * (sz * 0.1));
+        ctx.lineTo(sz * 0.45, -sz * 0.15 + i * (sz * 0.1));
+        ctx.stroke();
+    }
+
+    // Рация / ящик сзади на борту
+    ctx.fillStyle = '#4b5563';
+    ctx.fillRect(-sz * 0.4, -sz * 0.3, sz * 0.1, sz * 0.1);
+    ctx.strokeStyle = '#111';
+    ctx.strokeRect(-sz * 0.4, -sz * 0.3, sz * 0.1, sz * 0.1);
+
+    // Две высокие антенны (фишка Foxhole)
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    // Антенна 1 (сзади)
+    ctx.moveTo(-sz * 0.35, -sz * 0.25);
+    ctx.lineTo(-sz * 0.5, -sz * 0.45);
+    // Антенна 2 (спереди на капоте)
+    ctx.moveTo( sz * 0.3, -sz * 0.2);
+    ctx.lineTo( sz * 0.4, -sz * 0.4);
+    ctx.stroke();
 }
 
 // ===== COLONIAL ARTILLERY 150 (M40/M43, 150мм) — та же модель, ствол толще =====

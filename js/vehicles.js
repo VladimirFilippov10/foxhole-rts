@@ -939,8 +939,8 @@ export class WardenScoutCar extends Vehicle {
         this.label = 'Warden Recon Car';
         this.tracked = false;
         this.stealth = 150; // Очень хорошая маскировка
-        this.visionBase = 200; // Хороший обзор
-        this.detectRange = 120; 
+        this.visionBase = 280; // Хороший обзор
+        this.detectRange = 170; 
     }
 }
 
@@ -957,8 +957,8 @@ export class ColonialScoutCar extends Vehicle {
         this.label = 'Colonial Recon Car';
         this.tracked = false;
         this.stealth = 160; // Еще лучше маскировка
-        this.visionBase = 180; 
-        this.detectRange = 100;
+        this.visionBase = 240; 
+        this.detectRange = 160;
     }
 }
 
@@ -972,9 +972,9 @@ export class ScoutInfantry extends InfantryBase {
         this.spd = 0.8; // Быстрее обычной пехоты
         this.cd = 0;
         this.label = 'Разведчик';
-        
+        this.size = 5;
         // По ТЗ: обзор на 30% меньше машины (200 * 0.7 = 140)
-        this.visionBase = 140; 
+        this.visionBase = 180; 
         this.detectRange = 50; // Пока идет пешком, виден с 50
         
         // Маскировка
