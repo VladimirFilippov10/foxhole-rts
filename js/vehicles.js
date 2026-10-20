@@ -889,10 +889,10 @@ export class Percutio extends Vehicle {
     constructor(faction, x, y) {
         super('percutio', faction, x, y);
         this.hp = this.maxHp = 150;
-        this.dmg = 30;
-        this.range = 130;
-        this.spd = 1.5;
-        this.cd = 150;
+        this.dmg = 40;
+        this.range = 150;
+        this.spd = 1.7;
+        this.cd = 120;
         this.size = 20;
         this.armor = 15;
         this.label = 'T5 Percutio';
@@ -1419,6 +1419,8 @@ function createInfantry(type, faction, x, y) {
             return new MedicVarden(faction, x, y);
         case 'medic_colonist':
             return new MedicColonist(faction, x, y);
+        case 'scout_infantry':                       // ← ДОБАВИТЬ
+            return new ScoutInfantry(faction, x, y); // ← ДОБАВИТЬ
         default:
             return null;
     }

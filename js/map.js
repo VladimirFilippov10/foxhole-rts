@@ -394,43 +394,29 @@ generateRoadsideVegetation();
 export function generateConcealZones() {
     CONCEAL_ZONES.length = 0;
 
+    // Точка внутри города? Кусты в городах не дают укрытия —
+    // иначе юниты «пропадают» рядом с кустами в городской черте.
+    const gmNow = getGraphicsScale();
+    const inCity = (x, y) => {
+        for (const cp of CAPTURE_POINTS) {
+            const cx = cp.col * CELL_W + CELL_W / 2;
+            const cy = cp.row * CELL_H + CELL_H / 2;
+            const r = (cp.radius / Math.max(1, gmNow)) * gmNow;
+            if (Math.hypot(x - cx, y - cy) <= r + 20 * gmNow) return true;
+        }
+        return false;
+    };
+
     // 1) Кусты (каждый куст — точка укрытия радиусом ~12-18)
     for (const b of BUSHES) {
+        if (inCity(b.x, b.y)) continue;
         addConcealZone(b.x, b.y, b.size * 1.4, 'bush');
     }
 
     // 2) Дорожные кусты
     for (const b of ROAD_BUSHES) {
+        if (inCity(b.x, b.y)) continue;
         addConcealZone(b.x, b.y, b.size * 2, 'bush');
-    }
-
-    // 3) Лесные массивы вдоль дорог — группируем ROAD_TREES в кластеры
-    //    (простой грид-кластеринг: бин по 220px).
-    const cell = 220;
-    const clusters = new Map();
-    for (const t of ROAD_TREES) {
-        const key = Math.floor(t.x / cell) + '|' + Math.floor(t.y / cell);
-        if (!clusters.has(key)) clusters.set(key, []);
-        clusters.get(key).push(t);
-    }
-    for (const arr of clusters.values()) {
-        if (arr.length < 4) continue;
-        let sx = 0, sy = 0;
-        for (const t of arr) { sx += t.x; sy += t.y; }
-        const cx = sx / arr.length, cy = sy / arr.length;
-        let maxR = 0;
-        for (const t of arr) {
-            maxR = Math.max(maxR, Math.hypot(t.x - cx, t.y - cy));
-        }
-        const radius = Math.max(40 * GM, maxR + 20 * GM);
-        addConcealZone(cx, cy, radius, 'forest');
-    }
-
-    // 4) Отдельные крупные деревья из TREES — тоже укрытие (редко)
-    for (const t of TREES) {
-        if (t.size > 14 * GM && rnd() < 0.15) {
-            addConcealZone(t.x, t.y, t.size * 1.6, 'tree');
-        }
     }
 }
 generateConcealZones();

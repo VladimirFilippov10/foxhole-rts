@@ -1852,15 +1852,18 @@ export class AI {
         const doctrine = this.getDoctrine();
 
         // === 1) Артиллерия — приоритет №1, если её меньше 3 ===
+         // === 1) Артиллерия — приоритет, если её меньше 3 ===
+        // НЕ делаем return: иначе техника не спавнится, пока арта не наберётся до 3.
         const liveArtNow = this.G.units.filter(u =>
             u.faction === this.G.ai && u.hp > 0 && u.aoe && !u.isMortar
         ).length;
         if (doctrine.wantsArtillery && liveArtNow < 3) {
-            if (this.spawnDoctrineArtillery(liveArtNow, 3)) return;
+            this.spawnDoctrineArtillery(liveArtNow, 3);
         }
 
         // === 2) Тяжёлая техника, если доктрина этого хочет ===
-        if (doctrine.wantsHeavy && Math.random() < 0.75) {
+        // === 2) Тяжёлая техника, если доктрина этого хочет ===
+        if (doctrine.wantsHeavy && Math.random() < 0.5) {
             const heavyPool = this.getHeavyVehiclePool().filter(t => aiAllow(this.G, t));
             const affordableHeavy = heavyPool
                 .filter(t => {
@@ -1868,7 +1871,7 @@ export class AI {
                     return c && this.aiResources.s >= c.s &&
                         this.aiResources.c >= c.c && this.aiResources.m >= c.m;
                 })
-                .sort((a, b) => VEHICLE_COSTS[b].c - VEHICLE_COSTS[a].c);
+                .sort((a, b) => VEHICLE_COSTS[a].c - VEHICLE_COSTS[b].c);   // дешёвая сначала
 
             if (affordableHeavy.length > 0) {
                 const type = affordableHeavy[0];
@@ -2061,9 +2064,10 @@ export class AI {
             this.sendIdleSquadToTarget();
         }
 
+        // Штурм запускаем и при 2+ idle — иначе техника «стоит».
         if (this.accumulatedForces >= this.attackThreshold
-            && this.timer - this.lastAttackTime > 1200
-            && idleSquadCount >= 4) {
+            && this.timer - this.lastAttackTime > 900
+            && idleSquadCount >= 2) {
             const launched = this.launchAttack();
             if (launched) {
                 this.lastAttackTime = this.timer;
@@ -2148,13 +2152,19 @@ export class AI {
             const targetDist = dist(art.x, art.y, target.cp.x, target.cp.y);
             const minRange = art.minRange || 100;
 
-            if (targetDist <= art.range && targetDist >= minRange) {
+               if (targetDist <= art.range && targetDist >= minRange) {
                 const isGodLoader = art.type === 'god_loader' || /god\s*loader/i.test(art.label || '');
                 const cdElapsed = this.G.time - (art.lastAtk || 0);
                 if (!isGodLoader || cdElapsed >= (art.cd || 0)) {
                     art.aoeTarget = { x: target.cp.x, y: target.cp.y };
                 }
-                this.sendEscortToArtillery(art);
+                // Эскорт — ТОЛЬКО если враг реально близко к арте.
+                // Иначе танки уходят в штурм, а не стоят вокруг арты.
+                const enemyNearArt = this.G.units.some(e =>
+                    e.faction !== this.G.ai && e.hp > 0 &&
+                    dist(e.x, e.y, art.x, art.y) < 350
+                );
+                if (enemyNearArt) this.sendEscortToArtillery(art);
             } else if (targetDist < minRange) {
                 if (!art.retreatOrder) {
                     const retreatAngle = Math.atan2(art.y - target.cp.y, art.x - target.cp.x);
@@ -2165,8 +2175,8 @@ export class AI {
                     art.tx = art.retreatOrder.x;
                     art.ty = art.retreatOrder.y;
                 }
-            } else if (targetDist > art.range) {
-                if (!art.moveOrder && art.tx === undefined) {
+                   } else if (targetDist > art.range) {
+                if (art.tx === undefined && !art.moveOrder) {
                     const moveAngle = Math.atan2(target.cp.y - art.y, target.cp.x - art.x);
                     const parkDist = Math.max(target.cp.radius + 40, art.range - 60);
                     art.moveOrder = {
@@ -2175,6 +2185,9 @@ export class AI {
                     };
                     art.tx = art.moveOrder.x;
                     art.ty = art.moveOrder.y;
+                }
+                if (art.tx === undefined && art.moveOrder) {
+                    art.moveOrder = null;
                 }
             }
         });

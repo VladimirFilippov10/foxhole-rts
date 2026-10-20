@@ -422,15 +422,27 @@ export class Game {
         this.units = this.units.filter(u => {
             if (u.hp > 0) return true;
 
-            const turretlessTypes = [
-                'noble_widow', 'niska', 'niska_blinder', 'javelin', 'hoplite',
-                'warden_artillery120', 'warden_artillery150',
-                'colonial_artillery120', 'colonial_artillery150', 'god_loader'
-            ];
-            const hasTurret = !turretlessTypes.includes(u.type);
+           const turretlessTypes = [
+    // Техника без башни (ПТ/САУ/БТР)
+    'noble_widow', 'niska', 'niska_blinder', 'javelin', 'hoplite',
+    'warden_artillery120', 'warden_artillery150',
+    'colonial_artillery120', 'colonial_artillery150', 'god_loader',
+    // Логистика — башни нет, у каждой свой спецэффект смерти
+    'truck', 'fuel_truck', 'engineer', 'flatbed', 'medic_truck',
+    'construction_truck', 'fire_truck',
+    // Разведчики-машины (лёгкие, безбашенные)
+    'warden_scout_car', 'colonial_scout_car',
+    // Лёгкие САУ/миномёты без башни
+    'devitt_mmr', 'nona', 'bren_squire',
+    // Колёсные БТР (башни нет в силуэте)
+    'xiphos', 'percutio',
+];
+const hasTurret = !turretlessTypes.includes(u.type);
 
             const currentTurrets = this.debris.filter(d => d.type === 'turret').length;
-            if (!isInfUnit(u) && hasTurret && u.lastHitDmg >= u.maxHp * 0.4 && currentTurrets < 60) {
+            const hasSpecialDeathFx = ['truck', 'fuel_truck', 'fire_truck', 'flatbed'].includes(u.type);
+if (!isInfUnit(u) && hasTurret && !hasSpecialDeathFx &&
+    u.lastHitDmg >= u.maxHp * 0.4 && currentTurrets < 60) {
                 const angle = Math.random() * Math.PI * 2;
                 const distVal = 15 + Math.random() * 25;
                 this.debris.push({
@@ -1394,8 +1406,13 @@ export class Game {
         return isInfUnit(u) ? 20 : 40;
     }
 
-    isUnitInCover(u) {
+       isUnitInCover(u) {
         if (!u) return false;
+        // Внутри города кусты/укрытия не дают скрытности: город сам по себе
+        // даёт бонус обороны, а «пропадание» юнитов в городе — баг.
+        for (const cp of this.cps) {
+            if (dist(u.x, u.y, cp.x, cp.y) <= cp.radius) return false;
+        }
         if (isInBush(u.x, u.y)) return true;
         return !!getConcealZoneAt(u.x, u.y);
     }
@@ -1435,7 +1452,11 @@ export class Game {
             return 50;
         }
         if (this.isUnitShooting(target)) return 40;
-        if (this.isUnitInCover(target) && !this.isUnitMoving(target)) return 18;
+        if (this.isUnitInCover(target) && !this.isUnitMoving(target)) {
+            // Пехоту в кустах видно с 18px, технику — с 25px.
+            // Иначе техника в кустах стоя невидима вообще (minDetect = 0).
+            return isInfUnit(target) ? 18 : 25;
+        }
         return 0;
     }
 
@@ -1468,7 +1489,9 @@ export class Game {
 
         for (const cp of this.cps) {
             if (cp.owner !== faction) continue;
-            let detectRadius = 70;
+            // Город видит как минимум в пределах своего радиуса —
+            // иначе враг внутри города «пропадает» (70 < radius 105–150).
+            let detectRadius = Math.max(cp.radius, 70);
             if (cp.defenseLevel > 0) {
                 const stats = this.getTerritoryDefenseStats(cp.defenseLevel);
                 detectRadius = Math.max(detectRadius, stats.range);
